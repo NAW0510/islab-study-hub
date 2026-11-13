@@ -1,0 +1,222 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --surface-2: #efefe9;
+  --border: #e2e2da;
+  --text: #1b1b18;
+  --muted: #696960;
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-fg: #ffffff;
+  --accent-soft: #e2f1ee;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111210;
+    --surface: #191a18;
+    --surface-2: #242622;
+    --border: #2e302c;
+    --text: #ecece6;
+    --muted: #9c9d95;
+    --accent: #2dd4bf;
+    --accent-hover: #5eead4;
+    --accent-fg: #042420;
+    --accent-soft: #10302c;
+    --danger: #f97066;
+    --danger-soft: #3a1a17;
+  }
+}
+
+/* Weekly reports are "paper": always light, so screen, PDF and Word look alike. */
+.report-paper {
+  --surface: #ffffff;
+  --surface-2: #f1f1ec;
+  --border: #e2e2da;
+  --text: #1b1b18;
+  --muted: #62625a;
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-soft: #e2f1ee;
+  color: var(--text);
+  color-scheme: light;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 15mm;
+  }
+  :root {
+    --bg: #ffffff !important;
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Skeletons stay invisible for fast navigations and fade in only if loading drags on. */
+  --animate-fade-in-late: fade-in 200ms ease-out 250ms both;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-border bg-surface;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-text;
+  }
+  .hint {
+    @apply mt-1 text-xs text-muted;
+  }
+  .input {
+    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text outline-none transition placeholder:text-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60;
+  }
+  .btn {
+    @apply inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-accent text-accent-fg hover:bg-accent-hover;
+  }
+  .btn-secondary {
+    @apply border border-border bg-surface text-text hover:bg-surface-2;
+  }
+  .btn-ghost {
+    @apply text-muted hover:bg-surface-2 hover:text-text;
+  }
+  .btn-danger {
+    @apply text-danger hover:bg-danger-soft;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+  .icon-btn {
+    @apply inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-text focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Rendered Markdown notes */
+.markdown {
+  @apply text-[15px] leading-7 text-text;
+  overflow-wrap: anywhere;
+}
+.markdown > * + * {
+  @apply mt-4;
+}
+.markdown h1 {
+  @apply mt-8 text-2xl font-semibold tracking-tight;
+}
+.markdown h2 {
+  @apply mt-8 border-b border-border pb-1.5 text-xl font-semibold tracking-tight;
+}
+.markdown h3 {
+  @apply mt-6 text-lg font-semibold;
+}
+.markdown h4 {
+  @apply mt-5 font-semibold;
+}
+.markdown > :first-child {
+  @apply mt-0;
+}
+.markdown a {
+  @apply text-accent underline underline-offset-2 hover:text-accent-hover;
+}
+.markdown ul {
+  @apply list-disc pl-6;
+}
+.markdown ol {
+  @apply list-decimal pl-6;
+}
+.markdown li + li {
+  @apply mt-1;
+}
+.markdown li > ul,
+.markdown li > ol {
+  @apply mt-1;
+}
+.markdown ul.contains-task-list {
+  @apply list-none pl-1;
+}
+.markdown input[type="checkbox"] {
+  @apply mr-2 align-middle accent-(--accent);
+}
+.markdown blockquote {
+  @apply border-l-4 border-accent/40 bg-accent-soft/50 py-1 pr-3 pl-4 text-muted;
+}
+.markdown code {
+  @apply rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[0.85em];
+}
+.markdown pre {
+  @apply overflow-x-auto rounded-lg border border-border bg-surface-2 p-4 text-[13px] leading-6;
+}
+.markdown pre code {
+  @apply bg-transparent p-0;
+}
+.markdown hr {
+  @apply my-8 border-border;
+}
+.markdown img {
+  @apply max-w-full rounded-lg border border-border;
+}
+.markdown table {
+  @apply block w-full overflow-x-auto border-collapse text-sm;
+}
+.markdown th,
+.markdown td {
+  @apply border border-border px-3 py-1.5 text-left;
+}
+.markdown th {
+  @apply bg-surface-2 font-semibold;
+}
+.markdown .katex-display {
+  @apply overflow-x-auto overflow-y-hidden py-1;
+}
