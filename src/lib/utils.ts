@@ -1,5 +1,10 @@
 import type { ResourceType } from "./types";
 
+/**
+ * The app's own timezone. "Today", week numbers and greetings are computed in
+ * this zone on the server and in the browser alike, never in the server's zone
+ * (Vercel runs in UTC).
+ */
 export const TIMEZONE = process.env.NEXT_PUBLIC_TIMEZONE || "Asia/Jakarta";
 
 export function cn(...classes: (string | false | null | undefined)[]) {
@@ -22,9 +27,9 @@ export function formatDate(value: string | null | undefined, opts?: { withYear?:
   }).format(date);
 }
 
-/** Today's date as YYYY-MM-DD in the app timezone. */
-export function todayISO() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date());
+/** Today's date as YYYY-MM-DD in the app timezone (`now` is injectable for tests). */
+export function todayISO(now: Date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(now);
 }
 
 export function daysFromToday(isoDate: string) {

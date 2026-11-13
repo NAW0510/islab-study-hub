@@ -8,7 +8,7 @@
 
 **IS Lab Study Hub** adalah web app **pribadi** (satu pengguna: saya) untuk mencatat perjalanan belajar Machine Learning & Data Science selama program magang/mentee di **IS Lab**.
 
-- Program berjalan per minggu. **Week 1 dimulai 29 September 2026** (sebelum itu dihitung "Onboarding"/Week 0).
+- Program berjalan per minggu. **Week 1 dimulai Senin, 28 September 2026**, dan tiap Week berjalan Senin–Minggu (sebelum itu dihitung "Onboarding"/Week 0).
 - Setiap minggu saya wajib mengirim **Weekly Progress** ke mentor (Sabtu/Minggu) sesuai template *Guidebook Mentee IS Lab*, dan melaporkan progres proyek kelompok (reproduksi paper, dataset, training, evaluasi, dst.) di weekly meeting.
 - Tujuan app: satu tempat untuk silabus, catatan, sumber belajar, dan laporan mingguan, supaya laporan bisa disusun cepat dari aktivitas yang sudah tercatat.
 - Bahasa UI: **Bahasa Indonesia**. Pertanyaan di template laporan sengaja dipertahankan persis seperti guidebook (sebagian dalam bahasa Inggris).

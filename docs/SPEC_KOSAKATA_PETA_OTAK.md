@@ -221,7 +221,7 @@ Warna domain memakai token palet kategorikal `domain-1` … `domain-10` (lihat �
 
 ### 4.4 Interaksi
 
-- **Hover (desktop) / tap (mobile)** → tooltip: istilah, jalur domain, "Dipelajari 5 Okt 2026, Week 1", kalimat pertama definisi, penanda bila domain masih `auto`/`pending`.
+- **Hover (desktop) / tap (mobile)** → tooltip: istilah, jalur domain, "Dipelajari 5 Okt 2026, Week 2", kalimat pertama definisi, penanda bila domain masih `auto`/`pending`.
 - **Klik** → pilih titik. Panel kanan (desktop) / bottom sheet (mobile): definisi lengkap, alias, 6 tetangga terdekat dengan skor kemiripan dari embedding asli (bukan jarak 2D), garis ke tetangga di peta dengan ketebalan/opacity sesuai skor, tombol "Buka di Kosakata".
 - **Cari** → ketik istilah, peta zoom dan geser ke titiknya lalu memilihnya.
 - **Legenda** → daftar bidang/cabang + jumlah. Klik untuk sembunyikan/tampilkan; hover untuk menyorot wilayah.

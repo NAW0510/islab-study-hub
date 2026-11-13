@@ -1,8 +1,11 @@
 import type { ReportProfile, WeeklyReport } from "./types";
 import { formatDate } from "./utils";
 
-/** Week 1 of the IS Lab intern programme 2026 (Guidebook Mentee, bagian C). */
-export const DEFAULT_PROGRAM_START = "2026-09-29";
+/**
+ * First day of Week 1 of the IS Lab intern programme 2026 (Guidebook Mentee,
+ * bagian C). A Monday: programme weeks run Monday–Sunday.
+ */
+export const DEFAULT_PROGRAM_START = "2026-09-28";
 
 export type ReportField = Extract<
   keyof WeeklyReport,
@@ -80,7 +83,10 @@ export function weekNumberFor(programStart: string, isoDate: string) {
   return Math.max(0, Math.floor(days / 7) + 1);
 }
 
-/** Monday–Sunday period of a programme week (week 0 = the week before Week 1). */
+/**
+ * Seven-day period of a programme week, starting on the weekday of
+ * `programStart` (Monday by default). Week 0 = the week before Week 1.
+ */
 export function weekPeriod(programStart: string, week: number) {
   const start = addDays(programStart, (week - 1) * 7);
   return { start, end: addDays(start, 6) };
