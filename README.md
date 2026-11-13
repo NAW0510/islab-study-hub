@@ -16,15 +16,14 @@ Stack: Next.js 16 (App Router, Server Actions) · Supabase (Postgres + Auth + St
 ## 1. Setup Supabase
 
 1. Buat project baru di [supabase.com](https://supabase.com).
-2. **Buat tabel dan aturan keamanan**: buka **SQL Editor → New query**, salin seluruh isi [`supabase/schema.sql`](supabase/schema.sql), lalu klik **Run**. Script ini membuat:
-   - tabel `subjects`, `syllabus_items`, `notes`, `resources`
-   - trigger `updated_at` dan `completed_at` otomatis
-   - Row Level Security (setiap user hanya bisa mengakses datanya sendiri)
-   - bucket Storage privat `documents` beserta policy-nya
-3. **Tambahkan fitur Laporan Mingguan**: buat query baru di SQL Editor, tempel isi [`supabase/002_weekly_reports.sql`](supabase/002_weekly_reports.sql), lalu **Run**. Script ini membuat tabel `profiles` dan `weekly_reports`, plus fungsi `get_shared_report` yang dipakai link berbagi.
-4. **Matikan pendaftaran publik**: **Authentication → Sign In / Providers**, lalu matikan **Allow new users to sign up**.
-5. **Buat akunmu**: **Authentication → Users → Add user → Create new user**. Isi email dan password, lalu centang **Auto Confirm User**.
-6. **Ambil API key**: di **Project Settings → API Keys** (atau **Data API**), salin:
+2. **Buat tabel dan aturan keamanan**: semua skema ada di [`supabase/migrations/`](supabase/migrations), dijalankan berurutan sesuai nama file:
+   - [`20261113000000_initial_schema.sql`](supabase/migrations/20261113000000_initial_schema.sql): tabel `subjects`, `syllabus_items`, `notes`, `resources`; trigger `updated_at` dan `completed_at`; Row Level Security (setiap user hanya bisa mengakses datanya sendiri); bucket Storage privat `documents` beserta policy-nya.
+   - [`20261113000100_weekly_reports.sql`](supabase/migrations/20261113000100_weekly_reports.sql): tabel `profiles` dan `weekly_reports`, plus fungsi `get_shared_report` yang dipakai link berbagi.
+
+   Untuk project baru: `npx supabase login`, `npx supabase link --project-ref <ref>`, lalu `npx supabase db push`. Atau tempel isi kedua file berurutan di **SQL Editor** lalu tandai sudah diterapkan (lihat [Mengubah database](#mengubah-database-migrasi)).
+3. **Matikan pendaftaran publik**: **Authentication → Sign In / Providers**, lalu matikan **Allow new users to sign up**.
+4. **Buat akunmu**: **Authentication → Users → Add user → Create new user**. Isi email dan password, lalu centang **Auto Confirm User**.
+5. **Ambil API key**: di **Project Settings → API Keys** (atau **Data API**), salin:
    - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
    - Publishable key (`sb_publishable_…`) → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Key "anon" versi lama juga bisa dipakai.
 
@@ -38,7 +37,30 @@ cp .env.example .env.local   # lalu isi nilainya
 npm run dev
 ```
 
-Buka http://localhost:3000, lalu login dengan akun yang dibuat di langkah 1.5.
+Buka http://localhost:3000, lalu login dengan akun yang dibuat di langkah 1.4.
+
+### Test dan pengecekan
+
+```bash
+npm test          # unit test (Vitest), sekali jalan
+npm run test:watch
+npm run lint
+npm run build
+```
+
+Test ditaruh di samping file yang dites, dengan akhiran `.test.ts` (contoh: `src/lib/report-template.test.ts`).
+
+## Mengubah database (migrasi)
+
+Skema dikelola dengan Supabase CLI (dipasang sebagai devDependency, jalankan lewat `npx supabase`). Project lokal sudah di-link ke project Supabase; sekali per komputer jalankan `npx supabase login` lalu `npx supabase link --project-ref <ref>`.
+
+1. **Backup dulu** sebelum mengubah database remote: `npx supabase db dump --linked -f <folder-di-luar-repo>/schema.sql` (tambah `--data-only --use-copy` untuk data). Butuh Docker Desktop yang sedang berjalan.
+2. Buat file migrasi baru: `npx supabase migration new <nama>`, lalu tulis SQL-nya di file yang muncul di `supabase/migrations/`.
+3. Cek status: `npx supabase migration list --linked`.
+4. Terapkan ke remote **hanya setelah direview**: `npx supabase db push --linked`.
+5. Perbarui tipe TypeScript: `npm run db:types` (menulis `src/lib/supabase/database.types.ts`).
+
+Jangan mengubah file migrasi yang sudah diterapkan; buat migrasi baru. Kalau SQL terlanjur dijalankan manual di SQL Editor, tandai dengan `npx supabase migration repair --status applied <versi> --linked` supaya riwayatnya tetap sinkron.
 
 ## 3. Deploy ke Vercel
 
@@ -66,10 +88,11 @@ Server Vercel harus berada **di region yang sama dengan database Supabase**, kar
 ## Struktur proyek
 
 ```
-supabase/schema.sql        ← skema database utama (jalankan sekali di SQL Editor)
-supabase/002_weekly_reports.sql ← tabel laporan mingguan + fungsi link berbagi
+supabase/migrations/       ← migrasi database (urut sesuai timestamp di nama file)
+supabase/config.toml       ← konfigurasi Supabase CLI
 src/proxy.ts               ← gerbang login (refresh sesi + redirect ke /login)
 src/lib/supabase/          ← client Supabase untuk server, browser, dan proxy
+src/lib/supabase/database.types.ts ← tipe hasil `npm run db:types` (jangan diedit manual)
 src/lib/actions/           ← Server Actions (create/update/delete)
 src/app/login/             ← halaman login
 src/app/(app)/             ← halaman yang butuh login: dashboard, subjects, notes, resources, reports
@@ -91,8 +114,4 @@ Semua logika data ada di Supabase, jadi mobile app (Expo/React Native atau Flutt
 
 Satu hal yang perlu ditambahkan nanti kalau mau offline sync penuh: kolom `deleted_at` (soft delete), supaya penghapusan di satu perangkat juga terdeteksi di perangkat lain.
 
-Tipe TypeScript bisa di-generate otomatis dari skema dengan:
-
-```bash
-npx supabase gen types typescript --project-id <project-id> > src/lib/database.types.ts
-```
+Tipe TypeScript di-generate otomatis dari skema dengan `npm run db:types`.

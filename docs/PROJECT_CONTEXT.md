@@ -93,12 +93,12 @@ Semua tabel: `id uuid`, `user_id` (default `auth.uid()`), `created_at`, `updated
 
 Storage: bucket privat `documents`, policy berdasarkan folder `<user_id>/`.
 
-Skema ada di `supabase/schema.sql` (tabel inti) dan `supabase/002_weekly_reports.sql` (profil + laporan). Keduanya dijalankan manual di SQL Editor, belum ada sistem migrasi.
+Skema ada di `supabase/migrations/` (Supabase CLI): `20261113000000_initial_schema.sql` (tabel inti) dan `20261113000100_weekly_reports.sql` (profil + laporan). Perubahan berikutnya dibuat sebagai file migrasi baru.
 
 ## 6. Struktur folder (ringkas)
 
 ```
-supabase/schema.sql, 002_weekly_reports.sql   skema database
+supabase/migrations/                          migrasi database (Supabase CLI)
 src/proxy.ts                                  gerbang login
 src/lib/supabase/                             client Supabase (server, browser, proxy)
 src/lib/actions/                              Server Actions per fitur
@@ -113,15 +113,19 @@ src/components/                               komponen UI
 
 Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 
-## 7. Kondisi saat ini (per 13 November 2026, sekitar Week 7 program)
+## 7. Kondisi saat ini (per 14 November 2026, sekitar Week 7 program, setelah Fase 0)
 
-- ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi, sudah pernah di-build.
-- ✅ Tabel inti sudah ada di Supabase.
-- ❌ **Migrasi `002_weekly_reports.sql` belum dijalankan**, jadi fitur Laporan Mingguan belum bisa dipakai di database yang sekarang.
-- ⚠️ **Belum ada commit git**, belum di-push ke GitHub, dan belum terlihat tanda deploy ke Vercel.
+- ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi.
+- ✅ Semua tabel (termasuk `profiles` dan `weekly_reports`) sudah ada di Supabase. Laporan Mingguan bisa dipakai.
+- ✅ Kode ada di repo GitHub **privat**.
+- ✅ Supabase CLI (devDependency) terhubung ke project. Skema dikelola sebagai migrasi di `supabase/migrations/` dan riwayatnya sinkron dengan remote.
+- ✅ Tipe TypeScript hasil generate ada di `src/lib/supabase/database.types.ts` (`npm run db:types`). Kode lama masih memakai tipe manual di `src/lib/types.ts`.
+- ✅ Unit test dengan Vitest (`npm test`).
+- ✅ Backup database (dump skema + data) disimpan di luar repo.
+- ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
-- ⚠️ Belum ada test otomatis, CI, atau sistem migrasi database (Supabase CLI).
-- ⚠️ Tipe TypeScript ditulis manual (belum di-generate dari skema).
+- ⚠️ Belum ada CI.
+- ⚠️ `npm audit` melaporkan kerentanan pada dependensi produksi (termasuk `next` 16.3.6), perlu upgrade terpisah.
 - ⚠️ Belum ada soft delete (`deleted_at`). Ini dibutuhkan kalau nanti ada sinkronisasi offline ke mobile.
 
 ## 8. Rencana/ide yang sudah pernah terpikir
