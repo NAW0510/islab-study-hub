@@ -17,7 +17,7 @@ import { ProgressBar, StatusBadge, SubjectChip } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { SUBJECT_COLORS } from "@/lib/constants";
 import { getProfile, NOTE_SELECT, RESOURCE_SELECT } from "@/lib/queries";
-import { DEFAULT_PROGRAM_START, formatPeriod, weekLabel, weekNumberFor, weekPeriod } from "@/lib/report-template";
+import { currentWeekInfo, weekLabel } from "@/lib/report-template";
 import type { NoteWithRefs, ResourceWithRefs, Subject, SyllabusItem, WeeklyReport } from "@/lib/types";
 import { cn, daysFromToday, formatDate, percent, TIMEZONE, todayISO } from "@/lib/utils";
 
@@ -91,9 +91,7 @@ export default async function DashboardPage() {
   const name = profile?.full_name?.split(" ")[0] || email.split("@")[0];
 
   // Weekly report reminder (due every Saturday/Sunday).
-  const programStart = profile?.program_start ?? DEFAULT_PROGRAM_START;
-  const currentWeek = weekNumberFor(programStart, todayISO());
-  const currentPeriod = weekPeriod(programStart, currentWeek);
+  const { week: currentWeek, marker: weekMark, periodLabel } = currentWeekInfo(profile?.program_start, todayISO());
   const currentReport = ((reportsRes.data ?? []) as Pick<WeeklyReport, "id" | "week_number" | "status">[]).find(
     (r) => r.week_number === currentWeek,
   );
@@ -105,10 +103,15 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-10">
       <header>
-        <p className="text-sm text-muted">{formatDate(todayISO())}</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+        <p className="eyebrow">
+          <span className="font-display text-xs tracking-[0.08em] text-text tabular-nums">{weekMark}</span>
+          <span className="eyebrow-rule" />
+          {periodLabel}
+        </p>
+        <h1 className="display mt-3 text-[clamp(1.75rem,1.2rem+2.4vw,2.75rem)] text-balance">
           {greeting()}, {name}
         </h1>
+        <p className="mt-2 text-sm text-muted">{formatDate(todayISO())}</p>
       </header>
 
       {currentReport?.status !== "sent" && (
@@ -123,7 +126,7 @@ export default async function DashboardPage() {
             </span>
             <span className="text-muted">
               {" "}
-              · {formatPeriod(currentPeriod.start, currentPeriod.end)} · kirim ke mentor Sabtu/Minggu
+              · {periodLabel} · kirim ke mentor Sabtu/Minggu
             </span>
           </span>
           <ArrowRight className="size-4 shrink-0 text-accent" />
@@ -272,8 +275,8 @@ function Stat({
         <Icon className="size-4" />
         {label}
       </div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
-      <div className="mt-0.5 text-xs text-muted">{hint}</div>
+      <div className="display mt-3 text-3xl tabular-nums">{value}</div>
+      <div className="mt-1 text-xs text-muted">{hint}</div>
     </div>
   );
 }
@@ -281,7 +284,7 @@ function Stat({
 function SectionTitle({ title, href, linkLabel }: { title: string; href?: string; linkLabel?: string }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
-      <h2 className="font-semibold">{title}</h2>
+      <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
       {href && (
         <Link href={href} className="inline-flex items-center gap-1 text-sm text-muted hover:text-text">
           {linkLabel} <ArrowRight className="size-3.5" />
@@ -317,24 +320,21 @@ function Welcome({ name }: { name: string }) {
 
   return (
     <div className="mx-auto max-w-2xl py-6">
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Selamat datang, {name}</h1>
+      <h1 className="display text-[clamp(1.75rem,1.2rem+2.4vw,2.75rem)] text-balance">Selamat datang, {name}</h1>
       <p className="mt-2 text-muted">
-        Ini tempat untuk mencatat semua yang kamu pelajari di IS Lab. Mulai dari empat langkah ini:
+        Ini tempat untuk mencatat semua yang kamu pelajari di IS Lab. Mulai dari sini:
       </p>
-      <ol className="mt-8 grid gap-3 sm:grid-cols-2">
-        {steps.map(({ icon: Icon, title, body }, i) => (
+      <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+        {steps.map(({ icon: Icon, title, body }) => (
           <li key={title} className="card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
-                {i + 1}
-              </span>
-              <Icon className="size-4 text-muted" />
-            </div>
-            <h2 className="font-medium">{title}</h2>
+            <span className="mb-3 flex size-8 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Icon className="size-4" />
+            </span>
+            <h2 className="font-display font-semibold tracking-tight">{title}</h2>
             <p className="mt-1 text-sm text-muted">{body}</p>
           </li>
         ))}
-      </ol>
+      </ul>
       <Link href="/subjects?new=1" className="btn btn-primary mt-8">
         <Plus className="size-4" /> Buat subjek pertama
       </Link>
