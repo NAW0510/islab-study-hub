@@ -1,0 +1,139 @@
+# Design system — IS Lab Study Hub
+
+Bahasa visual aplikasi sejak Fase 1. Terinspirasi labmgm.org (kertas + tinta, tipografi dua peran, navigasi bernomor), diadaptasi untuk aplikasi yang dipakai setiap hari: cepat, tenang, dan tanpa gerak yang tidak perlu.
+
+- **Sumber kebenaran**: blok token di bagian atas [`src/app/globals.css`](../src/app/globals.css).
+- **Lihat langsung**: jalankan `npm run dev`, lalu buka `/dev/design`. Halaman itu hanya ada di mode dev (404 di production).
+- **Dijaga test**: [`src/lib/design/contrast.test.ts`](../src/lib/design/contrast.test.ts) membaca token dari CSS dan memeriksa kontras WCAG AA di mode terang dan gelap.
+
+## Prinsip
+
+1. **Kertas dan tinta.** Antarmuka nyaris monokrom. Warna cerah hanya untuk hal yang punya makna: aksen (interaksi), sinyal (status), dan palet kategorikal (identitas subjek/domain).
+2. **Satu makna per warna.** Biru = bisa diklik atau sedang aktif. Hijau/kuning/merah = status. Palet kategorikal = "subjek atau domain yang mana".
+3. **Teks selalu tinta.** Warna tampil sebagai titik, bar, atau latar lembut; teks di atasnya tetap `--text`. Kontras teks jadi selalu aman.
+4. **Nomor hanya di navigasi dan penanda Week.** Bagian halaman tidak diberi nomor.
+5. **Gerak seperlunya.** Hanya `transform` dan `opacity`, tiga durasi, satu kurva. Semua gerak mati bila perangkat meminta gerak dikurangi.
+
+## Warna
+
+Semua warna ditulis dengan `light-dark(terang, gelap)` dan mengikuti `color-scheme` (pengaturan sistem). Untuk memaksa satu mode pada sebagian halaman, beri pembungkusnya kelas `theme-scope scheme-light` atau `theme-scope scheme-dark`.
+
+### Inti
+
+| Token | Kelas Tailwind | Peran | Terang | Gelap |
+|---|---|---|---|---|
+| `--bg` | `bg-bg` | Kertas: latar halaman | `#f7f7f4` | `#14171c` |
+| `--surface` | `bg-surface` | Kartu, panel | `#ffffff` | `#1b1f26` |
+| `--surface-2` | `bg-surface-2` | Hover, isian halus | `#efefea` | `#252a33` |
+| `--border` | `border-border` | Garis rambut | `#e3e3dd` | `#2c313b` |
+| `--border-strong` | `border-border-strong` | Tepi input dan tombol sekunder | `#cdcdc5` | `#3d4450` |
+| `--text` | `text-text` | Tinta: teks utama | `#0f1216` | `#ececea` |
+| `--muted` | `text-muted` | Teks sekunder | `#5c6370` | `#9aa1ad` |
+| `--primary` | `bg-primary` | Tombol utama (pil tinta) | `#0f1216` | `#ececea` |
+| `--accent` | `text-accent`, `bg-accent` | Tautan, nav aktif, fokus, progres | `#2a5bd7` | `#8fb0ff` |
+| `--accent-soft` | `bg-accent-soft` | Sorotan lembut | `#e6edfc` | `#1c2740` |
+
+### Sinyal (status)
+
+Hanya untuk status, dan selalu bersama label teks.
+
+| Token | Arti | Nilai |
+|---|---|---|
+| `--signal-good` | Selesai, terkirim | `#0ca30c` |
+| `--signal-warn` | Sedang dipelajari, draft | `#fab219` |
+| `--signal-bad` | Terlambat | `#d03b3b` |
+| `--success` | Teks keberhasilan | `#006300` / `#3ecf5a` |
+| `--danger`, `--danger-soft`, `--danger-fg` | Teks, latar, dan teks tombol untuk aksi berbahaya | lihat CSS |
+
+### Palet kategorikal
+
+Untuk warna subjek sekarang dan domain Kosakata nanti.
+
+| Token | Nama | Terang | Gelap | Kunci subjek di database |
+|---|---|---|---|---|
+| `--domain-1` | Biru | `#2a78d6` | `#3987e5` | `blue` |
+| `--domain-2` | Jingga | `#eb6834` | `#d95926` | |
+| `--domain-3` | Toska | `#1baf7a` | `#199e70` | `teal` |
+| `--domain-4` | Kuning | `#eda100` | `#c98500` | `amber` |
+| `--domain-5` | Merah muda | `#e87ba4` | `#d55181` | `rose` |
+| `--domain-6` | Hijau | `#008300` | `#008300` | `green` |
+| `--domain-7` | Ungu | `#6250d6` | `#9085e9` | `violet` |
+| `--domain-8` | Merah | `#e34948` | `#e66767` | |
+| `--domain-9` | Sian | `#0e93b5` | `#1f9fc2` | |
+| `--domain-10` | Cokelat | `#a5622a` | `#b97a3a` | |
+| `--domain-none` | Netral (tanpa domain) | `#667085` | `#8590a6` | `slate` |
+
+Aturan pakai:
+- **Urutannya bagian dari palet.** Warna yang bersebelahan dipilih supaya tetap terbedakan bagi penyandang buta warna (jarak warna diuji untuk protanopia dan deuteranopia, di kedua mode). Kalau butuh warna baru, tambahkan di ujung dan validasi ulang; jangan menukar urutan.
+- Tiga warna di mode terang (toska, kuning, merah muda) kontrasnya di bawah 3 : 1 terhadap putih. Karena itu warna kategorikal **selalu didampingi label teks**, tidak pernah berdiri sendiri.
+- Di Peta Otak nanti, semua titik bisa saling bersebelahan, jadi warna saja tidak cukup untuk lebih dari tiga bidang. Batas wilayah, label, dan legenda tetap wajib (sudah ada di spec §4).
+
+## Tipografi
+
+| Peran | Font | Kelas |
+|---|---|---|
+| Judul, angka besar, navigasi | Plus Jakarta Sans | `display` (judul) atau `font-display` |
+| Isi dan UI | Geist | `font-sans` (default) |
+| Kode | Geist Mono | `font-mono` |
+
+- Plus Jakarta Sans dan Geist di-preload di semua halaman. Geist Mono tidak di-preload: baru diunduh di halaman yang menampilkan kode.
+- Judul halaman memakai `clamp()` supaya ringkas di HP, contoh: `display text-[clamp(1.75rem,1.3rem+2vw,2.5rem)]`.
+- Label kecil huruf besar: kelas `eyebrow`. Garis pendek di dalamnya: `eyebrow-rule`.
+- Angka yang berubah atau perlu sejajar (jam, statistik, nomor): `tabular-nums`.
+
+## Bentuk dan gerak
+
+| Token | Kelas | Nilai | Dipakai untuk |
+|---|---|---|---|
+| `--r-control` | `rounded-control` | 8 px | Input, tombol ikon, item nav |
+| `--r-card` | `rounded-card` | 14 px | Kartu |
+| `--r-panel` | `rounded-panel` | 24 px | Panel besar |
+| `--r-btn` | `rounded-btn` | pil | Tombol; chip memakai `rounded-full` |
+
+| Token | Nilai | Dipakai untuk |
+|---|---|---|
+| `--dur-fast` | 120 ms | Hover, perubahan warna |
+| `--dur-base` | 220 ms | Teks bergulir |
+| `--dur-slow` | 420 ms | Menu layar penuh |
+| `--ease-std` | `cubic-bezier(0.2, 0.8, 0.2, 1)` | Semuanya |
+
+## Komponen dasar
+
+| Kelas / komponen | Keterangan |
+|---|---|
+| `btn` + `btn-primary` / `btn-secondary` / `btn-ghost` / `btn-danger`, `btn-sm` | Tombol pil, tinggi 40 px (32 px untuk `btn-sm`), minimal 44 px di layar sentuh |
+| `icon-btn` | Tombol ikon 36 px, minimal 44 px di layar sentuh |
+| `input`, `label`, `hint` | Formulir |
+| `card` | Kartu |
+| `chip` | Chip netral |
+| `chip chip-tone tone-*` | Chip berwarna: latar lembut + titik + teks tinta. Pilihan tone: `tone-domain-1` … `tone-domain-10`, `tone-none`, `tone-good`, `tone-warn`, `tone-bad`, `tone-info` |
+| `RollText` (`src/components/roll-text.tsx`) | Teks bergulir saat hover/fokus untuk item nav dan tombol utama. Salinan teksnya `aria-hidden` |
+| `src/components/shell/` | Sidebar desktop, menu layar penuh mobile, jam, chip Week |
+
+Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`](../src/lib/constants.ts) (`SUBJECT_COLORS`, `STATUS_META`).
+
+## Yang sengaja tidak ikut berubah
+
+`.report-paper` (dokumen laporan mingguan dan halaman berbagi `/r/[token]`) dikunci ke warna, radius, dan font sebelum redesign, supaya tampilan layar, PDF, dan Word tetap sama. Jangan mengarahkan token di blok itu ke token global.
+
+## Anggaran performa (spec §8.4)
+
+Ukuran first-load per halaman dihitung dari hasil build:
+
+```bash
+npm run build
+```
+
+```bash
+node scripts/route-js-size.mjs
+```
+
+| Halaman | Sebelum Fase 1 | Sesudah Fase 1 |
+|---|---|---|
+| Dashboard `/`, JS | 150,9 kB | 151,0 kB |
+| `/login`, JS | 139,4 kB | 139,4 kB |
+| CSS bersama | 14,2 kB | 14,8 kB |
+
+Semua angka gzip. Batasnya: tambahan JS per halaman (selain Peta Otak) paling banyak sekitar 30 kB dibanding sebelum redesign.
+
+Belum diukur di Fase 1: skor Lighthouse, LCP, INP, dan CLS di dashboard, karena halaman itu butuh login. Ukur lewat Chrome DevTools → Lighthouse (Mobile) pada build produksi.
