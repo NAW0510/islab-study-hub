@@ -96,6 +96,19 @@ export function weekLabel(week: number) {
   return week === 0 ? "Onboarding" : `Week ${week}`;
 }
 
+/** Two-digit form for the app chrome and page markers: "Week 07". */
+export function weekMarker(week: number) {
+  return week === 0 ? "Onboarding" : `Week ${String(week).padStart(2, "0")}`;
+}
+
+/** The programme week that contains `today`, with its period, ready for display. */
+export function currentWeekInfo(programStart: string | null | undefined, today: string) {
+  const start = programStart ?? DEFAULT_PROGRAM_START;
+  const week = weekNumberFor(start, today);
+  const period = weekPeriod(start, week);
+  return { week, period, marker: weekMarker(week), periodLabel: formatPeriod(period.start, period.end) };
+}
+
 export function formatPeriod(start: string, end: string) {
   return `${formatDate(start, { withYear: false })} – ${formatDate(end)}`;
 }

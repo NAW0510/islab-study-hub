@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { addDays, DEFAULT_PROGRAM_START, weekLabel, weekNumberFor, weekPeriod } from "./report-template";
+import {
+  addDays,
+  currentWeekInfo,
+  DEFAULT_PROGRAM_START,
+  weekLabel,
+  weekMarker,
+  weekNumberFor,
+  weekPeriod,
+} from "./report-template";
 
 const START = DEFAULT_PROGRAM_START; // Monday 2026-09-28, first day of Week 1
 
@@ -55,5 +63,28 @@ describe("weekLabel", () => {
   it("names Week 0 Onboarding", () => {
     expect(weekLabel(0)).toBe("Onboarding");
     expect(weekLabel(7)).toBe("Week 7");
+  });
+});
+
+describe("weekMarker", () => {
+  it("pads the week number to two digits", () => {
+    expect(weekMarker(0)).toBe("Onboarding");
+    expect(weekMarker(7)).toBe("Week 07");
+    expect(weekMarker(12)).toBe("Week 12");
+  });
+});
+
+describe("currentWeekInfo", () => {
+  it("uses the profile's start date when there is one", () => {
+    const info = currentWeekInfo("2026-09-28", "2026-11-14");
+    expect(info.week).toBe(7);
+    expect(info.marker).toBe("Week 07");
+    expect(info.period).toEqual({ start: "2026-11-09", end: "2026-11-15" });
+    expect(info.periodLabel).toBe("9 Nov – 15 Nov 2026");
+  });
+
+  it("falls back to the default start date", () => {
+    expect(currentWeekInfo(null, "2026-11-14")).toEqual(currentWeekInfo(DEFAULT_PROGRAM_START, "2026-11-14"));
+    expect(currentWeekInfo(undefined, "2026-09-01").marker).toBe("Onboarding");
   });
 });

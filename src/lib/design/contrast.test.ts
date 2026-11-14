@@ -4,10 +4,9 @@ import { CHIP_TONE_WEIGHT, contrast, DOMAIN_TOKENS, mix, parseTokens, type Schem
 
 const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
-/** The block that holds the design tokens. Becomes ":root" once the proposal is applied. */
-const TOKEN_SELECTOR = ".theme-next";
+/** The block that holds the design tokens (see the top of globals.css). */
+const TOKEN_SELECTOR = ":root, .theme-scope";
 const tokens = parseTokens(css, TOKEN_SELECTOR);
-const tealAccent: TokenMap = { ...tokens, ...parseTokens(css, '[data-accent="teal"] .theme-next') };
 
 const SCHEMES: Scheme[] = ["light", "dark"];
 const AA_TEXT = 4.5;
@@ -31,6 +30,7 @@ const TEXT_PAIRS: [string, string][] = [
   ["--danger", "--bg"],
   ["--danger", "--surface"],
   ["--danger", "--danger-soft"],
+  ["--danger-fg", "--danger"],
   ["--success", "--bg"],
   ["--success", "--surface"],
 ];
@@ -92,11 +92,5 @@ describe.each(SCHEMES)("design tokens, %s mode", (scheme) => {
       expect(contrast(pick(tokens, name, scheme), pick(tokens, "--surface", scheme)), name).toBeGreaterThanOrEqual(floor);
     }
     expect(contrast(pick(tokens, "--domain-none", scheme), pick(tokens, "--surface", scheme))).toBeGreaterThanOrEqual(AA_MARK);
-  });
-
-  it("keeps the teal accent alternative at AA too", () => {
-    for (const [fg, bg] of TEXT_PAIRS.filter((pair) => pair.some((name) => name.startsWith("--accent")))) {
-      expect(contrast(pick(tealAccent, fg, scheme), pick(tealAccent, bg, scheme)), `${fg} on ${bg}`).toBeGreaterThanOrEqual(AA_TEXT);
-    }
   });
 });
