@@ -42,8 +42,8 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           className={cn(
             "chip",
             report.status === "sent"
-              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300"
-              : "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300",
+              ? "chip-tone tone-good"
+              : "chip-tone tone-warn",
           )}
         >
           {STATUS_LABELS[report.status]}

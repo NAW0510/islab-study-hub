@@ -20,7 +20,7 @@ export function PageHeader({
     <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow && <div className="mb-2 text-sm text-muted">{eyebrow}</div>}
-        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{title}</h1>
+        <h1 className="display text-[clamp(1.75rem,1.3rem+2vw,2.5rem)] text-balance">{title}</h1>
         {description && <p className="mt-2 max-w-2xl text-sm text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -30,12 +30,8 @@ export function PageHeader({
 
 export function SubjectChip({ subject, link = true }: { subject: SubjectRef; link?: boolean }) {
   const color = SUBJECT_COLORS[subject.color] ?? SUBJECT_COLORS.teal;
-  const content = (
-    <>
-      <span className={cn("size-1.5 rounded-full", color.dot)} />
-      <span className="max-w-48 truncate">{subject.title}</span>
-    </>
-  );
+  // The coloured dot comes from `.chip-tone` itself.
+  const content = <span className="max-w-48 truncate">{subject.title}</span>;
   return link ? (
     <Link href={`/subjects/${subject.id}`} className={cn("chip hover:opacity-80", color.soft)}>
       {content}

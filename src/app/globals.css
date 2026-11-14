@@ -1,72 +1,98 @@
 @import "tailwindcss";
 
-:root {
-  --bg: #f6f6f3;
-  --surface: #ffffff;
-  --surface-2: #efefe9;
-  --border: #e2e2da;
-  --text: #1b1b18;
-  --muted: #696960;
-  --accent: #0f766e;
-  --accent-hover: #115e59;
-  --accent-fg: #ffffff;
-  --accent-soft: #e2f1ee;
-  --danger: #b42318;
-  --danger-soft: #fdecea;
+/*
+ * Design tokens (see docs/DESIGN_SYSTEM.md).
+ *
+ * Colours use light-dark(): they follow `color-scheme`, which is "light dark"
+ * on <html>, i.e. the system setting. To force a scheme on part of a page, put
+ * `theme-scope scheme-light` or `theme-scope scheme-dark` on its wrapper.
+ *
+ * src/lib/design/contrast.test.ts reads this block and checks WCAG AA.
+ */
+:root, .theme-scope {
+  /* Core: paper and ink */
+  --bg: light-dark(#f7f7f4, #14171c);
+  --surface: light-dark(#ffffff, #1b1f26);
+  --surface-2: light-dark(#efefea, #252a33);
+  --border: light-dark(#e3e3dd, #2c313b);
+  --border-strong: light-dark(#cdcdc5, #3d4450);
+  --text: light-dark(#0f1216, #ececea);
+  --muted: light-dark(#5c6370, #9aa1ad);
+
+  /* Accent: links, active navigation, focus, progress */
+  --accent: light-dark(#2a5bd7, #8fb0ff);
+  --accent-hover: light-dark(#1f49b6, #b3c9ff);
+  --accent-fg: light-dark(#ffffff, #0b1430);
+  --accent-soft: light-dark(#e6edfc, #1c2740);
+  --focus: var(--accent);
+
+  /* Primary action: an ink pill */
+  --primary: light-dark(#0f1216, #ececea);
+  --primary-hover: light-dark(#2b313b, #ffffff);
+  --primary-fg: light-dark(#ffffff, #14171c);
+
+  /* Signals: reserved for status, always shown with a label */
+  --signal-good: light-dark(#0ca30c, #0ca30c);
+  --signal-warn: light-dark(#fab219, #fab219);
+  --signal-bad: light-dark(#d03b3b, #d03b3b);
+  --success: light-dark(#006300, #3ecf5a);
+  --danger: light-dark(#b42318, #f97066);
+  --danger-fg: light-dark(#ffffff, #2b0b08);
+  --danger-soft: light-dark(#fdecea, #3a1a17);
 
   /*
-   * Component tokens. The values here reproduce the current look; the proposed
-   * look lives in `.theme-next` at the bottom of this file until it is approved.
+   * Categorical palette for subjects and (later) vocabulary domains. The order
+   * is part of the palette: neighbours stay distinguishable under colour
+   * blindness (validated in both modes). Use it for marks and tints; text on
+   * top stays in --text.
    */
-  --border-strong: var(--border);
-  --primary: var(--accent);
-  --primary-hover: var(--accent-hover);
-  --primary-fg: var(--accent-fg);
-  --focus: var(--accent);
+  --domain-1: light-dark(#2a78d6, #3987e5); /* biru */
+  --domain-2: light-dark(#eb6834, #d95926); /* jingga */
+  --domain-3: light-dark(#1baf7a, #199e70); /* toska */
+  --domain-4: light-dark(#eda100, #c98500); /* kuning */
+  --domain-5: light-dark(#e87ba4, #d55181); /* merah muda */
+  --domain-6: light-dark(#008300, #008300); /* hijau */
+  --domain-7: light-dark(#6250d6, #9085e9); /* ungu */
+  --domain-8: light-dark(#e34948, #e66767); /* merah */
+  --domain-9: light-dark(#0e93b5, #1f9fc2); /* sian */
+  --domain-10: light-dark(#a5622a, #b97a3a); /* cokelat */
+  --domain-none: light-dark(#667085, #8590a6); /* netral: tanpa domain */
+
+  /* Shape: the bigger the container, the bigger the radius */
   --r-control: 0.5rem;
-  --r-btn: 0.5rem;
-  --r-card: 0.75rem;
-  --r-panel: 0.75rem;
-  --display-font: var(--font-geist-sans);
+  --r-btn: 999px;
+  --r-card: 0.875rem;
+  --r-panel: 1.5rem;
+
+  /* Type */
+  --display-font: var(--font-jakarta), var(--font-geist-sans);
+
+  /* Motion: three durations, one curve; animate transform and opacity only */
   --dur-fast: 120ms;
   --dur-base: 220ms;
   --dur-slow: 420ms;
   --ease-std: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111210;
-    --surface: #191a18;
-    --surface-2: #242622;
-    --border: #2e302c;
-    --text: #ecece6;
-    --muted: #9c9d95;
-    --accent: #2dd4bf;
-    --accent-hover: #5eead4;
-    --accent-fg: #042420;
-    --accent-soft: #10302c;
-    --danger: #f97066;
-    --danger-soft: #3a1a17;
-  }
-}
-
-/* Weekly reports are "paper": always light, so screen, PDF and Word look alike. */
+/*
+ * Weekly reports are "paper": always light, and pinned to the look they had
+ * before the redesign (colours, radii and fonts), so screen, PDF and Word stay
+ * identical. Do not point these at the tokens above.
+ */
 .report-paper {
   --surface: #ffffff;
   --surface-2: #f1f1ec;
   --border: #e2e2da;
+  --border-strong: #e2e2da;
   --text: #1b1b18;
   --muted: #62625a;
   --accent: #0f766e;
   --accent-hover: #115e59;
   --accent-soft: #e2f1ee;
-  --border-strong: #e2e2da;
   --r-control: 0.5rem;
   --r-btn: 0.5rem;
   --r-card: 0.75rem;
   --r-panel: 0.75rem;
-  /* Fonts are pinned too: the report never picks up the display face. */
   --display-font: var(--font-geist-sans);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   color: var(--text);
@@ -96,19 +122,20 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-border-strong: var(--border-strong);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-fg: var(--primary-fg);
   --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-soft: var(--danger-soft);
   --color-signal-good: var(--signal-good);
   --color-signal-warn: var(--signal-warn);
   --color-signal-bad: var(--signal-bad);
@@ -152,6 +179,23 @@ body {
   color: var(--text);
 }
 
+/* The page behind the full-screen mobile menu must not scroll. */
+html:has(dialog.mobile-menu[open]) {
+  overflow: hidden;
+}
+
+/* Respect "reduce motion": no transitions or animations anywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer components {
   .card {
     @apply rounded-card border border-border bg-surface;
@@ -163,16 +207,18 @@ body {
     @apply mt-1 text-xs text-muted;
   }
   .input {
-    @apply w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-text outline-none transition placeholder:text-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60;
+    @apply min-h-10 w-full rounded-control border border-border-strong bg-surface px-3 py-2 text-sm text-text outline-none transition-colors placeholder:text-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-60;
   }
   .btn {
-    @apply inline-flex shrink-0 items-center justify-center gap-2 rounded-btn px-3.5 py-2 text-sm font-medium whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-btn px-4 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-std);
   }
   .btn-primary {
     @apply bg-primary text-primary-fg hover:bg-primary-hover;
   }
   .btn-secondary {
-    @apply border border-border bg-surface text-text hover:bg-surface-2;
+    @apply border border-border-strong bg-surface text-text hover:bg-surface-2;
   }
   .btn-ghost {
     @apply text-muted hover:bg-surface-2 hover:text-text;
@@ -181,13 +227,120 @@ body {
     @apply text-danger hover:bg-danger-soft;
   }
   .btn-sm {
-    @apply px-2.5 py-1.5 text-xs;
+    @apply h-8 px-3 text-xs;
   }
   .icon-btn {
-    @apply inline-flex size-8 shrink-0 items-center justify-center rounded-control text-muted transition hover:bg-surface-2 hover:text-text focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30;
+    @apply inline-flex size-9 shrink-0 items-center justify-center rounded-control text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:pointer-events-none disabled:opacity-30;
+  }
+  :is(.btn, .icon-btn):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  /* Comfortable touch targets on phones and tablets. */
+  @media (pointer: coarse) {
+    .btn,
+    .input {
+      min-height: 2.75rem;
+    }
+    .icon-btn {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
   }
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  /* Small uppercase label; an optional marker and rule go in front of it. */
+  .eyebrow {
+    @apply inline-flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;
+  }
+  .eyebrow-rule {
+    @apply h-px w-6 shrink-0 bg-border-strong;
+  }
+
+  /* Headings and big numerals in the display face. */
+  .display {
+    font-family: var(--display-font);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+
+  /*
+   * Tinted chip: a soft wash of --tone, a dot in the solid colour, text in ink.
+   * Pair with a `tone-*` class.
+   */
+  .chip-tone {
+    background-color: color-mix(in srgb, var(--tone) 14%, var(--surface));
+    color: var(--text);
+  }
+  .chip-tone::before {
+    content: "";
+    @apply size-1.5 shrink-0 rounded-full;
+    background-color: var(--tone);
+  }
+  .tone-domain-1 { --tone: var(--domain-1); }
+  .tone-domain-2 { --tone: var(--domain-2); }
+  .tone-domain-3 { --tone: var(--domain-3); }
+  .tone-domain-4 { --tone: var(--domain-4); }
+  .tone-domain-5 { --tone: var(--domain-5); }
+  .tone-domain-6 { --tone: var(--domain-6); }
+  .tone-domain-7 { --tone: var(--domain-7); }
+  .tone-domain-8 { --tone: var(--domain-8); }
+  .tone-domain-9 { --tone: var(--domain-9); }
+  .tone-domain-10 { --tone: var(--domain-10); }
+  .tone-none { --tone: var(--domain-none); }
+  .tone-good { --tone: var(--signal-good); }
+  .tone-warn { --tone: var(--signal-warn); }
+  .tone-bad { --tone: var(--signal-bad); }
+  .tone-info { --tone: var(--accent); }
+
+  /*
+   * Rolling text: on hover the label slides up and its copy slides in from
+   * below. The copy is aria-hidden (see RollText). Transform only; without
+   * hover, or with reduced motion, nothing moves and the copy stays clipped.
+   */
+  .roll {
+    display: inline-grid;
+    overflow: hidden;
+    vertical-align: bottom;
+  }
+  .roll > span {
+    grid-area: 1 / 1;
+    transition: transform var(--dur-base) var(--ease-std);
+  }
+  .roll > span[aria-hidden="true"] {
+    transform: translateY(110%);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    :is(a, button):is(:hover, :focus-visible) .roll > span:first-child {
+      transform: translateY(-110%);
+    }
+    :is(a, button):is(:hover, :focus-visible) .roll > span[aria-hidden="true"] {
+      transform: translateY(0);
+    }
+  }
+
+  /* Full-screen navigation on phones (see components/shell/mobile-menu.tsx). */
+  .mobile-menu {
+    @apply m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto bg-bg p-0 text-text;
+  }
+  .mobile-menu::backdrop {
+    background: var(--bg);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .mobile-menu[open] {
+      transition:
+        opacity var(--dur-slow) var(--ease-std),
+        transform var(--dur-slow) var(--ease-std);
+    }
+    @starting-style {
+      .mobile-menu[open] {
+        opacity: 0;
+        transform: translateY(-0.75rem);
+      }
+    }
   }
 }
 
@@ -273,187 +426,4 @@ body {
 }
 .markdown .katex-display {
   @apply overflow-x-auto overflow-y-hidden py-1;
-}
-
-/* ==========================================================================
-   Proposed design system (Fase 1, gate A)
-
-   The tokens below only apply inside `.theme-next`, i.e. the dev preview at
-   /dev/design. After approval they move to :root and the scope goes away.
-
-   Colors use light-dark(): they follow `color-scheme`, so a wrapper with the
-   `scheme-light` / `scheme-dark` utility shows either mode on demand.
-   src/lib/design/contrast.test.ts reads this block and checks WCAG AA.
-   ========================================================================== */
-
-.theme-next {
-  /* Core: paper and ink */
-  --bg: light-dark(#f7f7f4, #14171c);
-  --surface: light-dark(#ffffff, #1b1f26);
-  --surface-2: light-dark(#efefea, #252a33);
-  --border: light-dark(#e3e3dd, #2c313b);
-  --border-strong: light-dark(#cdcdc5, #3d4450);
-  --text: light-dark(#0f1216, #ececea);
-  --muted: light-dark(#5c6370, #9aa1ad);
-
-  /* Accent: links, active navigation, focus, progress */
-  --accent: light-dark(#2a5bd7, #8fb0ff);
-  --accent-hover: light-dark(#1f49b6, #b3c9ff);
-  --accent-fg: light-dark(#ffffff, #0b1430);
-  --accent-soft: light-dark(#e6edfc, #1c2740);
-  --focus: var(--accent);
-
-  /* Primary action: an ink pill */
-  --primary: light-dark(#0f1216, #ececea);
-  --primary-hover: light-dark(#2b313b, #ffffff);
-  --primary-fg: light-dark(#ffffff, #14171c);
-
-  /* Signals: reserved for status, always shown with a label */
-  --signal-good: light-dark(#0ca30c, #0ca30c);
-  --signal-warn: light-dark(#fab219, #fab219);
-  --signal-bad: light-dark(#d03b3b, #d03b3b);
-  --success: light-dark(#006300, #3ecf5a);
-  --danger: light-dark(#b42318, #f97066);
-  --danger-soft: light-dark(#fdecea, #3a1a17);
-
-  /*
-   * Categorical palette for subjects and (later) vocabulary domains. The order
-   * is part of the palette: neighbours stay distinguishable under colour
-   * blindness (validated in both modes). Use it for marks and tints; text on
-   * top stays in --text.
-   */
-  --domain-1: light-dark(#2a78d6, #3987e5); /* biru */
-  --domain-2: light-dark(#eb6834, #d95926); /* jingga */
-  --domain-3: light-dark(#1baf7a, #199e70); /* toska */
-  --domain-4: light-dark(#eda100, #c98500); /* kuning */
-  --domain-5: light-dark(#e87ba4, #d55181); /* merah muda */
-  --domain-6: light-dark(#008300, #008300); /* hijau */
-  --domain-7: light-dark(#6250d6, #9085e9); /* ungu */
-  --domain-8: light-dark(#e34948, #e66767); /* merah */
-  --domain-9: light-dark(#0e93b5, #1f9fc2); /* sian */
-  --domain-10: light-dark(#a5622a, #b97a3a); /* cokelat */
-  --domain-none: light-dark(#667085, #8590a6); /* netral: tanpa domain */
-
-  /* Shape and type */
-  --r-control: 0.5rem;
-  --r-btn: 999px;
-  --r-card: 0.875rem;
-  --r-panel: 1.5rem;
-  --display-font: var(--font-jakarta), var(--font-geist-sans);
-}
-
-/* Alternative accent for comparison in the preview: the current teal. */
-[data-accent="teal"] .theme-next {
-  --accent: light-dark(#0f766e, #2dd4bf);
-  --accent-hover: light-dark(#115e59, #5eead4);
-  --accent-fg: light-dark(#ffffff, #042420);
-  --accent-soft: light-dark(#e2f1ee, #10302c);
-}
-
-@layer components {
-  /* Base-style changes that come with the new look (unscoped after approval). */
-  .theme-next {
-    .btn {
-      height: 2.5rem;
-      padding-block: 0;
-      padding-inline: 1rem;
-      transition-property: background-color, color, border-color;
-      transition-duration: var(--dur-fast);
-      transition-timing-function: var(--ease-std);
-    }
-    .btn-sm {
-      height: 2rem;
-      padding-inline: 0.75rem;
-    }
-    .btn-secondary,
-    .input {
-      border-color: var(--border-strong);
-    }
-    .icon-btn {
-      width: 2.25rem;
-      height: 2.25rem;
-    }
-    .input {
-      min-height: 2.5rem;
-    }
-    .chip {
-      padding: 0.25rem 0.625rem;
-    }
-    :is(.btn, .icon-btn):focus-visible {
-      --tw-ring-shadow: 0 0 #0000;
-      outline: 2px solid var(--focus);
-      outline-offset: 2px;
-    }
-  }
-
-  /* Small uppercase label; an optional number and rule go in front of it. */
-  .eyebrow {
-    @apply inline-flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;
-  }
-  .eyebrow-rule {
-    @apply h-px w-6 shrink-0 bg-border-strong;
-  }
-
-  /* Headings and big numerals in the display face. */
-  .display {
-    font-family: var(--display-font);
-    font-weight: 600;
-    letter-spacing: -0.03em;
-    line-height: 1.05;
-  }
-
-  /*
-   * Tinted chip: a soft wash of --tone, a dot in the solid colour, text in ink.
-   * Pair with a `tone-*` class.
-   */
-  .chip-tone {
-    background-color: color-mix(in srgb, var(--tone) 14%, var(--surface));
-    color: var(--text);
-  }
-  .chip-tone::before {
-    content: "";
-    @apply size-1.5 shrink-0 rounded-full;
-    background-color: var(--tone);
-  }
-  .tone-domain-1 { --tone: var(--domain-1); }
-  .tone-domain-2 { --tone: var(--domain-2); }
-  .tone-domain-3 { --tone: var(--domain-3); }
-  .tone-domain-4 { --tone: var(--domain-4); }
-  .tone-domain-5 { --tone: var(--domain-5); }
-  .tone-domain-6 { --tone: var(--domain-6); }
-  .tone-domain-7 { --tone: var(--domain-7); }
-  .tone-domain-8 { --tone: var(--domain-8); }
-  .tone-domain-9 { --tone: var(--domain-9); }
-  .tone-domain-10 { --tone: var(--domain-10); }
-  .tone-none { --tone: var(--domain-none); }
-  .tone-good { --tone: var(--signal-good); }
-  .tone-warn { --tone: var(--signal-warn); }
-  .tone-bad { --tone: var(--signal-bad); }
-  .tone-info { --tone: var(--accent); }
-
-  /*
-   * Rolling text: on hover the label slides up and its copy slides in from
-   * below. The copy is aria-hidden (see RollText). Transform only; without
-   * hover, or with reduced motion, nothing moves and the copy stays clipped.
-   */
-  .roll {
-    display: inline-grid;
-    overflow: hidden;
-    vertical-align: bottom;
-  }
-  .roll > span {
-    grid-area: 1 / 1;
-    transition: transform var(--dur-base) var(--ease-std);
-  }
-  .roll > span[aria-hidden="true"] {
-    transform: translateY(110%);
-  }
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    :is(a, button):is(:hover, :focus-visible) .roll > span:first-child {
-      transform: translateY(-110%);
-    }
-    :is(a, button):is(:hover, :focus-visible) .roll > span[aria-hidden="true"] {
-      transform: translateY(0);
-    }
-  }
 }

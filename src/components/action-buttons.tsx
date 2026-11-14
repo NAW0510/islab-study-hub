@@ -58,7 +58,7 @@ export function DeleteButton({
           </button>
           <button
             type="button"
-            className="btn bg-danger text-white hover:opacity-90 dark:text-black"
+            className="btn bg-danger text-danger-fg hover:opacity-90"
             onClick={() => {
               dialogRef.current?.close();
               startTransition(async () => report(await callAction(() => action())));
@@ -144,9 +144,9 @@ export function StatusCheck({
       className={cn(
         "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition",
         done
-          ? "border-emerald-500 bg-emerald-500 text-white"
+          ? "border-signal-good bg-signal-good text-white"
           : status === "in_progress"
-            ? "border-amber-500 hover:bg-amber-500/10"
+            ? "border-signal-warn hover:bg-signal-warn/10"
             : "border-border hover:border-muted",
       )}
     >
