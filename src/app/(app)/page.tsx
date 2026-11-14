@@ -159,34 +159,29 @@ export default async function DashboardPage() {
                 const subject = subjectById.get(topic.subject_id);
                 const dueIn = topic.target_date ? daysFromToday(topic.target_date) : null;
                 return (
-                  <li key={topic.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/subjects/${topic.subject_id}`}
-                        className="block truncate font-medium hover:text-accent"
-                      >
-                        {topic.title}
-                      </Link>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
-                        {subject && <SubjectChip subject={subject} />}
-                        {topic.target_date && (
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1",
-                              dueIn !== null && dueIn < 0 && "font-medium text-danger",
-                            )}
-                          >
-                            <CalendarDays className="size-3.5" />
-                            {dueIn === 0
-                              ? "Target hari ini"
-                              : dueIn !== null && dueIn < 0
-                                ? `Terlambat ${-dueIn} hari`
-                                : `Target ${formatDate(topic.target_date, { withYear: false })}`}
-                          </span>
-                        )}
-                      </div>
+                  <li key={topic.id} className="px-4 py-3">
+                    <Link href={`/subjects/${topic.subject_id}`} className="block truncate font-medium hover:text-accent">
+                      {topic.title}
+                    </Link>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted">
+                      <StatusBadge status={topic.status} />
+                      {subject && <SubjectChip subject={subject} />}
+                      {topic.target_date && (
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1",
+                            dueIn !== null && dueIn < 0 && "font-medium text-danger",
+                          )}
+                        >
+                          <CalendarDays className="size-3.5" />
+                          {dueIn === 0
+                            ? "Target hari ini"
+                            : dueIn !== null && dueIn < 0
+                              ? `Terlambat ${-dueIn} hari`
+                              : `Target ${formatDate(topic.target_date, { withYear: false })}`}
+                        </span>
+                      )}
                     </div>
-                    <StatusBadge status={topic.status} />
                   </li>
                 );
               })}
