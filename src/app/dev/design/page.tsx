@@ -3,16 +3,17 @@ import { join } from "node:path";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowRight, NotebookPen, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { jakarta } from "@/app/fonts";
 import { RollText } from "@/components/roll-text";
+import { NAV_ITEMS, navNumber } from "@/components/shell/nav-items";
 import { requireUser } from "@/lib/auth";
 import { CHIP_TONE_WEIGHT, contrast, DOMAIN_TOKENS, mix, parseTokens, type Scheme, type TokenMap } from "@/lib/design/contrast";
 import { getProfile } from "@/lib/queries";
-import { DEFAULT_PROGRAM_START, formatPeriod, weekNumberFor, weekPeriod } from "@/lib/report-template";
+import { currentWeekInfo } from "@/lib/report-template";
 import { cn, todayISO } from "@/lib/utils";
-import { Playground } from "./playground";
 
-export const metadata: Metadata = { title: "Design system (pratinjau)" };
+export const metadata: Metadata = { title: "Design system" };
+
+const TOKEN_SELECTOR = ":root, .theme-scope";
 
 const CORE: { name: string; label: string; role: string }[] = [
   { name: "--bg", label: "Kertas", role: "Latar halaman" },
@@ -45,8 +46,6 @@ const STATUSES = [
   { tone: "tone-bad", label: "Terlambat" },
 ];
 
-const NAV = ["Dashboard", "Subjek & Silabus", "Catatan", "Sumber Belajar", "Laporan Mingguan"];
-
 const RADII = [
   { token: "--r-control", label: "Kontrol", value: "8 px", className: "rounded-control" },
   { token: "--r-card", label: "Kartu", value: "14 px", className: "rounded-card" },
@@ -54,42 +53,38 @@ const RADII = [
   { token: "--r-btn", label: "Tombol, chip", value: "pil", className: "rounded-btn" },
 ];
 
-/** Dev-only style guide for the proposed design tokens. Not available in production. */
+/** Dev-only style guide for the design tokens in globals.css. Not available in production. */
 export default async function DesignPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
 
   const { supabase, email } = await requireUser();
   const profile = await getProfile(supabase);
-  const programStart = profile?.program_start ?? DEFAULT_PROGRAM_START;
-  const week = weekNumberFor(programStart, todayISO());
-  const period = weekPeriod(programStart, week);
-  const tokens = parseTokens(readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8"), ".theme-next");
+  const { marker, periodLabel } = currentWeekInfo(profile?.program_start, todayISO());
+  const tokens = parseTokens(readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8"), TOKEN_SELECTOR);
 
   const sample: Sample = {
     tokens,
-    weekMarker: week === 0 ? "Onboarding" : `Week ${String(week).padStart(2, "0")}`,
-    period: formatPeriod(period.start, period.end),
+    weekMarker: marker,
+    period: periodLabel,
     name: profile?.full_name?.split(" ")[0] || email.split("@")[0],
   };
 
   return (
-    <Playground fontClassName={jakarta.variable}>
-      <div className="mx-auto max-w-[110rem] px-4 py-8 sm:px-8">
-        <header className="mb-8 max-w-3xl">
-          <p className="eyebrow">Fase 1 · pratinjau dev</p>
-          <h1 className="display mt-3 text-[clamp(1.75rem,1.2rem+2.4vw,2.75rem)]">Usulan design system</h1>
-          <p className="mt-3 text-sm text-muted">
-            Semua contoh di bawah memakai token dan kelas komponen yang sama dengan aplikasi, jadi beginilah tampilan
-            setelah diterapkan. Halaman lain belum berubah. Nilai warna dibaca langsung dari <code>globals.css</code>.
-          </p>
-        </header>
+    <div className="mx-auto max-w-[110rem] px-4 py-8 sm:px-8">
+      <header className="mb-8 max-w-3xl">
+        <p className="eyebrow">Hanya di mode dev</p>
+        <h1 className="display mt-3 text-[clamp(1.75rem,1.2rem+2.4vw,2.75rem)]">Design system</h1>
+        <p className="mt-3 text-sm text-muted">
+          Token dan komponen dasar aplikasi, di mode terang dan gelap. Nilai warna dan kontras dibaca langsung dari{" "}
+          <code>globals.css</code>. Penjelasannya ada di <code>docs/DESIGN_SYSTEM.md</code>.
+        </p>
+      </header>
 
-        <div className="grid gap-6 2xl:grid-cols-2">
-          <Specimen scheme="light" sample={sample} />
-          <Specimen scheme="dark" sample={sample} />
-        </div>
+      <div className="grid gap-6 2xl:grid-cols-2">
+        <Specimen scheme="light" sample={sample} />
+        <Specimen scheme="dark" sample={sample} />
       </div>
-    </Playground>
+    </div>
   );
 }
 
@@ -103,7 +98,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
     <section
       aria-label={scheme === "light" ? "Mode terang" : "Mode gelap"}
       className={cn(
-        "theme-next rounded-panel border border-border bg-bg p-5 text-text sm:p-8",
+        "theme-scope rounded-panel border border-border bg-bg p-5 text-text sm:p-8",
         scheme === "light" ? "scheme-light" : "scheme-dark",
       )}
     >
@@ -310,7 +305,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
           <div className="rounded-card border border-border bg-surface p-3">
             <p className="eyebrow px-3 pb-2">Sidebar desktop</p>
             <nav aria-label={`Contoh sidebar, ${scheme}`} className="flex flex-col gap-0.5">
-              {NAV.map((label, i) => (
+              {NAV_ITEMS.map(({ label }, i) => (
                 <a
                   key={label}
                   href="#"
@@ -320,7 +315,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
                     i === 0 ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text",
                   )}
                 >
-                  <span className="w-5 font-display text-[11px] text-muted tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="w-5 font-display text-[11px] text-muted tabular-nums">{navNumber(i)}</span>
                   <RollText>{label}</RollText>
                   {i === 0 && <span className="ml-auto size-1.5 rounded-full bg-accent" />}
                 </a>
@@ -338,12 +333,10 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
           <div className="rounded-card border border-border bg-surface p-4">
             <p className="eyebrow pb-1">Menu layar penuh (mobile)</p>
             <nav aria-label={`Contoh menu mobile, ${scheme}`}>
-              {NAV.slice(0, 4).map((label, i) => (
+              {NAV_ITEMS.slice(0, 4).map(({ label }, i) => (
                 <a key={label} href="#" className="flex items-baseline gap-4 border-b border-border py-3.5">
-                  <span className="font-display text-[11px] text-muted tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                  <span className={cn("display text-2xl", i === 0 ? "text-text" : "text-muted")}>
-                    <RollText>{label}</RollText>
-                  </span>
+                  <span className="font-display text-[11px] text-muted tabular-nums">{navNumber(i)}</span>
+                  <span className={cn("display text-2xl", i === 0 ? "text-text" : "text-muted")}>{label}</span>
                 </a>
               ))}
             </nav>

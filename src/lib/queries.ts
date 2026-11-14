@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Profile, SubjectRef, TopicRef } from "./types";
 
@@ -27,7 +28,12 @@ export function countBy<T>(rows: T[], key: (row: T) => string | null | undefined
   return counts;
 }
 
-export async function getProfile(supabase: SupabaseClient) {
+/**
+ * The signed-in user's profile. Cached per request (the client from
+ * `requireUser()` is the cache key), so the app layout and the page it wraps
+ * share one query.
+ */
+export const getProfile = cache(async (supabase: SupabaseClient) => {
   const { data } = await supabase.from("profiles").select("*").maybeSingle();
   return (data ?? null) as Profile | null;
-}
+});
