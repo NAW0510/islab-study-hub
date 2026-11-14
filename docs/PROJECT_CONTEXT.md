@@ -18,7 +18,7 @@
 | Bagian | Teknologi |
 |---|---|
 | Framework | **Next.js 16.3** (App Router, Server Components, Server Actions), React 19.2, TypeScript 5 |
-| Styling | Tailwind CSS v4, ikon `lucide-react`, dukungan dark mode |
+| Styling | Tailwind CSS v4 dengan token desain sendiri (lihat `docs/DESIGN_SYSTEM.md`), font Plus Jakarta Sans + Geist, ikon `lucide-react`, mode terang/gelap mengikuti sistem |
 | Backend | **Supabase**: Postgres + Auth (email/password) + Storage, semua dijaga **Row Level Security** |
 | Markdown | `react-markdown` + `remark-gfm` + `remark-math` + `rehype-katex` (rumus LaTeX) |
 | Export | `docx` (Word dibuat di server), PDF lewat print browser (`window.print()` + CSS print) |
@@ -113,14 +113,15 @@ src/components/                               komponen UI
 
 Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 
-## 7. Kondisi saat ini (per 14 November 2026, sekitar Week 7 program, setelah Fase 0)
+## 7. Kondisi saat ini (per 14 November 2026, Week 7 program, setelah Fase 1)
 
 - ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi.
 - ✅ Semua tabel (termasuk `profiles` dan `weekly_reports`) sudah ada di Supabase. Laporan Mingguan bisa dipakai.
 - ✅ Kode ada di repo GitHub **privat**.
 - ✅ Supabase CLI (devDependency) terhubung ke project. Skema dikelola sebagai migrasi di `supabase/migrations/` dan riwayatnya sinkron dengan remote.
 - ✅ Tipe TypeScript hasil generate ada di `src/lib/supabase/database.types.ts` (`npm run db:types`). Kode lama masih memakai tipe manual di `src/lib/types.ts`.
-- ✅ Unit test dengan Vitest (`npm test`).
+- ✅ Unit test dengan Vitest (`npm test`), termasuk uji kontras warna.
+- ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, sidebar bernomor, menu layar penuh di mobile, dashboard dengan penanda Week. Halaman selain dashboard baru memakai gaya dasarnya; restyle penuh di Fase 4.
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
