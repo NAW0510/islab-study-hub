@@ -85,6 +85,14 @@ export function hostnameOf(url: string | null | undefined) {
   }
 }
 
+/** Strips list markers like "1.", "1)", "-", "*", "[ ]" from a pasted line (syllabus topics, vocabulary terms). */
+export function stripListMarker(line: string) {
+  return line
+    .trim()
+    .replace(/^(?:[-*•]\s+|\d+[.)]\s+|\[[ xX]?\]\s+)+/, "")
+    .trim();
+}
+
 /** "ML, Regression,  ml" → ["ml", "regression"] */
 export function parseTags(input: string) {
   const tags = input
