@@ -3,15 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "../auth";
 import type { ActionResult, Status } from "../types";
+import { stripListMarker } from "../utils";
 import { asStatus, dbError, optDate, optStr, str } from "./form";
-
-/** Strips list markers like "1.", "1)", "-", "*", "[ ]" from pasted syllabus lines. */
-function cleanLine(line: string) {
-  return line
-    .trim()
-    .replace(/^(?:[-*•]\s+|\d+[.)]\s+|\[[ xX]?\]\s+)+/, "")
-    .trim();
-}
 
 /**
  * Adds one topic (title + description) or many at once (`lines`, one topic
@@ -22,7 +15,7 @@ export async function addSyllabusItems(subjectId: string, formData: FormData): P
 
   const lines = str(formData, "lines");
   const items = lines
-    ? lines.split(/\r?\n/).map(cleanLine).filter(Boolean).map((title) => ({ title, description: null }))
+    ? lines.split(/\r?\n/).map(stripListMarker).filter(Boolean).map((title) => ({ title, description: null }))
     : [{ title: str(formData, "title"), description: optStr(formData, "description") }];
 
   if (items.length === 0 || !items[0].title) return { error: "Judul topik wajib diisi." };
