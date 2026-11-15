@@ -10,6 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // The Edge Function's pure logic lives in supabase/functions/_shared and is tested here too.
+    include: ["src/**/*.test.ts", "supabase/functions/_shared/**/*.test.ts"],
   },
 });
