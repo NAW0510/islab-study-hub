@@ -78,6 +78,8 @@ export type Database = {
           program_start: string
           updated_at: string
           user_id: string
+          vocab_layout_at: string | null
+          vocab_layout_params: Json | null
         }
         Insert: {
           created_at?: string
@@ -88,6 +90,8 @@ export type Database = {
           program_start?: string
           updated_at?: string
           user_id?: string
+          vocab_layout_at?: string | null
+          vocab_layout_params?: Json | null
         }
         Update: {
           created_at?: string
@@ -98,6 +102,8 @@ export type Database = {
           program_start?: string
           updated_at?: string
           user_id?: string
+          vocab_layout_at?: string | null
+          vocab_layout_params?: Json | null
         }
         Relationships: []
       }
@@ -241,6 +247,157 @@ export type Database = {
           },
         ]
       }
+      vocab_domains: {
+        Row: {
+          color: string
+          created_at: string
+          deleted_at: string | null
+          description: string
+          embedding: string | null
+          embedding_model: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          embedding?: string | null
+          embedding_model?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          embedding?: string | null
+          embedding_model?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vocab_domains_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vocab_domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vocab_terms: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          definition: string
+          deleted_at: string | null
+          domain_id: string | null
+          domain_scores: Json | null
+          domain_source: string
+          embedded_at: string | null
+          embedding: string | null
+          embedding_model: string | null
+          id: string
+          learned_on: string
+          map_placed: string | null
+          map_x: number | null
+          map_y: number | null
+          note_id: string | null
+          subject_id: string | null
+          syllabus_item_id: string | null
+          term: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          definition?: string
+          deleted_at?: string | null
+          domain_id?: string | null
+          domain_scores?: Json | null
+          domain_source?: string
+          embedded_at?: string | null
+          embedding?: string | null
+          embedding_model?: string | null
+          id?: string
+          learned_on?: string
+          map_placed?: string | null
+          map_x?: number | null
+          map_y?: number | null
+          note_id?: string | null
+          subject_id?: string | null
+          syllabus_item_id?: string | null
+          term: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          definition?: string
+          deleted_at?: string | null
+          domain_id?: string | null
+          domain_scores?: Json | null
+          domain_source?: string
+          embedded_at?: string | null
+          embedding?: string | null
+          embedding_model?: string | null
+          id?: string
+          learned_on?: string
+          map_placed?: string | null
+          map_x?: number | null
+          map_y?: number | null
+          note_id?: string | null
+          subject_id?: string | null
+          syllabus_item_id?: string | null
+          term?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vocab_terms_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "vocab_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vocab_terms_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vocab_terms_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vocab_terms_syllabus_item_id_fkey"
+            columns: ["syllabus_item_id"]
+            isOneToOne: false
+            referencedRelation: "syllabus_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_reports: {
         Row: {
           created_at: string
@@ -312,7 +469,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_vocab_domain: { Args: { p_id: string }; Returns: number }
       get_shared_report: { Args: { p_token: string }; Returns: Json }
+      match_vocab_terms: {
+        Args: { p_count?: number; p_term_id: string }
+        Returns: {
+          domain_id: string
+          id: string
+          map_x: number
+          map_y: number
+          similarity: number
+          term: string
+        }[]
+      }
+      merge_vocab_domains: {
+        Args: { p_from: string; p_into: string }
+        Returns: number
+      }
+      save_vocab_classification: { Args: { p_items: Json }; Returns: number }
+      save_vocab_embeddings: {
+        Args: { p_items: Json; p_kind: string }
+        Returns: number
+      }
+      suggest_vocab_domains: {
+        Args: { p_min_terms?: number; p_term_ids: string[] }
+        Returns: {
+          centroid_sim: number
+          domain_id: string
+          n_terms: number
+          parent_id: string
+          proto_sim: number
+          term_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
