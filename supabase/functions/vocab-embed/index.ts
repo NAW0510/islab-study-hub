@@ -8,11 +8,15 @@
  * scoped to that user, so Row Level Security decides what can be read or
  * written. No secret / service-role key is used anywhere in this function.
  *
+ * After classification, terms that have no position on the brain map yet are
+ * placed next to their nearest already-placed neighbours (spec §4.2).
+ *
  * Failure model: whatever was saved stays saved. Problems are reported in
  * `errors` with HTTP 200, so the app can keep the term as "belum diproses"
  * and offer a retry.
  */
 import { createContextClient, verifyAuth } from "npm:@supabase/server@1.9.2/core";
+import { placeByNeighbors, type PlacedNeighbor } from "../_shared/knn-place.ts";
 import { decide, type Decision, type DomainSimilarity } from "../_shared/vocab-classify.ts";
 import { VOCAB_CONFIG } from "../_shared/vocab-config.ts";
 import { domainPrototypeText, termText } from "../_shared/vocab-text.ts";
@@ -49,7 +53,9 @@ type TermResult = {
   top: Decision["top"];
 };
 
-type StageError = { stage: "domains" | "embed" | "save" | "classify"; message: string };
+type NeighborRow = { term_id: string; similarity: number; map_x: number; map_y: number };
+
+type StageError = { stage: "domains" | "embed" | "save" | "classify" | "place"; message: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TERM_COLUMNS = "id, term, aliases, definition, domain_id, domain_source, embedded_at, updated_at";
@@ -274,7 +280,52 @@ async function handle(req: Request): Promise<Response> {
     errors.push({ stage: "classify", message: (error as Error).message });
   }
 
-  return json({ terms: results, embedded, errors });
+  // ── 5. Put new terms on the map next to their nearest placed neighbours ─
+  // Only terms without a position are touched (the RPC enforces it too), so a
+  // layout is never disturbed. Without any placed neighbour the term simply
+  // waits for the first "Susun peta".
+  let placed = 0;
+  if (mode === "embed" && terms.length > 0) {
+    try {
+      const { data: unplaced, error: unplacedError } = await supabase
+        .from("vocab_terms")
+        .select("id")
+        .in("id", terms.map((t) => t.id))
+        .is("map_x", null)
+        .not("embedded_at", "is", null)
+        .is("deleted_at", null);
+      if (unplacedError) throw new Error(unplacedError.message);
+
+      const ids = ((unplaced ?? []) as { id: string }[]).map((t) => t.id);
+      if (ids.length > 0) {
+        const { data, error } = await supabase.rpc("vocab_knn_neighbors", {
+          p_term_ids: ids,
+          p_k: VOCAB_CONFIG.KNN_PLACEMENT_K,
+        });
+        if (error) throw new Error(error.message);
+
+        const byTerm = new Map<string, PlacedNeighbor[]>();
+        for (const row of (data ?? []) as NeighborRow[]) {
+          const list = byTerm.get(row.term_id) ?? [];
+          list.push({ similarity: row.similarity, x: row.map_x, y: row.map_y });
+          byTerm.set(row.term_id, list);
+        }
+        const items = ids.flatMap((id) => {
+          const position = placeByNeighbors(id, byTerm.get(id) ?? []);
+          return position ? [{ id, x: position.x, y: position.y }] : [];
+        });
+        if (items.length > 0) {
+          const { data: saved, error: saveError } = await supabase.rpc("save_vocab_placements", { p_items: items });
+          if (saveError) throw new Error(saveError.message);
+          placed = (saved as number) ?? 0;
+        }
+      }
+    } catch (error) {
+      errors.push({ stage: "place", message: (error as Error).message });
+    }
+  }
+
+  return json({ terms: results, embedded, placed, errors });
 }
 
 Deno.serve(async (req) => {
