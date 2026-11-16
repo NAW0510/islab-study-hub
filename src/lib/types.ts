@@ -72,6 +72,41 @@ export type ResourceWithRefs = Resource & {
 /** Server actions return nothing on success (or redirect) and `{ error }` on failure. */
 export type ActionResult = { error: string } | void;
 
+// ── Kosakata (mirrors the vocab migration) ────────────────────────────────
+
+export type DomainSource = "pending" | "auto" | "confirmed" | "manual";
+
+export interface VocabDomain {
+  id: string;
+  name: string;
+  description: string;
+  /** Palette token: "domain-1" … "domain-10" or "domain-none". */
+  color: string;
+  parent_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VocabTerm {
+  id: string;
+  term: string;
+  aliases: string[];
+  /** Markdown + LaTeX. */
+  definition: string;
+  learned_on: string;
+  domain_id: string | null;
+  domain_source: DomainSource;
+  /** Top classification scores: cosine similarities, never percentages. */
+  domain_scores: { domain_id: string; score: number }[] | null;
+  subject_id: string | null;
+  syllabus_item_id: string | null;
+  note_id: string | null;
+  /** Null while the term still waits for an embedding ("belum diproses"). */
+  embedded_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type ReportStatus = "draft" | "sent";
 
 export interface Profile {
