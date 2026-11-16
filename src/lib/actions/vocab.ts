@@ -31,7 +31,10 @@ async function invokeEmbed(
   try {
     const { data, error } = await supabase.functions.invoke("vocab-embed", { body, timeout: EMBED_TIMEOUT_MS });
     if (error) return "failed";
-    return (data?.errors?.length ?? 0) > 0 ? "failed" : "ok";
+    // A failed map placement is not a failed embedding: the term is processed and
+    // simply gets its position at the next "Susun ulang".
+    const errors = ((data?.errors ?? []) as { stage?: string }[]).filter((e) => e.stage !== "place");
+    return errors.length > 0 ? "failed" : "ok";
   } catch {
     return "failed";
   }
