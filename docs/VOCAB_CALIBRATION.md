@@ -34,15 +34,22 @@ Skor adalah kemiripan kosinus (−1…1), **bukan probabilitas** — jangan diba
 
 Diisi setelah fungsi di-deploy (Gate B) memakai domain seed bawaan dan definisi versimu sendiri.
 
-| Istilah | Harapan | Hasil | Status | top1 | top2 | Catatan |
-|---|---|---|---|---|---|---|
-| tensor | Deep Learning › Machine Learning | | | | | |
-| overfitting | Machine Learning | | | | | |
-| p-value | Statistika & Probabilitas | | | | | |
-| eigenvector | Matematika untuk ML | | | | | |
-| HDFS | Data Engineering & Big Data | | | | | |
-| tokenization | NLP › Machine Learning | | | | | |
-| backpropagation | Deep Learning › Machine Learning | | | | | |
+Hasil 16 Nov 2026 (`voyage-4`, 512 dimensi, domain seed bawaan, definisi ditulis Ngurah,
+ambang awal `AUTO_MIN_SCORE 0.3` / `AUTO_MIN_MARGIN 0.03`): **7 dari 7 benar**, semuanya
+terpasang otomatis dalam ±3 detik.
+
+| Istilah | Harapan | Hasil | top1 | top2 | Catatan |
+|---|---|---|---|---|---|
+| tensor | Deep Learning › Machine Learning | ✅ otomatis | | | |
+| overfitting | Machine Learning | ✅ otomatis | | | |
+| p-value | Statistika & Probabilitas | ✅ otomatis | | | |
+| eigenvector | Matematika untuk ML | ✅ otomatis | | | |
+| HDFS | Data Engineering & Big Data | ✅ otomatis | | | |
+| tokenization | NLP › Machine Learning | ✅ otomatis | | | |
+| backpropagation | Deep Learning › Machine Learning | ✅ otomatis | | | |
+
+Kolom skor sengaja kosong: isi dari query `domain_scores` di atas saat kalibrasi pertama
+(setelah ±30 istilah nyata). Dengan 7/7 benar, ambang awal belum perlu diubah.
 
 Catat juga istilah nyata yang salah tebak selama pemakaian — itu bahan kalibrasi yang paling berharga.
 
