@@ -3,6 +3,7 @@ export const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/subjects", label: "Subjek & Silabus" },
   { href: "/notes", label: "Catatan" },
+  { href: "/vocab", label: "Kosakata" },
   { href: "/resources", label: "Sumber Belajar" },
   { href: "/reports", label: "Laporan Mingguan" },
 ] as const;
