@@ -1,5 +1,6 @@
 import { MobileMenu } from "@/components/shell/mobile-menu";
 import { Sidebar } from "@/components/shell/sidebar";
+import { ToastProvider } from "@/components/toast";
 import { requireUser } from "@/lib/auth";
 import { getProfile } from "@/lib/queries";
 import { currentWeekInfo } from "@/lib/report-template";
@@ -18,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <MobileMenu {...shell} />
       <main className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 md:px-10 md:py-10 print:max-w-none print:p-0">
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </div>
       </main>
     </div>
