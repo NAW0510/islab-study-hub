@@ -6,8 +6,8 @@
 
 ## Status
 - Fase 0 (pengaman dan fondasi) dan Fase 1 (design system dan shell) selesai dan sudah ada di `main`.
-- Fase 2 (Kosakata MVP) di branch `feat/fase-2-kosakata`: migrasi sudah di remote (Gate A), fungsi `vocab-embed` + halaman /vocab selesai dan teruji di stack lokal. Sisa: Gate B (secret Voyage + deploy fungsi), uji penerimaan dengan Voyage asli (docs/VOCAB_CALIBRATION.md), QA, merge PR.
-- Berikutnya setelah itu: Fase 3 (Peta Otak).
+- Fase 2 (Kosakata MVP) selesai dan sudah di `main`: migrasi + fungsi `vocab-embed` ter-deploy di Supabase remote, 8/8 uji penerimaan lulus (7/7 kasus klasifikasi benar dengan Voyage asli — docs/VOCAB_CALIBRATION.md). Ambang klasifikasi masih nilai awal; kalibrasi setelah ±30 istilah nyata.
+- Berikutnya: Fase 3 (Peta Otak). Belum dimulai.
 
 ## Catatan kerja
 - Sistem desain: docs/DESIGN_SYSTEM.md. Pakai token dan kelas yang ada di sana; jangan menulis warna Tailwind langsung (mis. `bg-amber-100`).
