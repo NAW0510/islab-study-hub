@@ -75,9 +75,21 @@ export const VOCAB_CONFIG = {
   /** Selisih ≥ ini → "Sedang"; di bawahnya "Rendah". Sengaja sama dengan AUTO_MIN_MARGIN. */
   CONFIDENCE_MEDIUM_MARGIN: 0.03,
 
-  // ── Peta Otak (dipakai mulai Fase 3) ──────────────────────────────────
-  /** Jumlah tetangga terdekat untuk menempatkan istilah baru di peta. */
+  // ── Peta Otak: menempatkan istilah baru tanpa menyusun ulang ──────────
+  /**
+   * Istilah baru ditaruh di rata-rata posisi K tetangga terdekatnya (yang
+   * sudah punya posisi), dengan bobot w = max(sim, 0)². Kuadrat membuat
+   * tetangga yang sangat mirip jauh lebih menentukan daripada yang agak
+   * mirip. K = 5: cukup banyak supaya satu tetangga yang salah tidak
+   * menyeret posisi, cukup sedikit supaya tetap berada di kelompoknya.
+   */
   KNN_PLACEMENT_K: 5,
+  /**
+   * Geseran kecil dan tetap (dihitung dari id istilah) supaya dua istilah
+   * dengan tetangga yang sama tidak menumpuk di titik yang persis sama.
+   * Peta berukuran 2 × 2, jadi 0,02 = 1% lebar peta.
+   */
+  KNN_JITTER_RADIUS: 0.02,
 } as const;
 
 type Widen<T> = T extends number ? number : T extends string ? string : T;
