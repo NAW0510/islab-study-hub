@@ -3,6 +3,7 @@
 Platform pribadi untuk mencatat perjalanan belajar Machine Learning & Data Science di IS Lab:
 
 - **Subjek & Silabus**: kelompokkan materi per bidang, tempel silabus (satu topik per baris), lalu tandai progres per topik (belum mulai, sedang dipelajari, selesai) beserta target tanggal.
+- **Kosakata**: glosarium pribadi istilah teknis (`/vocab`). Kamu menulis istilah + definisinya sendiri; sistem meng-embed teksnya (Voyage AI, lewat Edge Function `vocab-embed`) lalu menebak bidang/cabang ilmunya. Tebakan bisa dikonfirmasi atau diubah, dan pilihanmu tidak pernah ditimpa. Mendukung tempel banyak (satu istilah per baris), pencarian instan, dan istilah terdekat berdasarkan makna.
 - **Catatan**: tulis materi yang sudah dipelajari dengan Markdown + rumus LaTeX (`$x^2$`, `$$…$$`), tabel, dan blok kode. Catatan bisa dihubungkan ke subjek/topik dan diberi tag. Tersedia pencarian dan filter.
 - **Sumber Belajar**: simpan link YouTube (judul dan thumbnail diambil otomatis), artikel, kursus, atau upload dokumen (PDF, slide, notebook) ke Supabase Storage.
 - **Laporan Mingguan**: Weekly Progress sesuai template Guidebook Mentee IS Lab (4 pertanyaan Learning Progress + 4 poin Project Progress untuk weekly meeting). Nomor Week dihitung otomatis dari timeline program, isian bisa diambil otomatis dari aktivitas minggu itu, lalu bisa diekspor ke **PDF** dan **Word (.docx)**, disalin dalam format chat WhatsApp, atau dibagikan lewat **link publik** (tanpa login, bisa dimatikan kapan saja).
@@ -49,6 +50,33 @@ npm run build
 ```
 
 Test ditaruh di samping file yang dites, dengan akhiran `.test.ts` (contoh: `src/lib/report-template.test.ts`).
+
+### Kosakata: API key Voyage
+
+Fitur Kosakata butuh API key [Voyage AI](https://dashboard.voyageai.com) (ada kuota gratis yang besar).
+Key ini **hanya** disimpan sebagai secret Edge Function — jangan pernah menaruhnya di `.env.local`:
+
+```bash
+npx supabase secrets set VOYAGE_API_KEY=key-kamu
+```
+
+Deploy fungsinya dengan `npx supabase functions deploy vocab-embed`. Tanpa key yang benar, istilah tetap
+tersimpan sebagai "belum diproses" dan bisa diproses ulang dari halaman Kosakata.
+
+### Pengembangan melawan stack lokal
+
+```bash
+npx supabase start
+```
+
+```bash
+npm run dev:local
+```
+
+`npm run dev:local` menjalankan app di port 3100 melawan Supabase lokal (akun dev lokal dibuat otomatis;
+kredensialnya ada di `scripts/dev-local.mjs`), jadi data aslimu tidak tersentuh. Edge Function lokal:
+`npx supabase functions serve --env-file supabase/functions/.env` (salin dari `.env.example`; bisa menunjuk
+server tiruan `node scripts/voyage-mock.mjs`). Test database: `npm run test:db` (pgTAP).
 
 ## Mengubah database (migrasi)
 

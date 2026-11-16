@@ -78,6 +78,12 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Login email + password. **Pendaftaran publik dimatikan**, akun dibuat manual di dashboard Supabase.
 - Logout lewat `/auth/signout`.
 
+### Kosakata (`/vocab`, sejak Fase 2)
+- Glosarium pribadi: istilah + definisi (Markdown + LaTeX), alias, tanggal belajar (dengan nomor Week), kaitan ke subjek/topik.
+- Klasifikasi domain otomatis: Edge Function `vocab-embed` meng-embed teks lewat Voyage AI (`voyage-4`, 512 dimensi, pgvector), membandingkannya dengan prototipe domain + centroid istilah yang sudah disetujui, lalu memutuskan `auto` atau `pending` (ambang di `supabase/functions/_shared/vocab-config.ts`; kalibrasi di docs/VOCAB_CALIBRATION.md). Status `confirmed`/`manual` tidak pernah ditimpa (dijamin di SQL).
+- Tabel `vocab_domains` (maks dua tingkat, soft delete) dan `vocab_terms` (soft delete, kolom peta untuk Fase 3), RLS owner-only, RPC batch security invoker.
+- UI: tambah cepat, tempel banyak (satu batch embedding), banner tinjau, saran domain sekali klik, drawer detail dengan istilah terdekat, kelola domain (gabung/hapus/klasifikasi ulang).
+
 ## 5. Model data (Supabase / Postgres)
 
 Semua tabel: `id uuid`, `user_id` (default `auth.uid()`), `created_at`, `updated_at` (trigger otomatis), RLS owner-only.
@@ -123,6 +129,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Unit test dengan Vitest (`npm test`), termasuk uji kontras warna.
 - ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, sidebar bernomor, menu layar penuh di mobile, dashboard dengan penanda Week. Halaman selain dashboard baru memakai gaya dasarnya; restyle penuh di Fase 4.
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
+- ✅ Fase 2 (Kosakata MVP) dikerjakan di branch `feat/fase-2-kosakata`: migrasi sudah di remote, fungsi `vocab-embed` teruji E2E di stack lokal (52 test pgTAP + 106 test Vitest). Deploy fungsi + API key Voyage menunggu Gate B.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.
