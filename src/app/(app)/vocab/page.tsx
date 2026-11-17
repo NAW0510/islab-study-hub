@@ -43,7 +43,14 @@ export default async function VocabPage({
     return <DomainOnboarding />;
   }
 
-  const initial = { q: one(sp.q), domain: one(sp.domain), status: one(sp.status), sort: one(sp.sort) };
+  const initial = {
+    q: one(sp.q),
+    domain: one(sp.domain),
+    status: one(sp.status),
+    topic: one(sp.topic),
+    sort: one(sp.sort),
+    term: one(sp.term),
+  };
   return (
     <VocabBrowser
       key={JSON.stringify(initial)}

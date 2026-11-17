@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useTransition } from "react";
 import { BookA, Loader2, RefreshCw, Search, X } from "lucide-react";
 import { deleteTerm, restoreTerm, retryPending, type SaveTermResult } from "@/lib/actions/vocab";
 import { callAction } from "@/lib/call-action";
@@ -18,7 +18,12 @@ import { QuickAdd } from "./quick-add";
 import { VocabTabs } from "./vocab-tabs";
 import { TermRowStatus } from "./term-row-status";
 
-type Filters = { q?: string; domain?: string; status?: string; sort?: string };
+/**
+ * Everything in the query string: search and filters, plus `term` (the term
+ * open in the drawer, so other pages can link straight to it) and `topic`
+ * (terms of one syllabus topic, linked from the syllabus).
+ */
+type Filters = { q?: string; domain?: string; status?: string; topic?: string; sort?: string; term?: string };
 
 export function VocabBrowser({
   terms,
@@ -37,8 +42,11 @@ export function VocabBrowser({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const { filters: f, update, reset } = useUrlFilters(initial);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { filters: f, update } = useUrlFilters(initial);
+  const selectedId = f.term ?? null;
+  const setSelectedId = (id: string | null) => update({ term: id ?? undefined });
+  /** Clears search and filters; the sort order stays. */
+  const reset = () => update({ q: undefined, domain: undefined, status: undefined, topic: undefined });
   const [, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +87,7 @@ export function VocabBrowser({
       }
       if (f.status === "tinjau" && !(t.domain_source === "pending" && t.embedded_at)) return false;
       if (f.status === "belum" && t.embedded_at) return false;
+      if (f.topic && t.syllabus_item_id !== f.topic) return false;
       if (words.length > 0) {
         const hay = normalizeSearch(`${t.term} ${t.aliases.join(" ")} ${t.definition.slice(0, 5000)}`);
         if (!words.every((w) => hay.includes(w))) return false;
@@ -194,7 +203,7 @@ export function VocabBrowser({
       </div>
 
       <div className="no-scrollbar mb-6 flex gap-1.5 overflow-x-auto" role="group" aria-label="Filter domain">
-        <FilterChip active={!f.domain && !f.status} onClick={reset}>
+        <FilterChip active={!f.domain && !f.status && !f.topic} onClick={reset}>
           Semua <span className="opacity-60">{terms.length}</span>
         </FilterChip>
         {fields.map((d) => (
@@ -207,9 +216,14 @@ export function VocabBrowser({
         </FilterChip>
       </div>
 
-      {(f.q || f.domain || f.status) && (
+      {(f.q || f.domain || f.status || f.topic) && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted">
           <span>{terms_.length} istilah ditemukan</span>
+          {f.topic && (
+            <span className="chip bg-surface-2 text-text">
+              Topik: {topics.find((t) => t.id === f.topic)?.title ?? "tidak ditemukan"}
+            </span>
+          )}
           <button type="button" onClick={reset} className="inline-flex items-center gap-1 text-accent hover:text-accent-hover">
             <X className="size-3.5" /> Hapus filter
           </button>
