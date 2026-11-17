@@ -491,6 +491,11 @@ export type Database = {
         Args: { p_items: Json; p_kind: string }
         Returns: number
       }
+      save_vocab_layout: {
+        Args: { p_coords: Json; p_params: Json }
+        Returns: number
+      }
+      save_vocab_placements: { Args: { p_items: Json }; Returns: number }
       suggest_vocab_domains: {
         Args: { p_min_terms?: number; p_term_ids: string[] }
         Returns: {
@@ -500,6 +505,41 @@ export type Database = {
           parent_id: string
           proto_sim: number
           term_id: string
+        }[]
+      }
+      vocab_embeddings: {
+        Args: never
+        Returns: {
+          domain_id: string
+          domain_source: string
+          embedding: number[]
+          id: string
+        }[]
+      }
+      vocab_knn_neighbors: {
+        Args: { p_k?: number; p_term_ids: string[] }
+        Returns: {
+          map_x: number
+          map_y: number
+          neighbor_id: string
+          similarity: number
+          term_id: string
+        }[]
+      }
+      vocab_map_points: {
+        Args: never
+        Returns: {
+          aliases: string[]
+          domain_id: string
+          domain_source: string
+          has_embedding: boolean
+          id: string
+          learned_on: string
+          map_placed: string
+          map_x: number
+          map_y: number
+          snippet: string
+          term: string
         }[]
       }
     }
