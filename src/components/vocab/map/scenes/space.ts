@@ -125,6 +125,20 @@ function rockTexture(): Texture {
   });
 }
 
+/** A closed line along an orbit, in the orbit's own (parent-relative) coordinates. */
+function orbitLoop(orbit: NonNullable<Body["orbit"]>, color: Color, opacity: number, segments = 64): LineLoop {
+  const points: number[] = [];
+  for (let k = 0; k < segments; k++) {
+    const a = (k / segments) * Math.PI * 2;
+    for (let axis = 0; axis < 3; axis++) points.push(orbit.radius * (Math.cos(a) * orbit.u[axis] + Math.sin(a) * orbit.w[axis]) + orbit.lift[axis]);
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(points, 3));
+  const loop = new LineLoop(geometry, new LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+  loop.renderOrder = 5;
+  return loop;
+}
+
 /** Plane-like mesh (normal +z) turned so its normal points along `normal`. */
 function faceAlong(mesh: Mesh, normal: Vector3) {
   mesh.quaternion.copy(new Quaternion().setFromUnitVectors(UP, normal.clone().normalize()));
@@ -144,6 +158,9 @@ export class SpaceScene implements ViewScene {
   private readonly sky = new Group();
   private readonly bodies: Record<Kind, Points>;
   private readonly marks: HighlightLayer;
+  /** Orbit paths of the hovered and selected bodies, each riding along with the body it circles. */
+  private readonly paths = new Group();
+  private pathOwners: { parent: string; object: Group }[] = [];
   private readonly tex = {
     galaxy: galaxyTexture(),
     swirl: swirlTexture(),
@@ -191,7 +208,7 @@ export class SpaceScene implements ViewScene {
     };
     this.bodies = { planet: layer("planet"), moon: layer("moon"), rock: layer("rock") };
     this.marks = new HighlightLayer(this.tex.glow, SIZE.mark);
-    this.root.add(this.stars, this.sky, this.bodies.planet, this.bodies.moon, this.bodies.rock, this.marks.root);
+    this.root.add(this.stars, this.sky, this.paths, this.bodies.planet, this.bodies.moon, this.bodies.rock, this.marks.root);
   }
 
   build(input: SceneInput) {
@@ -311,15 +328,7 @@ export class SpaceScene implements ViewScene {
       corona.renderOrder = 3;
       group.add(core, corona);
       for (const planet of bodies.filter((b) => b.kind === "planet" && b.parent === sun.key && b.termId && shown.has(b.termId))) {
-        const orbit = planet.orbit as NonNullable<Body["orbit"]>;
-        const ringPoints: number[] = [];
-        for (let k = 0; k < 64; k++) {
-          const a = (k / 64) * Math.PI * 2;
-          for (let axis = 0; axis < 3; axis++) ringPoints.push(orbit.radius * (Math.cos(a) * orbit.u[axis] + Math.sin(a) * orbit.w[axis]));
-        }
-        const geometry = new BufferGeometry();
-        geometry.setAttribute("position", new Float32BufferAttribute(ringPoints, 3));
-        const loop = new LineLoop(geometry, new LineBasicMaterial({ color: light, transparent: true, opacity: 0.16, depthWrite: false }));
+        const loop = orbitLoop(planet.orbit as NonNullable<Body["orbit"]>, light, 0.16);
         loop.renderOrder = 2;
         group.add(loop);
       }
@@ -382,6 +391,10 @@ export class SpaceScene implements ViewScene {
       const p = at.get(key);
       if (p) object.position.set(p[0], p[1], p[2]);
     }
+    for (const { parent, object } of this.pathOwners) {
+      const p = at.get(parent);
+      if (p) object.position.set(p[0], p[1], p[2]);
+    }
   }
 
   tick(seconds: number, delta: number) {
@@ -402,6 +415,37 @@ export class SpaceScene implements ViewScene {
       return input.color(colorVar(point ? (input.domains.get(termGroups(point.domain_id, input.domains).fieldId ?? "") ?? null) : null));
     };
     this.marks.update(h, { ...input, theme: "dark" }, colorOf, (key) => this.positionOf(key));
+
+    // The path each highlighted body travels: brighter for the selected one.
+    disposeTree(this.paths);
+    this.pathOwners = [];
+    const bodies = new Map((this.layout?.bodies ?? []).map((b) => [b.key, b]));
+    const wanted = [
+      { id: h.selectedId, opacity: 0.9 },
+      { id: h.hoverId !== h.selectedId ? h.hoverId : null, opacity: 0.55 },
+    ];
+    for (const { id, opacity } of wanted) {
+      const body = id ? bodies.get(id) : undefined;
+      if (!body?.orbit || !body.parent || !this.visibleSet.has(body.key)) continue;
+      const tint = colorOf(body.key).clone().lerp(WHITE_HOT, 0.45);
+      const group = new Group();
+      group.add(orbitLoop(body.orbit, tint, opacity, 128));
+      // A moon's planet also travels: show that path too, fainter, so the moon's motion reads.
+      const parent = bodies.get(body.parent);
+      if (body.kind === "moon" && parent?.orbit && parent.parent) {
+        const outer = new Group();
+        outer.add(orbitLoop(parent.orbit, tint, opacity * 0.45, 128));
+        this.paths.add(outer);
+        this.pathOwners.push({ parent: parent.parent, object: outer });
+      }
+      this.paths.add(group);
+      this.pathOwners.push({ parent: body.parent, object: group });
+    }
+    const at = this.layout ? bodyPositions(this.layout, this.now) : new Map();
+    for (const { parent, object } of this.pathOwners) {
+      const p = at.get(parent);
+      if (p) object.position.set(p[0], p[1], p[2]);
+    }
   }
 
   emphasize(fieldId: string | null) {
@@ -431,6 +475,7 @@ export class SpaceScene implements ViewScene {
   dispose() {
     this.marks.dispose();
     disposeTree(this.root);
+    this.pathOwners = [];
     for (const texture of [...Object.values(this.tex), ...this.swirls]) texture.dispose();
   }
 }
