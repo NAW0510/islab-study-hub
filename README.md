@@ -151,3 +151,12 @@ Semua logika data ada di Supabase, jadi mobile app (Expo/React Native atau Flutt
 Satu hal yang perlu ditambahkan nanti kalau mau offline sync penuh: kolom `deleted_at` (soft delete), supaya penghapusan di satu perangkat juga terdeteksi di perangkat lain.
 
 Tipe TypeScript di-generate otomatis dari skema dengan `npm run db:types`.
+
+## Kredit
+
+Bentuk otak di Peta Otak 3D (tampilan **Otak**) berasal dari model 3D
+["Brain"](https://sketchfab.com/3d-models/brain-cadd2bde67404c43b2359a6a3281d84a) karya
+[dgallichan](https://sketchfab.com/dgallichan), dengan lisensi
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modelnya disederhanakan menjadi 5.000 titik di
+permukaan luarnya (`src/lib/vocab/brain-points.ts`, dibuat dengan `scripts/bake-brain-points.mjs`);
+berkas mesh-nya sendiri tidak disertakan di repo ini.

@@ -19,7 +19,7 @@ export const CACHE_KEY = "peta-otak-3d:v1";
  * Version of the layout models (space roles, brain anatomy). Part of the
  * fingerprint, so a cache computed with an older model is not reused.
  */
-export const LAYOUT_MODEL_VERSION = 3;
+export const LAYOUT_MODEL_VERSION = 4;
 
 /** What the worker computes for the three 3D views. */
 export type Layout3dData = {

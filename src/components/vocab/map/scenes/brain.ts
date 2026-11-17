@@ -167,8 +167,9 @@ export class BrainScene implements ViewScene {
   }
 
   frame() {
-    // Three-quarter view from the front left, slightly above: both hemispheres, the fissure and the cerebellum show.
-    return { target: new Vector3(0, -0.12, 0), position: new Vector3(1.9, 1.1, -2.5) };
+    // Three-quarter view from the front left, slightly above (the model is centred on its bounding box):
+    // both hemispheres, the fissure and the cerebellum show.
+    return { target: new Vector3(0, 0, 0), position: new Vector3(1.9, 1.15, -2.45) };
   }
 
   dispose() {
