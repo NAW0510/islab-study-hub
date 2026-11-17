@@ -599,6 +599,11 @@ html:has(dialog.mobile-menu[open]) {
     }
   }
 
+  /* A progress bar's fill glides to a new value (components/ui.tsx). */
+  .progress-fill {
+    transition: transform var(--vt-move) var(--ease-std);
+  }
+
   /*
    * A slow bob for the shapes beside the dashboard greeting. Decoration only;
    * it stands still with reduced motion.
@@ -738,8 +743,8 @@ html:has(dialog.mobile-menu[open]) {
     min-width: 100%;
     align-items: center;
     justify-content: space-around;
-    gap: 1.5rem;
-    padding-right: 1.5rem;
+    gap: 1.75rem;
+    padding-right: 1.75rem;
     animation: marquee-slide var(--marquee-duration, 40s) linear infinite;
   }
   .marquee:hover .marquee-group,

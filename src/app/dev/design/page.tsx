@@ -4,7 +4,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowRight, NotebookPen, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { RollText } from "@/components/roll-text";
+import { Shape, SHAPES, type ShapeColor, type ShapeKind } from "@/components/shape";
+import { BrandMark } from "@/components/shell/brand-mark";
 import { NAV_ITEMS, navNumber } from "@/components/shell/nav-items";
+import { ChapterTitle } from "@/components/ui";
 import { TermMarquee, TermMarqueePause } from "@/components/vocab/term-marquee";
 import { requireUser } from "@/lib/auth";
 import { CHIP_TONE_WEIGHT, contrast, DOMAIN_TOKENS, mix, parseTokens, type Scheme, type TokenMap } from "@/lib/design/contrast";
@@ -23,6 +26,7 @@ const CORE: { name: string; label: string; role: string }[] = [
   { name: "--border", label: "Garis", role: "Garis rambut" },
   { name: "--border-strong", label: "Garis tegas", role: "Tepi input, tombol" },
   { name: "--text", label: "Tinta", role: "Teks utama" },
+  { name: "--text-2", label: "Tinta 2", role: "Paragraf isi" },
   { name: "--muted", label: "Tinta redup", role: "Teks sekunder" },
   { name: "--primary", label: "Aksi utama", role: "Tombol utama" },
   { name: "--accent", label: "Aksen", role: "Tautan, fokus, progres" },
@@ -36,6 +40,13 @@ const CONTRAST_PAIRS: [string, string, string][] = [
   ["--accent", "--surface", "Tautan di kartu"],
   ["--primary-fg", "--primary", "Teks tombol utama"],
   ["--danger", "--surface", "Teks bahaya di kartu"],
+];
+
+const PRIMARIES: { name: string; label: string; role: string; shape: ShapeKind; color: ShapeColor }[] = [
+  { name: "--mark-blue", label: "Biru", role: "Bentuk, ubin; tautan memakai --accent", shape: "circle", color: "blue" },
+  { name: "--mark-yellow", label: "Kuning", role: "Sorotan; selalu dengan bentuk tinta", shape: "plus", color: "yellow" },
+  { name: "--mark-red", label: "Merah", role: "Penekanan, terlambat", shape: "triangle", color: "red" },
+  { name: "--mark-green", label: "Hijau", role: "Selesai, berhasil", shape: "square", color: "green" },
 ];
 
 const DOMAIN_NAMES = ["Biru", "Jingga", "Toska", "Kuning", "Merah muda", "Hijau", "Ungu", "Merah", "Sian", "Cokelat"];
@@ -115,11 +126,61 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
           <span className="eyebrow-rule" />
           {sample.period}
         </p>
-        <h2 className="display mt-3 text-[clamp(1.75rem,1.2rem+2.4vw,2.75rem)]">Selamat malam, {sample.name}</h2>
-        <p className="mt-3 max-w-xl text-sm text-muted">
-          Penanda Week dihitung dari tanggal mulai di profil laporan, sama seperti Laporan Mingguan. Ini satu-satunya
-          nomor di dashboard.
+        <h2 className="display mt-3 flex flex-wrap items-center gap-x-[0.28em] text-[clamp(2rem,1.2rem+3vw,3.5rem)] leading-[1.02]">
+          <span>Selamat malam,</span>
+          <span aria-hidden="true" className="inline-flex items-center gap-[0.18em]">
+            <Shape kind="square" color="green" className="bob size-[0.7em]" />
+            <Shape kind="half" color="yellow" className="bob bob-1 size-[0.7em]" />
+            <Shape kind="triangle" color="blue" className="bob bob-2 size-[0.7em]" />
+          </span>
+          <span>{sample.name}</span>
+        </h2>
+        <p className="mt-3 max-w-xl text-sm text-text-2">
+          Penanda Week dihitung dari tanggal mulai di profil laporan, sama seperti Laporan Mingguan. Bentuk di samping
+          sapaan bergoyang pelan dan diam bila gerak dikurangi.
         </p>
+        <div className="mt-5">
+          <ChapterTitle number="01" shape="plus" color="yellow" title="Penanda bab" />
+        </div>
+      </Block>
+
+      <Block
+        title="Primer Bauhaus dan bentuk"
+        note="Empat warna primer untuk bentuk, ubin, dan isian lembut; tidak pernah untuk teks. Tiap bagian aplikasi punya bentuk dan warnanya sendiri."
+      >
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {PRIMARIES.map((p) => (
+            <li key={p.name} className="overflow-hidden rounded-card border border-border bg-surface">
+              <div className="flex h-14 items-center justify-center" style={{ backgroundColor: `var(${p.name})` }}>
+                <Shape kind={p.shape} color={p.color === "yellow" ? "paper-ink" : "paper"} className="size-4" />
+              </div>
+              <div className="px-3 py-2">
+                <p className="text-xs font-medium">{p.label}</p>
+                <p className="font-mono text-[11px] text-muted">{hex(p.name)}</p>
+                <p className="text-[11px] text-muted">{p.role}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-5 grid grid-cols-5 gap-3 rounded-card border border-border bg-surface p-4 sm:grid-cols-10">
+          {SHAPES.map((kind, i) => (
+            <div key={kind} className="flex flex-col items-center gap-1.5">
+              <Shape kind={kind} color={(["blue", "yellow", "red", "green"] as const)[i % 4]} className="size-8" />
+              <span className="text-[10px] text-muted">{kind}</span>
+            </div>
+          ))}
+        </div>
+        <ul className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+          {NAV_ITEMS.map((item) => (
+            <li key={item.href} className="flex items-center gap-2.5">
+              <Shape kind={item.shape} color={item.color} className="size-3" />
+              {item.label}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex items-center gap-3 text-xs text-muted">
+          <BrandMark /> Tanda aplikasi: empat bentuk, dua kali dua.
+        </div>
       </Block>
 
       <Block title="Warna inti">
@@ -146,7 +207,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
         </table>
       </Block>
 
-      <Block title="Status" note="Warna sinyal hanya untuk status, selalu bersama labelnya.">
+      <Block title="Status" note="Warna sinyal hanya untuk status, selalu bersama labelnya dan bentuknya sendiri.">
         <div className="flex flex-wrap gap-2">
           {STATUSES.map((s) => (
             <span key={s.label} className={cn("chip chip-tone", s.tone)}>
@@ -163,7 +224,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
 
       <Block
         title="Palet kategorikal"
-        note="Untuk subjek sekarang dan domain Kosakata nanti. Urutannya sudah divalidasi agar warna bersebelahan tetap terbedakan bagi penyandang buta warna. Teks di atasnya selalu tinta."
+        note="Untuk subjek dan domain Kosakata. Urutannya sudah divalidasi agar warna bersebelahan tetap terbedakan bagi penyandang buta warna, dan tiap domain juga punya bentuk penanda sendiri. Teks di atasnya selalu tinta."
       >
         <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
           {DOMAIN_TOKENS.map((token, i) => (
@@ -190,7 +251,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
         </p>
       </Block>
 
-      <Block title="Tipografi" note="Plus Jakarta Sans untuk judul, angka besar, dan nav. Geist untuk isi. Geist Mono untuk kode.">
+      <Block title="Tipografi" note="Hanken Grotesk untuk judul, angka besar, dan nav. Geist untuk isi. Geist Mono hanya untuk kode.">
         <div className="space-y-3">
           <p className="display text-[2.75rem]">Peta Otak 44</p>
           <p className="display text-[2rem]">Subjek &amp; Silabus 32</p>
@@ -203,7 +264,15 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
         </div>
       </Block>
 
-      <Block title="Tombol" note="Arahkan kursor ke tombol utama: teksnya bergulir. Diam bila perangkat meminta gerak dikurangi.">
+      <Block
+        title="Tombol"
+        note="Tombol cincin hanya untuk satu aksi terpenting di halaman. Arahkan kursor ke tombol utama: teksnya bergulir. Diam bila perangkat meminta gerak dikurangi."
+      >
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button type="button" className="btn btn-ring h-11 px-5">
+            Buat laporan <ArrowRight className="size-4" />
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="btn btn-primary">
             <Plus className="size-4" />
@@ -265,22 +334,24 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
         </div>
       </Block>
 
-      <Block title="Kartu">
+      <Block title="Kartu" note="Kartu yang bisa diklik terangkat dan sedikit condong saat disorot (lift).">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="card p-4">
-            <p className="eyebrow">Topik selesai</p>
-            <p className="display mt-3 text-4xl tabular-nums">12/40</p>
-            <p className="mt-1 text-xs text-muted">30% dari silabus</p>
-            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full w-[30%] rounded-full bg-accent" />
-            </div>
-          </div>
-          <div className="card p-4">
-            <div className="flex items-center gap-2 text-xs text-muted">
+          <a href="#" className="card lift flex flex-col gap-3.5 p-[1.125rem]">
+            <span className="flex items-center justify-between text-[13px] font-medium text-muted">
+              Topik selesai
+              <span aria-hidden="true" className="flex size-[1.875rem] items-center justify-center rounded-lg bg-mark-green">
+                <Shape kind="square" color="paper" className="size-[0.8125rem]" />
+              </span>
+            </span>
+            <span className="display text-[2.75rem] leading-none tabular-nums">12/40</span>
+            <span className="text-[13px] text-muted">30% dari silabus</span>
+          </a>
+          <div className="card lift p-5">
+            <div className="flex items-center gap-2 text-[13px] text-muted">
               <NotebookPen className="size-3.5" /> 12 Nov 2026
             </div>
-            <h3 className="mt-2 font-display text-base font-semibold tracking-tight">Backpropagation</h3>
-            <p className="mt-1 text-sm text-muted">Menghitung gradien loss terhadap bobot lewat aturan rantai…</p>
+            <h3 className="display mt-2 text-[1.375rem] tracking-[-0.02em]">Backpropagation</h3>
+            <p className="mt-1.5 text-[15px] text-text-2">Menghitung gradien loss terhadap bobot lewat aturan rantai…</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               <span className="chip chip-tone tone-domain-1">Deep Learning</span>
               <span className="chip bg-surface-2 text-muted">#gradien</span>
@@ -301,43 +372,41 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
         </ul>
       </Block>
 
-      <Block title="Navigasi" note="Nomor hanya dipakai di sini dan di penanda Week.">
+      <Block
+        title="Navigasi"
+        note="Nomor di navigasi, penanda Week, dan penanda bab. Halaman aktif: pil kertas terangkat; bentuknya meluncur ke halaman baru saat berpindah."
+      >
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-card border border-border bg-surface p-3">
+          <div className="rounded-card border border-border bg-bg p-3">
             <p className="eyebrow px-3 pb-2">Sidebar desktop</p>
-            <nav aria-label={`Contoh sidebar, ${scheme}`} className="flex flex-col gap-0.5">
-              {NAV_ITEMS.map(({ label }, i) => (
-                <a
-                  key={label}
-                  href="#"
-                  aria-current={i === 0 ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-3 rounded-control px-3 py-2 text-sm font-medium transition-colors",
-                    i === 0 ? "bg-surface-2 text-text" : "text-muted hover:bg-surface-2 hover:text-text",
-                  )}
-                >
-                  <span className="w-5 font-display text-[11px] text-muted tabular-nums">{navNumber(i)}</span>
-                  <RollText>{label}</RollText>
-                  {i === 0 && <span className="ml-auto size-1.5 rounded-full bg-accent" />}
+            <nav aria-label={`Contoh sidebar, ${scheme}`} className="flex flex-col gap-1">
+              {NAV_ITEMS.map(({ label, shape, color }, i) => (
+                <a key={label} href="#" aria-current={i === 0 ? "page" : undefined} className="nav-item">
+                  <span className="nav-number w-5">{navNumber(i)}</span>
+                  <span className="min-w-0 flex-1">
+                    <RollText>{label}</RollText>
+                  </span>
+                  <Shape kind={shape} color={color} className="nav-shape size-3" />
                 </a>
               ))}
             </nav>
             <div className="mt-3 flex items-center justify-between border-t border-border px-3 pt-3 text-xs text-muted">
-              <span className="chip border border-border bg-surface text-text">
-                <span className="size-1.5 rounded-full bg-accent" />
-                <span className="tabular-nums">{sample.weekMarker}</span>
+              <span className="chip h-[1.875rem] border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text">
+                <Shape kind="circle" color="blue" className="size-2" />
+                <span className="font-display tabular-nums">{sample.weekMarker}</span>
               </span>
-              <span className="tabular-nums">23.41 WIB</span>
+              <span className="font-display tabular-nums">23.41 WIB</span>
             </div>
           </div>
 
           <div className="rounded-card border border-border bg-surface p-4">
             <p className="eyebrow pb-1">Menu layar penuh (mobile)</p>
             <nav aria-label={`Contoh menu mobile, ${scheme}`}>
-              {NAV_ITEMS.slice(0, 4).map(({ label }, i) => (
-                <a key={label} href="#" className="flex items-baseline gap-4 border-b border-border py-3.5">
-                  <span className="font-display text-[11px] text-muted tabular-nums">{navNumber(i)}</span>
-                  <span className={cn("display text-2xl", i === 0 ? "text-text" : "text-muted")}>{label}</span>
+              {NAV_ITEMS.slice(0, 4).map(({ label, shape, color }, i) => (
+                <a key={label} href="#" className="flex items-center gap-4 border-b border-border py-3.5">
+                  <span className="nav-number w-6 text-xs">{navNumber(i)}</span>
+                  <span className={cn("display flex-1 text-2xl", i === 0 ? "text-text" : "text-muted")}>{label}</span>
+                  <Shape kind={shape} color={color} className={cn("size-3.5", i !== 0 && "opacity-40")} />
                 </a>
               ))}
             </nav>
@@ -400,7 +469,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
         </div>
       </Block>
 
-      <Block title="Gerak" last>
+      <Block title="Gerak" note="Satu kurva untuk semuanya. Hanya transform dan opacity yang dianimasikan.">
         <ul className="grid gap-2 text-sm sm:grid-cols-3">
           <li className="card px-3 py-2">
             <span className="font-medium tabular-nums">120 ms</span>
@@ -415,9 +484,26 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
             <span className="block text-xs text-muted">Menu layar penuh</span>
           </li>
         </ul>
-        <p className="mt-3 text-xs text-muted">
-          Satu kurva ease-out untuk semuanya. Hanya <code>transform</code> dan <code>opacity</code> yang dianimasikan.
-        </p>
+      </Block>
+
+      <Block
+        title="Transisi di titik penting"
+        note="Dibuat supaya tidak terasa: tidak pernah menahan klik, tidak menunda isi, shell selalu diam, dan langsung berganti bila gerak dikurangi atau browser belum mendukung."
+        last
+      >
+        <ul className="grid gap-2 text-sm sm:grid-cols-4">
+          {[
+            ["120 ms", "Yang pergi: halaman lama, skeleton, dialog ditutup"],
+            ["200 ms", "Yang datang: halaman baru naik 8 px, dialog dibuka"],
+            ["280 ms", "Yang berpindah: bentuk halaman aktif di nav, bar progres"],
+            ["450 ms", "Gelombang tema dari tombol terang/gelap"],
+          ].map(([ms, what]) => (
+            <li key={ms} className="card px-3 py-2">
+              <span className="font-medium tabular-nums">{ms}</span>
+              <span className="block text-xs text-muted">{what}</span>
+            </li>
+          ))}
+        </ul>
       </Block>
     </section>
   );

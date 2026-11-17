@@ -18,7 +18,7 @@
 | Bagian | Teknologi |
 |---|---|
 | Framework | **Next.js 16.4** (App Router, Server Components, Server Actions), React 19.2, TypeScript 5 |
-| Styling | Tailwind CSS v4 dengan token desain sendiri (lihat `docs/DESIGN_SYSTEM.md`), font Plus Jakarta Sans + Geist, ikon `lucide-react`, mode terang/gelap mengikuti sistem |
+| Styling | Tailwind CSS v4 dengan token desain sendiri (lihat `docs/DESIGN_SYSTEM.md`), gaya Bauhaus (bentuk + empat primer), font Hanken Grotesk + Geist, ikon `lucide-react`, mode terang/gelap mengikuti perangkat atau tombol tema, View Transitions React untuk transisi di titik penting |
 | Backend | **Supabase**: Postgres + Auth (email/password) + Storage, semua dijaga **Row Level Security** |
 | Markdown | `react-markdown` + `remark-gfm` + `remark-math` + `rehype-katex` (rumus LaTeX) |
 | Export | `docx` (Word dibuat di server), PDF lewat print browser (`window.print()` + CSS print) |
@@ -164,6 +164,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Fase 3 (Peta Otak 2D) selesai dan sudah di `main`; migrasi `vocab_map` dan `vocab-embed` v2 di remote.
 - ✅ Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) sudah di `main`.
 - 🔄 Fase 4 (integrasi Kosakata, tampilan Kartu, sisa redesign) di branch `feat/fase-4-integrasi`, menunggu QA dan merge.
+- 🔄 Restyle Bauhaus (arah labmgm.org) di branch `feat/restyle-bauhaus` (di atas `feat/perpustakaan-kosakata`). Tahap 1 (token, bentuk, tema, fondasi transisi, shell, dashboard, login) selesai dan menunggu persetujuan; Tahap 2 merestyle halaman lain satu per satu.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.

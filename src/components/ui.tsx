@@ -4,6 +4,45 @@ import type { LucideIcon } from "lucide-react";
 import { STATUS_META, SUBJECT_COLORS } from "@/lib/constants";
 import type { Status, SubjectRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Shape, type ShapeColor, type ShapeKind } from "./shape";
+
+/**
+ * A chapter mark for a section of a page: its shape, its number, a rule and
+ * a small uppercase title (after labmgm.org's chapters). The number is
+ * decoration, so screen readers hear the title only.
+ */
+export function ChapterTitle({
+  id,
+  number,
+  shape,
+  color,
+  title,
+  action,
+}: {
+  id?: string;
+  number: string;
+  shape: ShapeKind;
+  color: ShapeColor;
+  title: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex min-h-9 items-center justify-between gap-3">
+      <h2
+        id={id}
+        className="flex min-w-0 items-center gap-2.5 text-xs font-semibold tracking-[0.14em] whitespace-nowrap text-muted uppercase sm:gap-3"
+      >
+        <Shape kind={shape} color={color} className="size-2.5" />
+        <span aria-hidden="true" className="font-display tracking-[0.06em] text-text tabular-nums">
+          {number}
+        </span>
+        <span aria-hidden="true" className="h-px w-4 shrink-0 bg-border-strong sm:w-7" />
+        {title}
+      </h2>
+      {action}
+    </div>
+  );
+}
 
 export function PageHeader({
   title,
@@ -55,8 +94,9 @@ export function ProgressBar({ value, className, barClassName }: { value: number;
       aria-valuemax={100}
     >
       <div
-        className={cn("h-full rounded-full bg-accent transition-[width]", barClassName)}
-        style={{ width: `${value}%` }}
+        className={cn("progress-fill h-full w-full rounded-full bg-accent", barClassName)}
+        // Slides in from the left (transform only), so a new value glides and the round end stays round.
+        style={{ transform: `translateX(${Math.min(100, Math.max(0, value)) - 100}%)` }}
       />
     </div>
   );

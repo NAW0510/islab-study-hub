@@ -5,13 +5,21 @@ import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "./brand-mark";
 
-export function Brand() {
+/** The mark and the name. `compact` (the phone bar): one line, no subtitle. */
+export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-3 rounded-control">
-      <BrandMark />
-      <span className="leading-tight">
-        <span className="block font-display text-[1.0625rem] font-semibold tracking-tight">{APP_NAME}</span>
-        <span className="block text-xs text-muted">ML &amp; Data Science</span>
+    <Link href="/" className={cn("flex min-w-0 items-center rounded-control", compact ? "gap-2.5" : "gap-3")}>
+      <BrandMark size={compact ? "sm" : "md"} />
+      <span className="min-w-0 leading-tight">
+        <span
+          className={cn(
+            "block font-display font-semibold tracking-tight whitespace-nowrap",
+            compact ? "text-[0.9375rem]" : "text-[1.0625rem]",
+          )}
+        >
+          {APP_NAME}
+        </span>
+        {!compact && <span className="block text-xs text-muted">ML &amp; Data Science</span>}
       </span>
     </Link>
   );
@@ -24,7 +32,7 @@ export function WeekChip({ marker, period, className }: { marker: string; period
       href="/reports"
       title={`${marker} · ${period}`}
       className={cn(
-        "chip h-[1.875rem] border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text hover:bg-surface-2",
+        "chip h-[1.875rem] shrink-0 border border-border-strong bg-surface px-3 text-[13px] font-semibold whitespace-nowrap text-text hover:bg-surface-2",
         className,
       )}
     >

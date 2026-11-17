@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { Pause, Play } from "lucide-react";
+import { Shape, type ShapeColor, type ShapeKind } from "@/components/shape";
 
 type MarqueeTerm = { id: string; term: string };
 
 /** Seconds per item, so a short strip does not race and a long one does not crawl. */
 const SECONDS_PER_ITEM = 3;
 const MIN_SECONDS = 24;
+
+/** The shapes between the terms, in turn. */
+const SHAPES: ShapeKind[] = ["circle", "square", "triangle", "plus", "half", "spark"];
+const COLORS: ShapeColor[] = ["blue", "yellow", "red", "green"];
 
 /**
  * Dashboard strip of the latest terms (spec §8.2, §9). Server component with
@@ -21,13 +26,13 @@ export function TermMarquee({ terms }: { terms: MarqueeTerm[] }) {
   if (terms.length === 0) return null;
   const seconds = Math.max(MIN_SECONDS, terms.length * SECONDS_PER_ITEM);
   const items = (copy: boolean) =>
-    terms.map((t) => (
-      <li key={t.id} className="flex shrink-0 items-center gap-6">
-        <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
+    terms.map((t, i) => (
+      <li key={t.id} className="flex shrink-0 items-center gap-7">
+        <Shape kind={SHAPES[i % SHAPES.length]} color={COLORS[i % COLORS.length]} className="size-3.5" />
         <Link
           href={`/vocab?term=${t.id}`}
           tabIndex={copy ? -1 : undefined}
-          className="inline-flex min-h-11 items-center font-display text-lg font-semibold tracking-tight whitespace-nowrap text-text hover:text-accent focus-visible:rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+          className="display inline-flex min-h-13 items-center text-[clamp(1.375rem,1.1rem+1vw,1.875rem)] whitespace-nowrap text-text hover:text-accent focus-visible:rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
         >
           {t.term}
         </Link>
@@ -35,7 +40,7 @@ export function TermMarquee({ terms }: { terms: MarqueeTerm[] }) {
     ));
 
   return (
-    <div className="card marquee py-1.5" style={{ "--marquee-duration": `${seconds}s` } as React.CSSProperties}>
+    <div className="card marquee py-2.5" style={{ "--marquee-duration": `${seconds}s` } as React.CSSProperties}>
       <ul className="marquee-group">{items(false)}</ul>
       <ul className="marquee-group" aria-hidden="true" inert>
         {items(true)}

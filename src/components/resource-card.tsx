@@ -28,7 +28,7 @@ export function ResourceCard({ resource }: { resource: ResourceWithRefs }) {
   const href = resourceHref(resource);
 
   return (
-    <article className="card flex gap-4 p-3 sm:p-4">
+    <article className="card lift flex gap-4 p-3.5 sm:p-4">
       <a
         href={href}
         target="_blank"
@@ -55,7 +55,7 @@ export function ResourceCard({ resource }: { resource: ResourceWithRefs }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
           <Icon className="mt-0.5 size-4 shrink-0 text-muted sm:hidden" />
-          <h3 className="min-w-0 flex-1 font-medium">
+          <h3 className="min-w-0 flex-1 font-display text-[1.0625rem] font-semibold tracking-tight">
             <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-accent">
               {resource.title}
             </a>
