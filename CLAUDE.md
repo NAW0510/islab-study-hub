@@ -12,7 +12,7 @@
 - Next.js dan `eslint-config-next` di 16.4.5 (PR #4).
 - Fase 4 (integrasi §9, tampilan Kartu, restyle halaman sisa) selesai di branch `feat/fase-4-integrasi` (PR #8); menunggu QA dan merge. Tautan langsung Kosakata: `/vocab?term=<id>` (buka detail), `/vocab?topic=<id>`, `/vocab?view=kartu`.
 - Prototipe Perpustakaan (`/vocab/perpustakaan`, dunia WebGL ala Articles MGM: rak bidang → ruang bidang → halaman istilah + "Istilah berikutnya") di branch `feat/perpustakaan-kosakata` (dari Fase 4); PR dibuka setelah PR #8 masuk `main`. Pola dan penyetelan: docs/DESIGN_SYSTEM.md › Pola Perpustakaan.
-- Restyle Bauhaus (arah labmgm.org, demo kanvas yang sudah disetujui) di branch `feat/restyle-bauhaus`, menumpuk di atas `feat/perpustakaan-kosakata`. Tahap 1 (token, bentuk, tema, fondasi View Transitions, shell, dashboard, login, `/dev/design`) selesai, menunggu persetujuan Ngurah sebelum Tahap 2 (halaman lain satu per satu). Aturan transisi "tak terasa" dan petanya: docs/DESIGN_SYSTEM.md › Gerak dan transisi.
+- Restyle Bauhaus (arah labmgm.org, demo kanvas yang sudah disetujui) di branch `feat/restyle-bauhaus`, menumpuk di atas `feat/perpustakaan-kosakata`. Tahap 1 (token, bentuk, tema, fondasi View Transitions, shell, dashboard, login, `/dev/design`) disetujui; Tahap 2 (Subjek, Catatan, Kosakata, Sumber, Laporan + transisinya) selesai, menunggu QA Ngurah. PR dibuka setelah PR #8 dan PR Perpustakaan masuk `main`. Aturan transisi "tak terasa" dan petanya: docs/DESIGN_SYSTEM.md › Gerak dan transisi.
 - Bentuk otak dari model "Brain" karya dgallichan (CC BY 4.0); kredit wajib tetap tampil di app dan README.
 - Data uji peta lokal: `node scripts/seed-local-vocab.mjs --reset` (akun dev lokal saja).
 

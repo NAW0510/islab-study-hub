@@ -163,7 +163,11 @@ Transisi hanya di titik penting, dan dibuat supaya **tidak terasa sebagai transi
 | Dialog | Muncul sedikit dari bawah dan lebih kecil (160 ms), menutup lebih cepat (120 ms), backdrop ikut | `.dialog` (`@starting-style`) |
 | Bar progres | Isian meluncur ke nilai baru | `ProgressBar` (`.progress-fill`, translate) |
 | Ganti tema | Mode baru membuka sebagai lingkaran dari tombol, di atas mode lama | `theme-toggle.tsx`, `data-vt="theme"` |
-| Tahap 2 | Judul kartu → judul halaman (`vt-morph`), tukar tampilan di tempat (`vt-swap`), item masuk/keluar daftar | per halaman |
+| Daftar → detail | Judul kartu berpindah menjadi judul halaman (dan kembali saat back): subjek (`subject-<id>`) dan catatan (`note-<id>`) | `SharedTitle`, `PageHeader titleName` |
+| Tab di halaman | Garis bawah meluncur ke tab baru, panel crossfade di tempat | `UrlTabs` (`url-tabs-marker`, `SwapMotion`) |
+| Antarhalaman Kosakata | Garis bawah tab meluncur ke halaman Kosakata berikutnya | `VocabTabs` (`vocab-tabs-marker`) |
+| Daftar ↔ Kartu | Tampilan lama memudar, yang baru muncul di tempat yang sama | `ViewSwap` dengan `key` per tampilan |
+| Tambah / hapus / urutkan | Item baru naik ke tempatnya, yang dihapus memudar ("Urungkan" mengembalikannya dengan cara yang sama), yang lain meluncur. Daftar panjang (Kosakata) tidak meluncur, supaya satu istilah baru tidak menggerakkan ratusan | `ListItemMotion` (`glide` untuk daftar pendek): silabus, sumber, istilah |
 
 Pengecualian dari aturan "hanya transform/opacity": animasi ukuran grup bawaan View Transitions (snapshot, bukan layout) dan `clip-path` gelombang tema.
 
@@ -175,6 +179,10 @@ Pengecualian dari aturan "hanya transform/opacity": animasi ukuran grup bawaan V
 | `btn btn-ring` | Tombol berbingkai cincin empat primer, **hanya untuk satu aksi terpenting** di halaman (mis. "Buat laporan") |
 | `lift` | Kartu yang bisa diklik: terangkat 3 px dan condong 0,3° saat disorot atau difokus; bayangannya pseudo-elemen yang memudar masuk |
 | `ChapterTitle` (`components/ui.tsx`) | Penanda bab: bentuk + nomor + garis + judul huruf besar. Nomornya `aria-hidden` |
+| `PageHeader` (`components/ui.tsx`) | Kepala halaman: `SectionMark` (bentuk + nomor + nama bagian, atau `eyebrow` seperti tautan kembali), judul display besar, deskripsi `text-2`, aksi. `titleName` membuat judul berpindah dari kartu |
+| `SectionMark` (`components/section-mark.tsx`) | Penanda bab bagian saat ini, dibaca dari URL; dipakai juga di atas halaman catatan dan laporan |
+| `EmptyState` (`components/ui.tsx`) | Lembar putus-putus dengan tiga bentuk kecil yang bergoyang pelan (`shapes` memilih bentuk bagiannya), judul, satu baris bantuan, aksi |
+| `components/motion.tsx` | `SharedTitle`, `ListItemMotion`, `ViewSwap`, `SwapMotion`, `SlidingMarker`: pembungkus `<ViewTransition>` dengan kelas `vt-*` di atas |
 | `nav-item`, `nav-number`, `nav-shape`, `nav-rail` | Item navigasi; yang aktif (`aria-current="page"`) pil kertas terangkat dengan bentuk penuh |
 | `ThemeToggle` (`components/shell/theme-toggle.tsx`) | Tombol terang/gelap dengan gelombang |
 | `bob`, `bob-1…3` | Goyangan pelan bentuk di sapaan dashboard dan login; diam bila gerak dikurangi |
@@ -216,7 +224,7 @@ Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`]
 
 ### Sub-tab
 
-`VocabTabs` (`src/components/vocab/vocab-tabs.tsx`): garis bawah `border-accent` untuk tab aktif, `aria-current="page"`, baris bisa digeser ke samping di layar sempit. Dipakai di ketiga halaman Kosakata.
+`VocabTabs` (`src/components/vocab/vocab-tabs.tsx`): garis bawah tinta di bawah tab aktif yang meluncur antarhalaman Kosakata, `aria-current="page"`, baris bisa digeser ke samping di layar sempit. Di Perpustakaan menjadi pil kaca. `UrlTabs` (tab di halaman subjek) memakai garis yang sama.
 
 ### Pola Peta Otak (`src/components/vocab/map/`)
 
