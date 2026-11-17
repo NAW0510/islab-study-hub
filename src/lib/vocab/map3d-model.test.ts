@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { VocabDomain } from "../types";
 import type { Point3 } from "./layout/run-layout-3d";
-import { CACHE_KEY, fieldCentres, fingerprint, pickNearest, readCache, visible3d, writeCache } from "./map3d-model";
+import {
+  CACHE_KEY,
+  fingerprint,
+  groups3d,
+  paddedCloud3d,
+  pickNearest,
+  readCache,
+  sphereDirections,
+  visible3d,
+  withoutOutliers3d,
+  writeCache,
+} from "./map3d-model";
 import type { MapPoint } from "./map-model";
 
 const domain = (id: string, name: string, parent_id: string | null = null): VocabDomain => ({
@@ -81,7 +92,7 @@ describe("readCache / writeCache", () => {
   });
 });
 
-describe("visible3d / fieldCentres", () => {
+describe("visible3d / groups3d", () => {
   const coords = new Map<string, Point3>([
     ["w1", [0, 0, 0]],
     ["w3", [1, 1, 1]],
@@ -102,11 +113,16 @@ describe("visible3d / fieldCentres", () => {
     expect(visible3d(points, coords, { ...base, week: 9, hiddenFields: new Set(["ml", "none"]) }).map((p) => p.id)).toEqual(["stat"]);
   });
 
-  it("puts each field's label at the mean of its terms", () => {
-    const centres = fieldCentres(points, coords, domains);
-    expect(centres.find((c) => c.field.id === "ml")).toMatchObject({ count: 2, centre: [0.5, 0.5, 0.5] });
-    expect(centres.find((c) => c.field.id === "st")).toMatchObject({ count: 1, centre: [-1, 0, 0] });
-    expect(centres).toHaveLength(2);
+  it("groups by field or by branch, coloured by the field, with the label at the mean", () => {
+    const fields = groups3d(points, coords, "bidang", domains);
+    expect(fields.find((g) => g.group.id === "ml")).toMatchObject({ members: [[0, 0, 0], [1, 1, 1]], centre: [0.5, 0.5, 0.5] });
+    expect(fields.find((g) => g.group.id === "st")?.centre).toEqual([-1, 0, 0]);
+    expect(fields).toHaveLength(2);
+
+    const branches = groups3d(points, coords, "cabang", domains);
+    const dl = branches.find((g) => g.group.id === "dl");
+    expect(dl?.field.id).toBe("ml");
+    expect(groups3d(points, coords, "none", domains)).toEqual([]);
   });
 });
 
@@ -130,5 +146,28 @@ describe("pickNearest", () => {
 
   it("ignores points outside the view", () => {
     expect(pickNearest([{ id: "a", x: 100, y: 100, depth: 1.5 }], 100, 100, 14)).toBeNull();
+  });
+});
+
+describe("regions", () => {
+  it("drops a far-away stray term, keeps small groups whole", () => {
+    const cluster: Point3[] = [[0, 0, 0], [0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1], [0.1, 0.1, 0], [0.05, 0.05, 0.05]];
+    const stray: Point3 = [1, 1, 1];
+    expect(withoutOutliers3d([...cluster, stray])).toEqual(cluster);
+    expect(withoutOutliers3d([[0, 0, 0], [1, 1, 1], [0.1, 0, 0]])).toHaveLength(3);
+  });
+
+  it("spreads directions evenly over the unit sphere", () => {
+    const directions = sphereDirections(26);
+    expect(directions).toHaveLength(26);
+    for (const d of directions) expect(Math.hypot(...d)).toBeCloseTo(1, 10);
+    const mean = [0, 1, 2].map((a) => directions.reduce((sum, d) => sum + d[a], 0) / directions.length);
+    for (const m of mean) expect(Math.abs(m)).toBeLessThan(0.05);
+  });
+
+  it("puffs every point into a small sphere", () => {
+    const cloud = paddedCloud3d([[0, 0, 0], [1, 0, 0]], 0.1, sphereDirections(8));
+    expect(cloud).toHaveLength(16);
+    for (const p of cloud.slice(0, 8)) expect(Math.hypot(...p)).toBeCloseTo(0.1, 10);
   });
 });

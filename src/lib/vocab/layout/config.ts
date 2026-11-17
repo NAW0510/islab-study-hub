@@ -176,5 +176,16 @@ export const LAYOUT_3D_CONFIG = {
    * RELAYOUT_ANCHOR di 2D, supaya gambar yang sudah kamu kenal tidak teracak.
    */
   ANCHOR: 0.25,
+
+  // ── Wilayah 3D ─────────────────────────────────────────────────────────
+  /**
+   * Tiap titik "digembungkan" menjadi bola berjari-jari ini sebelum dibungkus
+   * selubung (padanan HULL_PAD di 2D), supaya wilayah tidak menempel di titik
+   * terluar dan bidang berisi 1–2 istilah tetap terlihat sebagai bola/kapsul.
+   * 0,1 = 5% sisi kubus.
+   */
+  REGION_PAD: 0.1,
+  /** Jumlah arah di permukaan tiap bola bantu; 26 cukup bulat setelah dibungkus. */
+  REGION_DIRECTIONS: 26,
 } as const;
 
