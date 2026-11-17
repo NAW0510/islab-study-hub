@@ -209,6 +209,24 @@ export async function nearestTerms(id: string): Promise<{ error: string } | { te
   return { terms: (data ?? []) as NearestTerm[] };
 }
 
+/** Full term plus its nearest neighbours, for the brain map's detail panel (the map itself only loads snippets). */
+export async function termDetail(id: string): Promise<{ error: string } | { term: VocabTerm; neighbours: NearestTerm[] }> {
+  const { supabase } = await requireUser();
+  const [termRes, nearRes] = await Promise.all([
+    supabase
+      .from("vocab_terms")
+      .select(
+        "id, term, aliases, definition, learned_on, domain_id, domain_source, domain_scores, subject_id, syllabus_item_id, note_id, embedded_at, created_at, updated_at",
+      )
+      .eq("id", id)
+      .is("deleted_at", null)
+      .single(),
+    supabase.rpc("match_vocab_terms", { p_term_id: id, p_count: 6 }),
+  ]);
+  if (termRes.error) return dbError(termRes.error);
+  return { term: termRes.data as VocabTerm, neighbours: (nearRes.data ?? []) as NearestTerm[] };
+}
+
 /** Embeds everything that is still "belum diproses" (after a failure or wrong key). */
 export async function retryPending(): Promise<{ error: string } | { queued: number; embed: EmbedOutcome }> {
   const { supabase } = await requireUser();
