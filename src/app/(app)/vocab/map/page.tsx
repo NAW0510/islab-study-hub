@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
 import { BrainMapLoader } from "@/components/vocab/map/brain-map-loader";
+import { MapViewSwitch } from "@/components/vocab/map/map-view-switch";
 import { VocabTabs } from "@/components/vocab/vocab-tabs";
 import { requireUser } from "@/lib/auth";
 import { getProfile } from "@/lib/queries";
@@ -29,6 +30,7 @@ export default async function VocabMapPage() {
       <PageHeader
         title="Peta Otak"
         description="Tiap istilah satu titik. Istilah yang maknanya dekat letaknya berdekatan."
+        actions={<MapViewSwitch active="2d" />}
       />
       <VocabTabs active="map" />
       {pointsRes.error ? (
