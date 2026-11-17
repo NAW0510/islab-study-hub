@@ -31,7 +31,10 @@ async function invokeEmbed(
   try {
     const { data, error } = await supabase.functions.invoke("vocab-embed", { body, timeout: EMBED_TIMEOUT_MS });
     if (error) return "failed";
-    return (data?.errors?.length ?? 0) > 0 ? "failed" : "ok";
+    // A failed map placement is not a failed embedding: the term is processed and
+    // simply gets its position at the next "Susun ulang".
+    const errors = ((data?.errors ?? []) as { stage?: string }[]).filter((e) => e.stage !== "place");
+    return errors.length > 0 ? "failed" : "ok";
   } catch {
     return "failed";
   }
@@ -204,6 +207,24 @@ export async function nearestTerms(id: string): Promise<{ error: string } | { te
   const { data, error } = await supabase.rpc("match_vocab_terms", { p_term_id: id, p_count: 6 });
   if (error) return dbError(error);
   return { terms: (data ?? []) as NearestTerm[] };
+}
+
+/** Full term plus its nearest neighbours, for the brain map's detail panel (the map itself only loads snippets). */
+export async function termDetail(id: string): Promise<{ error: string } | { term: VocabTerm; neighbours: NearestTerm[] }> {
+  const { supabase } = await requireUser();
+  const [termRes, nearRes] = await Promise.all([
+    supabase
+      .from("vocab_terms")
+      .select(
+        "id, term, aliases, definition, learned_on, domain_id, domain_source, domain_scores, subject_id, syllabus_item_id, note_id, embedded_at, created_at, updated_at",
+      )
+      .eq("id", id)
+      .is("deleted_at", null)
+      .single(),
+    supabase.rpc("match_vocab_terms", { p_term_id: id, p_count: 6 }),
+  ]);
+  if (termRes.error) return dbError(termRes.error);
+  return { term: termRes.data as VocabTerm, neighbours: (nearRes.data ?? []) as NearestTerm[] };
 }
 
 /** Embeds everything that is still "belum diproses" (after a failure or wrong key). */

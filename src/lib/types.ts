@@ -117,6 +117,9 @@ export interface Profile {
   mentor_name: string | null;
   /** First day of "Week 1" of the intern programme (YYYY-MM-DD). */
   program_start: string;
+  /** How the brain map was last laid out (a `LayoutParams` object); null before the first layout. */
+  vocab_layout_params?: unknown;
+  vocab_layout_at?: string | null;
 }
 
 /** The identity shown on a report's header (also exposed on shared links). */

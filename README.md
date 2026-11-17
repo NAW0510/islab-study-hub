@@ -4,6 +4,11 @@ Platform pribadi untuk mencatat perjalanan belajar Machine Learning & Data Scien
 
 - **Subjek & Silabus**: kelompokkan materi per bidang, tempel silabus (satu topik per baris), lalu tandai progres per topik (belum mulai, sedang dipelajari, selesai) beserta target tanggal.
 - **Kosakata**: glosarium pribadi istilah teknis (`/vocab`). Kamu menulis istilah + definisinya sendiri; sistem meng-embed teksnya (Voyage AI, lewat Edge Function `vocab-embed`) lalu menebak bidang/cabang ilmunya. Tebakan bisa dikonfirmasi atau diubah, dan pilihanmu tidak pernah ditimpa. Mendukung tempel banyak (satu istilah per baris), pencarian instan, dan istilah terdekat berdasarkan makna.
+- **Peta Otak**: semua istilah Kosakata sebagai satu peta (`/vocab/map`). Istilah yang maknanya dekat letaknya berdekatan, tiap bidang punya wilayah, dan slider Week memutar ulang bagaimana peta tumbuh. Tata letaknya (UMAP) dihitung di browser saat kamu menekan "Susun ulang"; istilah baru langsung ditaruh dekat istilah sejenis tanpa menyusun ulang.
+- **Peta Otak 3D** (`/vocab/map/3d`, sakelar **2D · 3D**): istilah yang sama dalam tiga tampilan yang bisa diputar.
+  - **Luar angkasa**: tiap bidang sebuah galaksi dengan lubang hitam, tiap cabang sebuah matahari; istilah menjadi planet, bulan, atau batuan menurut perannya, lengkap dengan orbitnya.
+  - **Otak**: bentuk otak sungguhan dari neuron, di mana tiap istilah menyalakan satu neuron di lobus bidangnya.
+  - **Kubus**: titik di ruang makna 3D.
 - **Catatan**: tulis materi yang sudah dipelajari dengan Markdown + rumus LaTeX (`$x^2$`, `$$…$$`), tabel, dan blok kode. Catatan bisa dihubungkan ke subjek/topik dan diberi tag. Tersedia pencarian dan filter.
 - **Sumber Belajar**: simpan link YouTube (judul dan thumbnail diambil otomatis), artikel, kursus, atau upload dokumen (PDF, slide, notebook) ke Supabase Storage.
 - **Laporan Mingguan**: Weekly Progress sesuai template Guidebook Mentee IS Lab (4 pertanyaan Learning Progress + 4 poin Project Progress untuk weekly meeting). Nomor Week dihitung otomatis dari timeline program, isian bisa diambil otomatis dari aktivitas minggu itu, lalu bisa diekspor ke **PDF** dan **Word (.docx)**, disalin dalam format chat WhatsApp, atau dibagikan lewat **link publik** (tanpa login, bisa dimatikan kapan saja).
@@ -74,9 +79,16 @@ npm run dev:local
 ```
 
 `npm run dev:local` menjalankan app di port 3100 melawan Supabase lokal (akun dev lokal dibuat otomatis;
-kredensialnya ada di `scripts/dev-local.mjs`), jadi data aslimu tidak tersentuh. Edge Function lokal:
+kredensialnya ada di `scripts/local-stack.mjs`), jadi data aslimu tidak tersentuh. Edge Function lokal:
 `npx supabase functions serve --env-file supabase/functions/.env` (salin dari `.env.example`; bisa menunjuk
 server tiruan `node scripts/voyage-mock.mjs`). Test database: `npm run test:db` (pgTAP).
+
+Untuk mencoba Peta Otak dengan jumlah istilah yang realistis, isi stack lokal dengan ±300 istilah sintetis
+berkelompok (butuh `functions serve` dan server tiruan di atas; hanya menyentuh akun dev lokal):
+
+```bash
+node scripts/seed-local-vocab.mjs --reset
+```
 
 ## Mengubah database (migrasi)
 
@@ -143,3 +155,12 @@ Semua logika data ada di Supabase, jadi mobile app (Expo/React Native atau Flutt
 Satu hal yang perlu ditambahkan nanti kalau mau offline sync penuh: kolom `deleted_at` (soft delete), supaya penghapusan di satu perangkat juga terdeteksi di perangkat lain.
 
 Tipe TypeScript di-generate otomatis dari skema dengan `npm run db:types`.
+
+## Kredit
+
+Bentuk otak di Peta Otak 3D (tampilan **Otak**) berasal dari model 3D
+["Brain"](https://sketchfab.com/3d-models/brain-cadd2bde67404c43b2359a6a3281d84a) karya
+[dgallichan](https://sketchfab.com/dgallichan), dengan lisensi
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modelnya disederhanakan menjadi 5.000 titik di
+permukaan luarnya (`src/lib/vocab/brain-points.ts`, dibuat dengan `scripts/bake-brain-points.mjs`);
+berkas mesh-nya sendiri tidak disertakan di repo ini.

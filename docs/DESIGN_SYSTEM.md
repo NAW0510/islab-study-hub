@@ -66,7 +66,7 @@ Untuk warna subjek sekarang dan domain Kosakata nanti.
 Aturan pakai:
 - **Urutannya bagian dari palet.** Warna yang bersebelahan dipilih supaya tetap terbedakan bagi penyandang buta warna (jarak warna diuji untuk protanopia dan deuteranopia, di kedua mode). Kalau butuh warna baru, tambahkan di ujung dan validasi ulang; jangan menukar urutan.
 - Tiga warna di mode terang (toska, kuning, merah muda) kontrasnya di bawah 3 : 1 terhadap putih. Karena itu warna kategorikal **selalu didampingi label teks**, tidak pernah berdiri sendiri.
-- Di Peta Otak nanti, semua titik bisa saling bersebelahan, jadi warna saja tidak cukup untuk lebih dari tiga bidang. Batas wilayah, label, dan legenda tetap wajib (sudah ada di spec §4).
+- Di Peta Otak, semua titik bisa saling bersebelahan, jadi warna saja tidak cukup untuk lebih dari tiga bidang. Batas wilayah, label, dan legenda selalu ada (lihat pola Peta Otak di bawah).
 
 ## Tipografi
 
@@ -96,6 +96,7 @@ Aturan pakai:
 | `--dur-base` | 220 ms | Teks bergulir |
 | `--dur-slow` | 420 ms | Menu layar penuh |
 | `--ease-std` | `cubic-bezier(0.2, 0.8, 0.2, 1)` | Semuanya |
+| `--animate-dot-in` | 320 ms, sedikit memantul | Titik baru di Peta Otak (kelas `animate-dot-in`) |
 
 ## Komponen dasar
 
@@ -111,6 +112,34 @@ Aturan pakai:
 | `src/components/shell/` | Sidebar desktop, menu layar penuh mobile, jam, chip Week |
 
 Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`](../src/lib/constants.ts) (`SUBJECT_COLORS`, `STATUS_META`).
+
+### Sub-tab
+
+`VocabTabs` (`src/components/vocab/vocab-tabs.tsx`): garis bawah `border-accent` untuk tab aktif, `aria-current="page"`, baris bisa digeser ke samping di layar sempit. Dipakai di ketiga halaman Kosakata.
+
+### Pola Peta Otak (`src/components/vocab/map/`)
+
+| Unsur | Aturan |
+|---|---|
+| Titik | Garis nol-panjang (`M x,y h0`) dengan `stroke-linecap: round` dan `vector-effect: non-scaling-stroke`, jadi ukurannya tetap saat zoom. Warna = `var(--domain-N)` bidang tingkat atas; tanpa domain `var(--domain-none)`; istilah `pending` sedikit pudar. Muncul dengan `animate-dot-in` |
+| Wilayah | Isi warna bidang dengan opasitas 0,09 (0,22 saat disorot dari legenda), garis tipis 0,55 |
+| Label | `var(--text)` dengan halo `var(--surface)` (`paint-order: stroke`), supaya terbaca di atas wilayah mana pun di kedua mode. Label wilayah huruf kapital tebal. Label tidak pernah keluar kanvas |
+| Pilihan | Cincin `var(--text)` di titik terpilih; garis ke 6 tetangga dengan tebal dan opasitas sesuai skor kemiripan |
+| Panel detail | Panel kanan `md:w-80` di desktop, bottom sheet `rounded-t-panel` setinggi maksimal 62% peta di HP. Titik terpilih digeser keluar dari area yang tertutup panel |
+| Kontrol zoom | `icon-btn` di pojok kiri atas. Di layar sentuh hanya "Tampilkan seluruh peta" (cubit untuk zoom) |
+| Gerak | Pindah ke titik 450 ms, perpindahan setelah susun ulang 600 ms. Tanpa animasi saat `prefers-reduced-motion` |
+
+### Pola Peta Otak 3D (`src/components/vocab/map/brain-map-3d.tsx` + `scenes/`)
+
+| Unsur | Aturan |
+|---|---|
+| Kanvas | Pembungkus `theme-scope scheme-dark`/`scheme-light` + `text-text`, jadi semua token, termasuk panel detail, mengikuti tema kanvas, bukan tema aplikasi. Latar gradien radial dari token |
+| Warna 3D | Warna token dibaca lewat elemen probe (`getComputedStyle`), supaya `light-dark()` terselesaikan. Warna benda fisik (lubang hitam, gas panas, cahaya bintang, jaringan) boleh berupa konstanta di scene karena bagian dari gambar, bukan antarmuka |
+| Label | Overlay HTML yang diproyeksikan dari 3D tiap frame, tabrakan diselesaikan dengan `placeLabels`. Nama bidang: lima terbesar 60%, yang disorot 100% (`FIELD_LABELS`). Tanpa angka jumlah |
+| Sorotan | `HighlightLayer`: titik terpilih/hover lebih besar dan garis ke tetangga, ikut bergerak bila istilahnya bergerak |
+| Gerak | Kamera berputar dan orbit bergerak hanya saat "Putar otomatis" aktif; tidak bergerak saat `prefers-reduced-motion` |
+
+**Menambah visualisasi 3D**: tulis kelas yang mengimplementasikan `ViewScene` (`scenes/common.ts`), lalu tambahkan satu entri di `scenes/registry.ts`. Entri itu berisi label, ikon, tema (tetap atau `"choice"`), kontrol Batas, gerak sendiri, kecepatan putar, latar, teks info, kredit, dan baris tooltip. Cangkangnya tidak perlu diubah. Scene menerima tata letak dari worker (posisi kubus, peran, tetangga, slot otak), semua istilah dan yang tampil, domain, dan fungsi warna token.
 
 ## Yang sengaja tidak ikut berubah
 
