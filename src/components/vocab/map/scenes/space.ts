@@ -23,7 +23,21 @@ import {
 import { mulberry32 } from "@/lib/vocab/layout/prng";
 import { termGroups } from "@/lib/vocab/map3d-model";
 import { bodyPositions, spaceLayout, type Body, type SpaceLayout } from "@/lib/vocab/space-model";
-import { canvasTexture, colorVar, disposeTree, glowTexture, HighlightLayer, radialTexture, setPoints, type GroupLabel, type Highlight, type SceneInput, type ViewScene } from "./common";
+import {
+  canvasTexture,
+  colorVar,
+  disposeTree,
+  fieldLabels,
+  glowTexture,
+  HighlightLayer,
+  radialTexture,
+  setPoints,
+  type FieldLabel,
+  type GroupLabel,
+  type Highlight,
+  type SceneInput,
+  type ViewScene,
+} from "./common";
 
 /**
  * Colours of physical things in the sky (hot gas, starlight, the void). They
@@ -178,7 +192,10 @@ export class SpaceScene implements ViewScene {
   private positions = new Map<string, Vector3>();
   private visibleIds: string[] = [];
   private visibleSet = new Set<string>();
-  private labels: GroupLabel[] = [];
+  /** Galaxy names (and the no-domain cluster): ranked, see FIELD_LABELS. Sun names always show. */
+  private galaxyLabels: FieldLabel[] = [];
+  private sunLabels: GroupLabel[] = [];
+  private focusFields = new Set<string | null>();
   /** Scene time of the last tick, so a rebuild keeps everything where it was. */
   private now = 0;
   private swirls: Texture[] = [];
@@ -244,7 +261,8 @@ export class SpaceScene implements ViewScene {
     this.movers = [];
     this.disks = [];
     this.galaxyDisks = [];
-    this.labels = [];
+    this.galaxyLabels = [];
+    this.sunLabels = [];
     this.positions = new Map();
 
     for (const galaxy of layout.galaxies) {
@@ -314,7 +332,8 @@ export class SpaceScene implements ViewScene {
 
       this.positions.set(hole.key, centre);
       this.positions.set(`label:${hole.key}`, centre.clone().addScaledVector(normal, galaxy.radius * 0.42));
-      this.labels.push({ key: `label:${hole.key}`, text: `${field?.name ?? "Bidang"} ${liveFields.get(galaxy.fieldId)}`, priority: 950 });
+      const count = liveFields.get(galaxy.fieldId) ?? 0;
+      this.galaxyLabels.push({ key: `label:${hole.key}`, text: `${field?.name ?? "Bidang"} ${count}`, priority: 950, fieldId: galaxy.fieldId, count });
     }
 
     // Suns (with the orbits of their planets) and the loose cluster of terms without a domain.
@@ -335,7 +354,7 @@ export class SpaceScene implements ViewScene {
       this.sky.add(group);
       this.movers.push({ key: sun.key, object: group });
       const name = sun.branchKey?.endsWith(":umum") ? "Umum" : (domains.get(sun.branchKey ?? "")?.name ?? "");
-      this.labels.push({ key: sun.key, text: name, priority: 700 });
+      this.sunLabels.push({ key: sun.key, text: name, priority: 700 });
     }
     if (visible.some((p) => !termGroups(p.domain_id, domains).fieldId)) {
       const cluster = layout.galaxies.find((g) => g.fieldId === null);
@@ -345,7 +364,7 @@ export class SpaceScene implements ViewScene {
         dust.position.set(...cluster.centre);
         this.sky.add(dust);
         this.positions.set("label:cluster:none", new Vector3(...cluster.centre).add(new Vector3(0, cluster.radius * 0.8, 0)));
-        this.labels.push({ key: "label:cluster:none", text: "Tanpa domain", priority: 900 });
+        this.galaxyLabels.push({ key: "label:cluster:none", text: "Tanpa domain", priority: 900, fieldId: null, count: 0 });
       }
     }
 
@@ -416,6 +435,12 @@ export class SpaceScene implements ViewScene {
     };
     this.marks.update(h, { ...input, theme: "dark" }, colorOf, (key) => this.positionOf(key));
 
+    this.focusFields = new Set();
+    for (const id of [h.selectedId, h.hoverId]) {
+      const point = id ? input.points.find((p) => p.id === id) : undefined;
+      if (point) this.focusFields.add(termGroups(point.domain_id, input.domains).fieldId);
+    }
+
     // The path each highlighted body travels: brighter for the selected one.
     disposeTree(this.paths);
     this.pathOwners = [];
@@ -464,7 +489,7 @@ export class SpaceScene implements ViewScene {
   }
 
   groupLabels() {
-    return this.labels;
+    return [...fieldLabels(this.galaxyLabels, this.focusFields), ...this.sunLabels];
   }
 
   frame() {

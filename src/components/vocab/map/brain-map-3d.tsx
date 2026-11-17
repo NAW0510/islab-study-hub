@@ -23,7 +23,7 @@ import { SpaceScene } from "./scenes/space";
 import { useLayout3d } from "./use-layout-3d";
 
 type Props = { points: MapPoint[]; domains: VocabDomain[]; programStart: string };
-type LabelSpec = { key: string; text: string; priority: number; group: boolean };
+type LabelSpec = { key: string; text: string; priority: number; group: boolean; opacity?: number };
 
 const VIEW_KEY = "peta-otak-3d:tampilan";
 const THEME_KEY = "peta-otak-3d:tema";
@@ -45,7 +45,7 @@ const INFO: Record<View3d, string> = {
   space:
     "Tiap bidang adalah galaksi dengan lubang hitam di pusatnya, dan tiap cabang sebuah matahari. Planet adalah istilah inti di cabangnya; bulan mengorbit planet yang paling mirip maknanya; batuan adalah istilah yang hubungannya longgar atau belum punya domain. Saat “Putar otomatis” aktif, semuanya bergerak di orbitnya.",
   brain:
-    "Tiap bidang menempati lobus otaknya sendiri (namanya muncul saat kamu menyorot atau memilih salah satu istilahnya), dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya.",
+    "Tiap bidang menempati lobus otaknya sendiri (nama lima bidang terbesar tampil samar; bidang lain muncul saat kamu menyorot atau memilih salah satu istilahnya), dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya.",
   cube:
     "Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP menjaga struktur lokal, bukan jarak global.",
 };
@@ -705,6 +705,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
               <span
                 key={l.key}
                 ref={(el) => registerLabel(l.key, el)}
+                style={l.opacity !== undefined && l.opacity < 1 ? { opacity: l.opacity } : undefined}
                 className={cn(
                   "invisible absolute top-0 left-0 whitespace-nowrap text-text [text-shadow:0_0_3px_var(--surface),0_0_3px_var(--surface),0_0_6px_var(--surface)]",
                   l.group ? "text-[11px] font-semibold tracking-[0.04em] uppercase" : "text-[11px]",

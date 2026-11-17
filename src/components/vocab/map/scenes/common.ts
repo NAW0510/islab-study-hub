@@ -46,7 +46,33 @@ export type Highlight = {
 };
 
 /** A name drawn over the scene at the position of `key` (a group, galaxy, sun or lobe). */
-export type GroupLabel = { key: string; text: string; priority: number };
+export type GroupLabel = { key: string; text: string; priority: number; opacity?: number };
+
+/**
+ * Field names in the space and brain views: the fields with the most visible
+ * terms always show, faintly enough not to cover the picture; any other field
+ * only while one of its terms is hovered or selected (then at full strength,
+ * like a focused top field).
+ */
+export const FIELD_LABELS = { top: 5, opacity: 0.6 } as const;
+
+/** A field's label, with what is needed to rank it. `fieldId` null = terms without a domain. */
+export type FieldLabel = GroupLabel & { fieldId: string | null; count: number };
+
+export function fieldLabels(labels: readonly FieldLabel[], focus: ReadonlySet<string | null>): GroupLabel[] {
+  const top = new Set(
+    labels
+      .filter((l) => l.fieldId !== null)
+      .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text))
+      .slice(0, FIELD_LABELS.top)
+      .map((l) => l.key),
+  );
+  return labels.flatMap(({ key, text, priority, fieldId }) => {
+    if (focus.has(fieldId)) return [{ key, text, priority: priority + 10, opacity: 1 }];
+    if (top.has(key)) return [{ key, text, priority, opacity: FIELD_LABELS.opacity }];
+    return [];
+  });
+}
 
 /**
  * One look of the 3D map. The shell owns the renderer, camera, input, labels
