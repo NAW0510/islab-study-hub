@@ -730,7 +730,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         <div
           ref={hostRef}
           className={cn(
-            "theme-scope card relative order-2 h-[min(70dvh,44rem)] min-h-96 touch-none overflow-hidden select-none",
+            "theme-scope card relative order-2 h-[min(70dvh,44rem)] min-h-96 touch-none overflow-hidden text-text select-none",
             theme === "dark" ? "scheme-dark" : "scheme-light",
             "bg-[radial-gradient(ellipse_at_center,var(--surface-2),var(--bg))]",
           )}
