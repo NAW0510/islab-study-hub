@@ -74,7 +74,7 @@ npm run dev:local
 ```
 
 `npm run dev:local` menjalankan app di port 3100 melawan Supabase lokal (akun dev lokal dibuat otomatis;
-kredensialnya ada di `scripts/dev-local.mjs`), jadi data aslimu tidak tersentuh. Edge Function lokal:
+kredensialnya ada di `scripts/local-stack.mjs`), jadi data aslimu tidak tersentuh. Edge Function lokal:
 `npx supabase functions serve --env-file supabase/functions/.env` (salin dari `.env.example`; bisa menunjuk
 server tiruan `node scripts/voyage-mock.mjs`). Test database: `npm run test:db` (pgTAP).
 
