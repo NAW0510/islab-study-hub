@@ -29,6 +29,7 @@ uniform float uHover;
 uniform float uPress;
 uniform vec2 uLean;
 uniform float uRise;
+uniform float uPan;
 
 varying vec2 vUv;
 varying float vDepth;
@@ -73,7 +74,7 @@ void main() {
 
   vDepth = -p.z;
   vShade = 1.0 - 0.22 * abs(sin(a)) - 0.12 * t;
-  vec3 world = vec3(centre.x - 0.5 * uView.x + p.x, 0.5 * uView.y - centre.y - p.y, p.z);
+  vec3 world = vec3(centre.x - 0.5 * uView.x + p.x + uPan, 0.5 * uView.y - centre.y - p.y, p.z);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
 `;

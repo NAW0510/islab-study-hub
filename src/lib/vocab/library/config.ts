@@ -61,9 +61,22 @@ export const LIBRARY_CONFIG = {
     /** Grain strength and vignette depth (0–1). */
     GRAIN: 0.06,
     VIGNETTE: 0.28,
-    /** Longest vertical smear for a fast scroll, px, and the scroll speed (px/s) that reaches it. */
-    BLUR_MAX: 90,
-    BLUR_SPEED: 4000,
+    /**
+     * The scroll smear: px per px/s of scroll speed, and the longest it gets (MGM: 0.0075 and 22 px; ours a little
+     * gentler, since the sheets carry text). Short on purpose: a long smear of a mostly still library reads as a
+     * fault, not as speed.
+     */
+    BLUR_PER_SPEED: 0.005,
+    BLUR_MAX: 18,
+  },
+  transition: {
+    /** Seconds the scene pans away under the field's colour, holds under full cover, then settles in. */
+    OUT: 0.7,
+    HOLD: 0.18,
+    IN: 0.85,
+    /** How far the scene pans out, and how far the new sheets start from home, as a share of the viewport width. */
+    PAN: 0.55,
+    ENTER: 0.28,
   },
   quality: {
     /** Seconds of visible time skipped after a start or a change (shader warm-up, uploads). */

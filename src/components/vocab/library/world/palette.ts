@@ -1,10 +1,9 @@
 /**
- * Colours for the world, read from the design tokens at run time (so
- * light-dark() and color-mix() are already resolved by the browser) and
- * normalised to "#rrggbb" through a 2D context. The world's own colours
- * (fog, stone, lantern light) are physical parts of the picture, not UI, so
- * they live here as constants per scheme (docs/DESIGN_SYSTEM.md allows that
- * for the 3D views).
+ * Colours for the world. UI colours (the sheets' text, paper and field
+ * colours) are read from the design tokens at run time, so light-dark() and
+ * color-mix() are already resolved, and normalised to "#rrggbb" through a 2D
+ * context. The library's own colours are parts of the picture, not UI, so
+ * they live here as constants per scheme.
  */
 export type Scheme = "light" | "dark";
 
@@ -20,24 +19,111 @@ export type UiColors = {
   accent: string;
 };
 
-export type WorldColors = {
-  /** Clear colour and the fog folded sheets sink into. */
-  fog: [number, number, number];
-  /** Stone and wood of the library, near and far. */
-  stone: [number, number, number];
-  wood: [number, number, number];
-  /** Lantern and window light. */
-  light: [number, number, number];
-  /** How strongly the light glows (bloom-ish additive sprites). */
-  glow: number;
+export type Rgb = [number, number, number];
+
+type SchemePalette = {
+  /** The fog, and the page behind everything. */
+  fog: Rgb;
+  /** Stone: piers, galleries, arches, walls. */
+  stone: Rgb;
+  /** Wood of the cases and shelves. */
+  wood: Rgb;
+  floor: Rgb;
+  /** Book bindings, picked per book. Pale by day (a heavenly archive), dark by night. */
+  books: readonly Rgb[];
+  /** The river of light down the floor. */
+  river: Rgb;
+  /** The great window's glass, and its leading. */
+  glass: Rgb;
+  lead: Rgb;
+  /** Light laid over the fog: the window's halo and rays, the lantern flames. */
+  halo: Rgb;
+  ray: Rgb;
+  flame: Rgb;
+  /** Dust in the air. */
+  mote: Rgb;
+  /** The pools of light the lanterns throw on the stacks. */
+  lantern: Rgb;
+  /** The window's light scattered in the fog. */
+  scatter: Rgb;
 };
 
-export const WORLD_COLORS: Record<Scheme, WorldColors> = {
-  // Pearl fog, ivory stone and warm white light by day.
-  light: { fog: [0.93, 0.925, 0.905], stone: [0.86, 0.84, 0.8], wood: [0.7, 0.62, 0.52], light: [1, 0.93, 0.78], glow: 0.55 },
-  // Ink-blue fog, dark stacks and lamp-gold light by night.
-  dark: { fog: [0.05, 0.065, 0.11], stone: [0.17, 0.2, 0.28], wood: [0.24, 0.19, 0.16], light: [1, 0.72, 0.38], glow: 0.8 },
+/**
+ * The library's own colours, for both schemes: raw display sRGB (0–1), shown
+ * exactly as written. Day: pearl fog, ivory stone, pale bindings, warm white
+ * light. Night: near-black fog, ink-blue stacks, moonlit glass, ember lamps.
+ * These are parts of a picture, not UI, so they live here and not in the
+ * design tokens (docs/DESIGN_SYSTEM.md, pola Perpustakaan).
+ */
+export const LIBRARY_PALETTE: { light: SchemePalette; dark: SchemePalette } = {
+  light: {
+    fog: [0.925, 0.935, 0.952],
+    stone: [0.953, 0.94, 0.918],
+    wood: [0.89, 0.86, 0.81],
+    floor: [0.94, 0.925, 0.9],
+    books: [
+      [0.96, 0.94, 0.9],
+      [0.91, 0.87, 0.79],
+      [0.86, 0.82, 0.75],
+      [0.98, 0.97, 0.95],
+      [0.9, 0.83, 0.69],
+      [0.84, 0.87, 0.91],
+      [0.93, 0.89, 0.85],
+      [0.8, 0.77, 0.7],
+      [0.91, 0.85, 0.81],
+      [0.86, 0.89, 0.85],
+    ],
+    river: [1, 0.99, 0.95],
+    glass: [1, 0.975, 0.89],
+    lead: [0.8, 0.78, 0.74],
+    halo: [0.42, 0.4, 0.34],
+    ray: [0.36, 0.34, 0.29],
+    flame: [1, 0.82, 0.52],
+    mote: [1, 1, 1],
+    lantern: [0.55, 0.45, 0.3],
+    scatter: [0.04, 0.035, 0.015],
+  },
+  dark: {
+    fog: [0.02, 0.024, 0.04],
+    stone: [0.05, 0.056, 0.08],
+    wood: [0.065, 0.055, 0.05],
+    floor: [0.045, 0.05, 0.07],
+    books: [
+      [0.065, 0.075, 0.11],
+      [0.085, 0.1, 0.15],
+      [0.045, 0.05, 0.075],
+      [0.1, 0.12, 0.18],
+      [0.14, 0.11, 0.07],
+      [0.07, 0.125, 0.24],
+      [0.06, 0.07, 0.1],
+      [0.11, 0.1, 0.125],
+      [0.165, 0.08, 0.095],
+      [0.06, 0.125, 0.11],
+    ],
+    river: [0.16, 0.3, 0.56],
+    glass: [0.12, 0.23, 0.52],
+    lead: [0.3, 0.3, 0.32],
+    halo: [0.16, 0.28, 0.6],
+    ray: [0.2, 0.38, 0.72],
+    flame: [1, 0.52, 0.16],
+    mote: [0.6, 0.72, 0.95],
+    lantern: [1, 0.55, 0.17],
+    scatter: [0.05, 0.085, 0.19],
+  },
 };
+
+export function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
+/** The fog colour as the library shaders compute it (fogColour in library-shaders.ts), for the cards and the background. */
+export function fogOf(dark: number, theme: number, themeColor: Rgb): Rgb {
+  const fog = mixRgb(LIBRARY_PALETTE.light.fog, LIBRARY_PALETTE.dark.fog, dark);
+  if (theme <= 0) return fog;
+  const night = mixRgb(fog, [themeColor[0] * 0.22, themeColor[1] * 0.22, themeColor[2] * 0.22], 0.5);
+  const themed = mixRgb(mixRgb(fog, themeColor, 0.09), night, dark);
+  return mixRgb(fog, themed, theme);
+}
 
 let normaliser: CanvasRenderingContext2D | null = null;
 

@@ -2,382 +2,517 @@ import * as THREE from "three";
 import { mulberry32 } from "@/lib/vocab/layout/prng";
 import type { QualityLevel } from "@/lib/vocab/library/quality";
 import type { LayerFrame, WorldLayer } from "./engine";
-import { WORLD_COLORS, type Scheme } from "./palette";
+import {
+  FLAT_VERTEX,
+  FLOOR_FRAGMENT,
+  GLOW_FRAGMENT,
+  MIST_FRAGMENT,
+  SOLID_FRAGMENT,
+  SOLID_VERTEX,
+  WINDOW_FRAGMENT,
+} from "./library-shaders";
+import { LIBRARY_PALETTE, mixRgb, type Rgb } from "./palette";
 
 /**
- * The library behind the river, built from boxes and flat shapes (no models
- * to download). Modelled in library units U = a ninth of the viewport
- * height; the walls stand just outside the river's columns at every width.
+ * The library around the river, built from boxes and a few flat shapes, no
+ * models to download. Modelled in units U (a ninth of the viewport height);
+ * the eye is at y = 0 on the card plane and the nave runs away from it, the
+ * walls just outside the river's columns at every width.
  *
- *   stacks    three storeys of shelves down both sides of the nave, books
- *             in muted versions of the field colours (one instanced draw,
- *             nearest first, so a lower tier simply draws fewer far books);
- *   arches    pointed arches over the nave at every other pier;
- *   window    a tall window at the far end, with long beams of light;
- *   lanterns  on chains down the nave, glowing and swaying a little;
- *   floor     stone, with a faint river of light along the middle;
- *   veils     mist at a few depths, drifting slowly.
- *
- * Day: pearl fog, ivory stone, warm white light. Night: ink-blue fog, dark
- * stacks, lamp-gold light. Everything is drawn in display sRGB (raw colours).
+ *   stacks     three storeys of shelves between slender piers, pale bindings
+ *              by day and dark ones by night; galleries with balustrades,
+ *              ladders leaning here and there, a cornice and a plain upper
+ *              wall where the arches spring;
+ *   arches     pointed transverse arches over the nave at every pier;
+ *   window     a great pointed window at the end, its light scattered in
+ *              the fog, a halo and a fan of god rays toward the visitor;
+ *   lanterns   on long chains down the nave, lighting the stacks around them;
+ *   floor      flagstones with a river of light down the middle;
+ *   mist       sheets of it at a few depths, drifting; motes in the air.
+ * About a dozen draw calls. Colours come in day/night pairs and glide with
+ * uDark; inside a field's room everything leans toward the field's colour.
  */
-const NEAR = -160;
-const FAR = -7000;
+const L = {
+  FLOOR: -9,
+  GALLERIES: [-2.4, 5] as const,
+  SPRING: 11.4,
+  NEAR: 8,
+  BAY: 5.2,
+  SHELF: 1.45,
+  GALLERY_DEPTH: 1,
+  CASE_DEPTH: 0.95,
+  TOP: 20,
+};
 
-type Built = { group: THREE.Group; books: THREE.InstancedMesh; bookTotal: number; lanterns: THREE.Group[]; glows: THREE.Sprite[]; veils: THREE.Mesh[] };
+const TIERS: Record<QualityLevel["tier"], { bays: number; bookMin: number; mist: number; rays: number; motes: number }> = {
+  high: { bays: 24, bookMin: 0.1, mist: 5, rays: 12, motes: 1400 },
+  medium: { bays: 18, bookMin: 0.14, mist: 4, rays: 9, motes: 800 },
+  low: { bays: 13, bookMin: 0.2, mist: 2, rays: 6, motes: 400 },
+};
+
+type Part = { x: number; y: number; z: number; w: number; h: number; d: number; day: Rgb; night: Rgb; rz?: number };
+type Lantern = { group: THREE.Group; light: THREE.Vector3; phase: number; drop: number };
+type Glow = { material: THREE.ShaderMaterial; day: Rgb; night: Rgb };
 
 export class LibraryLayer implements WorldLayer {
-  private built: Built | null = null;
-  private key = "";
-  private scheme: Scheme = "light";
-  private tier: QualityLevel["tier"] = "high";
-  private readonly glowTexture = radialTexture();
-  private readonly mistTexture = mistTexture();
-  private readonly materials = {
-    stone: new THREE.MeshLambertMaterial(),
-    wood: new THREE.MeshLambertMaterial(),
-    books: new THREE.MeshLambertMaterial(),
-    floor: new THREE.MeshLambertMaterial(),
-    dark: new THREE.MeshBasicMaterial(),
-    window: new THREE.MeshBasicMaterial({ transparent: true }),
-    beam: new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
-    river: new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
-    veil: new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
-    chain: new THREE.LineBasicMaterial({ transparent: true }),
+  /** Shared by every library material: one update moves them all. */
+  readonly uniforms = {
+    uDark: { value: 0 },
+    uUnit: { value: 100 },
+    uNave: { value: 500 },
+    uCentreX: { value: 0 },
+    uFogDay: { value: new THREE.Vector3(...LIBRARY_PALETTE.light.fog) },
+    uFogNight: { value: new THREE.Vector3(...LIBRARY_PALETTE.dark.fog) },
+    uFogStart: { value: 900 },
+    uFogDensity: { value: 1 / 5200 },
+    uTheme: { value: 0 },
+    uThemeColor: { value: new THREE.Vector3(0.5, 0.5, 0.5) },
+    uWindowScreen: { value: new THREE.Vector4(0, 0, 200, 0) },
+    uScatterDay: { value: new THREE.Vector3(...LIBRARY_PALETTE.light.scatter) },
+    uScatterNight: { value: new THREE.Vector3(...LIBRARY_PALETTE.dark.scatter) },
+    uPixelRatio: { value: 1 },
+    uLanterns: { value: Array.from({ length: 12 }, () => new THREE.Vector4()) },
+    uLanternDay: { value: new THREE.Vector3(...LIBRARY_PALETTE.light.lantern) },
+    uLanternNight: { value: new THREE.Vector3(...LIBRARY_PALETTE.dark.lantern) },
+    uTime: { value: 0 },
   };
-  private readonly hemi = new THREE.HemisphereLight();
-  private readonly sun = new THREE.DirectionalLight();
-  private readonly ambient = new THREE.AmbientLight();
-  private readonly bookColors: THREE.Color[] = [];
+
+  private group: THREE.Group | null = null;
+  private key = "";
+  private tier: QualityLevel["tier"] = "high";
+  private lanterns: Lantern[] = [];
+  private glows: Glow[] = [];
+  private mist: THREE.Mesh[] = [];
+  private motes: THREE.Points | null = null;
+  private readonly windowCentre = new THREE.Vector3();
+  private windowHalf = 1;
+  private readonly mistTexture = mistTexture();
+  private readonly projected = new THREE.Vector3();
+  private readonly edge = new THREE.Vector3();
+  private readonly materials: THREE.Material[] = [];
+  private readonly geometries: THREE.BufferGeometry[] = [];
+  /** Lantern cages: pale iron by day, near black by night. */
+  private cage: THREE.MeshBasicMaterial | null = null;
+  /** Plain three.js fog for the few plain materials (cages, chains, motes); the shaders do their own. */
+  private readonly sceneFog = new THREE.Fog(new THREE.Color(), 900, 7000);
 
   constructor(
     private readonly scene: THREE.Scene,
+    private readonly camera: THREE.PerspectiveCamera,
     private readonly river: HTMLElement,
     private readonly canvas: HTMLCanvasElement,
   ) {
-    this.materials.window.map = this.glowTexture;
-    this.materials.beam.map = this.glowTexture;
-    this.materials.river.map = this.glowTexture;
-    this.materials.veil.map = this.mistTexture;
-    this.sun.position.set(-0.3, 0.6, -1);
-    scene.add(this.hemi, this.sun, this.ambient);
-    scene.fog = new THREE.Fog(new THREE.Color(), 600, 7400);
+    scene.fog = this.sceneFog;
   }
 
   setTier(tier: QualityLevel["tier"]) {
+    if (tier === this.tier) return;
     this.tier = tier;
-    this.applyTier();
+    this.key = ""; // rebuilt at the new density on the next frame
   }
 
-  private applyTier() {
-    if (!this.built) return;
-    const share = this.tier === "high" ? 1 : this.tier === "medium" ? 0.6 : 0.35;
-    this.built.books.count = Math.round(this.built.bookTotal * share);
-    this.built.veils.forEach((v, i) => (v.visible = this.tier !== "low" || i % 2 === 0));
+  private keep<T extends THREE.Material>(m: T): T {
+    this.materials.push(m);
+    return m;
   }
 
-  setScheme(scheme: Scheme) {
-    this.scheme = scheme;
-    const c = WORLD_COLORS[scheme];
-    const m = this.materials;
-    const dark = scheme === "dark";
-    m.stone.color.setRGB(...c.stone);
-    m.wood.color.setRGB(...c.wood);
-    m.books.color.setRGB(1, 1, 1);
-    m.floor.color.setRGB(...c.stone).multiplyScalar(dark ? 0.8 : 0.95);
-    m.dark.color.setRGB(...c.wood).multiplyScalar(0.5);
-    m.window.color.setRGB(...c.light);
-    m.window.opacity = dark ? 0.85 : 0.95;
-    m.beam.color.setRGB(...c.light).multiplyScalar(dark ? 0.16 : 0.22);
-    m.river.color.setRGB(...c.light).multiplyScalar(dark ? 0.35 : 0.25);
-    m.veil.color.setRGB(...c.fog);
-    m.veil.opacity = dark ? 0.35 : 0.55;
-    m.chain.color.setRGB(...c.wood).multiplyScalar(0.6);
-    m.chain.opacity = 0.7;
-    this.hemi.color.setRGB(...c.light);
-    this.hemi.groundColor.setRGB(...c.fog);
-    this.hemi.intensity = dark ? 1.7 : 1.6;
-    this.sun.color.setRGB(...c.light);
-    this.sun.intensity = dark ? 0.6 : 1.1;
-    this.ambient.color.setRGB(...c.fog);
-    this.ambient.intensity = dark ? 1 : 0.9;
-    this.built?.glows.forEach((g) => {
-      (g.material as THREE.SpriteMaterial).color.setRGB(...c.light).multiplyScalar(dark ? 1 : 0.6);
+  private geometry<T extends THREE.BufferGeometry>(g: T): T {
+    this.geometries.push(g);
+    return g;
+  }
+
+  private shader(fragmentShader: string, vertexShader: string, extra: Record<string, THREE.IUniform> = {}, options: Partial<THREE.ShaderMaterialParameters> = {}) {
+    return this.keep(new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms: { ...this.uniforms, ...extra }, ...options }));
+  }
+
+  /** Light laid over the fog: a beam (shape 0) or a round glow (shape 1), with a day and a night colour. */
+  private glow(shape: number, day: Rgb, night: Rgb, opacity: number) {
+    const material = this.shader(GLOW_FRAGMENT, FLAT_VERTEX, { uColour: { value: new THREE.Vector3(...day) }, uOpacity: { value: opacity }, uShape: { value: shape } }, {
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
     });
-    if (this.built) this.paintBooks(this.built.books);
+    this.glows.push({ material, day, night });
+    return material;
   }
 
-  private paintBooks(books: THREE.InstancedMesh) {
-    const dark = this.scheme === "dark";
-    const shade = new THREE.Color();
-    for (let i = 0; i < books.count && i < this.bookColors.length; i++) {
-      shade.copy(this.bookColors[i]);
-      if (dark) shade.multiplyScalar(0.7);
-      books.setColorAt(i, shade);
-    }
-    if (books.instanceColor) books.instanceColor.needsUpdate = true;
+  private instanced(geometry: THREE.BufferGeometry, material: THREE.Material, parts: Part[]) {
+    const g = this.geometry(geometry.clone());
+    const day = new Float32Array(parts.length * 3);
+    const night = new Float32Array(parts.length * 3);
+    parts.forEach((part, i) => {
+      day.set(part.day, i * 3);
+      night.set(part.night, i * 3);
+    });
+    g.setAttribute("aDay", new THREE.InstancedBufferAttribute(day, 3));
+    g.setAttribute("aNight", new THREE.InstancedBufferAttribute(night, 3));
+    const mesh = new THREE.InstancedMesh(g, material, Math.max(1, parts.length));
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const e = new THREE.Euler();
+    const p = new THREE.Vector3();
+    const s = new THREE.Vector3();
+    parts.forEach((part, i) => {
+      q.setFromEuler(e.set(0, 0, part.rz ?? 0));
+      mesh.setMatrixAt(i, m.compose(p.set(part.x, part.y, part.z), q, s.set(part.w, part.h, part.d)));
+    });
+    mesh.count = parts.length;
+    mesh.frustumCulled = false;
+    return mesh;
   }
 
-  /** Rebuilds when the viewport or the river's width changed enough to move the walls. */
-  private build(viewHeight: number, halfNave: number, centreX: number) {
-    this.dispose(true);
+  private build(viewHeight: number, nave: number) {
+    this.clear();
     const U = viewHeight / 9;
-    const random = mulberry32(20261117);
+    const T = TIERS[this.tier];
+    const P = LIBRARY_PALETTE;
+    const random = mulberry32(20261118);
     const group = new THREE.Group();
-    group.position.x = centreX;
-    const m = this.materials;
-    const box = new THREE.BoxGeometry(1, 1, 1);
-    const floorY = -5.3 * U;
-    const storey = 3 * U;
-    const bay = 2.3 * U;
-    const bays = Math.floor((NEAR - FAR) / bay);
-    const shelfDepth = 0.75 * U;
+    const u = this.uniforms;
+    u.uUnit.value = U;
+    u.uNave.value = nave;
+    u.uFogStart.value = 9 * U;
+    u.uFogDensity.value = 1 / (62 * U);
+    this.sceneFog.near = 9 * U;
+    this.sceneFog.far = 75 * U;
 
-    // Floor and the river of light.
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(halfNave * 6, NEAR - FAR + 2000), m.floor);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, floorY, (NEAR + FAR) / 2);
-    group.add(floor);
-    const riverOfLight = new THREE.Mesh(new THREE.PlaneGeometry(halfNave * 0.5, NEAR - FAR), m.river);
-    riverOfLight.rotation.x = -Math.PI / 2;
-    riverOfLight.position.set(0, floorY + 1, (NEAR + FAR) / 2);
-    group.add(riverOfLight);
+    // ---------------------------------------------------------------- the walls
+    const stone: Part[] = [];
+    const cases: Part[] = [];
+    const sd = P.light.stone;
+    const sn = P.dark.stone;
+    const wd = P.light.wood;
+    const wn = P.dark.wood;
+    const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
+    const nearZ = L.NEAR * U;
+    const bay = L.BAY * U;
+    const far = nearZ - T.bays * bay;
+    const storeys: [number, number][] = [
+      [L.FLOOR, L.GALLERIES[0]],
+      [L.GALLERIES[0] + 0.3, L.GALLERIES[1]],
+      [L.GALLERIES[1] + 0.3, L.SPRING - 0.5],
+    ];
 
-    // Shelving: boards, uprights, gallery rails, and the books (instanced, nearest first).
-    type Box = { x: number; y: number; z: number; w: number; h: number; d: number };
-    const boards: Box[] = [];
-    const uprights: Box[] = [];
-    const books: (Box & { tint: THREE.Color })[] = [];
-    const palette = [0x2a78d6, 0xeb6834, 0x1baf7a, 0xeda100, 0xe87ba4, 0x008300, 0x6250d6, 0xe34948, 0x0e93b5, 0xa5622a].map((hex) => {
-      const c = new THREE.Color().setRGB(((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255);
-      // Muted: an old binding, not a sticker.
-      return c.lerp(new THREE.Color().setRGB(0.55, 0.5, 0.45), 0.55);
-    });
     for (const side of [-1, 1]) {
-      const wallX = side * (halfNave + shelfDepth / 2);
-      for (let b = 0; b < bays; b++) {
-        const z0 = NEAR - b * bay;
-        uprights.push({ x: wallX, y: floorY + 1.5 * storey, z: z0, w: shelfDepth * 1.1, h: 3 * storey + 0.4 * U, d: 0.18 * U });
-        for (let s = 0; s < 3; s++) {
-          const base = floorY + s * storey;
-          // The gallery rail of each storey above the ground.
-          if (s > 0) boards.push({ x: side * (halfNave - 0.05 * U), y: base + 0.55 * U, z: z0 - bay / 2, w: 0.05 * U, h: 0.05 * U, d: bay });
-          for (let r = 0; r < 3; r++) {
-            const shelfY = base + 0.15 * U + r * 0.95 * U;
-            boards.push({ x: wallX, y: shelfY, z: z0 - bay / 2, w: shelfDepth, h: 0.06 * U, d: bay });
-            let z = z0 - 0.12 * U;
-            while (z > z0 - bay + 0.12 * U) {
-              const thick = (0.07 + random() * 0.09) * U;
-              const tall = (0.55 + random() * 0.3) * U;
-              if (random() < 0.06) {
-                z -= thick * 2; // a gap on the shelf
+      for (let b = 0; b <= T.bays; b++) {
+        const z = nearZ - b * bay;
+        // A slender pier: shaft, plinth, capital, and the attached shaft the arch lands on.
+        stone.push({ x: side * (nave + 0.35 * U), y: ((L.FLOOR + L.SPRING) / 2) * U, z, w: 0.75 * U, h: (L.SPRING - L.FLOOR) * U, d: 0.42 * U, day: sd, night: sn });
+        stone.push({ x: side * (nave + 0.3 * U), y: (L.FLOOR + 0.35) * U, z, w: 0.95 * U, h: 0.7 * U, d: 0.62 * U, day: shade(sd, 0.97), night: sn });
+        stone.push({ x: side * (nave + 0.12 * U), y: (L.SPRING - 0.15) * U, z, w: 0.6 * U, h: 0.35 * U, d: 0.6 * U, day: sd, night: sn });
+        stone.push({ x: side * (nave - 0.08 * U), y: ((L.GALLERIES[1] + L.SPRING) / 2) * U, z, w: 0.22 * U, h: (L.SPRING - L.GALLERIES[1]) * U, d: 0.22 * U, day: sd, night: sn });
+        if (b === T.bays) break;
+        const z0 = z - 0.25 * U;
+        const z1 = z - bay + 0.25 * U;
+        const span = z0 - z1;
+        const mid = (z0 + z1) / 2;
+
+        for (const [bottom, top] of storeys) {
+          cases.push({ x: side * (nave + L.CASE_DEPTH * U), y: ((bottom + top) / 2) * U, z: mid, w: 0.08 * U, h: (top - bottom) * U, d: span, day: shade(wd, 0.8), night: shade(wn, 0.7) });
+          for (let y = bottom + 0.08; y + 1.15 < top; y += L.SHELF) {
+            cases.push({ x: side * (nave + (L.CASE_DEPTH / 2) * U), y: y * U, z: mid, w: L.CASE_DEPTH * U, h: 0.07 * U, d: span, day: wd, night: wn });
+            let zz = z0 - 0.04 * U;
+            while (zz > z1 + 0.15 * U) {
+              if (random() < 0.05) {
+                // A short pile lying flat.
+                const n = 2 + Math.floor(random() * 3);
+                for (let k = 0; k < n; k++) {
+                  cases.push({ x: side * (nave + 0.45 * U), y: (y + 0.08 + 0.09 * k + 0.045) * U, z: zz - 0.45 * U, w: 0.72 * U, h: 0.09 * U, d: 0.85 * U, day: pick(P.light.books, random), night: pick(P.dark.books, random) });
+                }
+                zz -= 1 * U;
                 continue;
               }
-              books.push({ x: wallX - side * 0.05 * U, y: shelfY + 0.03 * U + tall / 2, z: z - thick / 2, w: shelfDepth * (0.75 + random() * 0.15), h: tall, d: thick, tint: palette[Math.floor(random() * palette.length)].clone().multiplyScalar(0.8 + random() * 0.35) });
-              z -= thick + 0.006 * U;
+              const w = (T.bookMin + random() * 0.17) * U;
+              const h = Math.min((L.SHELF - 0.14) * U, (0.86 + random() * 0.4) * U);
+              const d = (0.74 + random() * 0.14) * U;
+              const lean = random() < 0.04 ? (random() - 0.5) * 0.35 : 0;
+              cases.push({ x: side * (nave + d / 2 + 0.05 * U), y: y * U + 0.035 * U + h / 2, z: zz - w / 2, w: d, h, d: w, day: pick(P.light.books, random), night: pick(P.dark.books, random), rz: lean });
+              zz -= w + (random() < 0.08 ? 0.3 * U : 0.01 * U);
             }
           }
+          cases.push({ x: side * (nave + (L.CASE_DEPTH / 2) * U), y: (top - 0.04) * U, z: mid, w: L.CASE_DEPTH * U, h: 0.1 * U, d: span, day: wd, night: wn });
         }
+
+        // Galleries: slab, rails and balusters, the whole length.
+        for (const g of L.GALLERIES) {
+          stone.push({ x: side * (nave - (L.GALLERY_DEPTH / 2) * U), y: (g - 0.12) * U, z: z - bay / 2, w: L.GALLERY_DEPTH * U, h: 0.24 * U, d: bay, day: sd, night: sn });
+          stone.push({ x: side * (nave - L.GALLERY_DEPTH * U), y: (g + 0.95) * U, z: z - bay / 2, w: 0.1 * U, h: 0.08 * U, d: bay, day: sd, night: sn });
+          stone.push({ x: side * (nave - L.GALLERY_DEPTH * U), y: (g + 0.12) * U, z: z - bay / 2, w: 0.12 * U, h: 0.08 * U, d: bay, day: sd, night: sn });
+          for (let k = 0.25; k < L.BAY; k += 0.45) {
+            stone.push({ x: side * (nave - L.GALLERY_DEPTH * U), y: (g + 0.53) * U, z: z - k * U, w: 0.06 * U, h: 0.78 * U, d: 0.06 * U, day: shade(sd, 0.98), night: sn });
+          }
+        }
+
+        // A rolling ladder in some bays, leaning on the stacks.
+        if (random() < 0.28) {
+          const storey = storeys[Math.floor(random() * 2)];
+          const height = (storey[1] - storey[0] - 0.4) * U;
+          const lz = mid + (random() - 0.5) * span * 0.5;
+          const tilt = side * 0.14;
+          for (const off of [-0.22, 0.22]) {
+            cases.push({ x: side * (nave - 0.32 * U), y: storey[0] * U + height / 2, z: lz + off * U, w: 0.06 * U, h: height, d: 0.06 * U, day: wd, night: wn, rz: tilt });
+          }
+          for (let r = 0.4; r < height / U; r += 0.42) {
+            cases.push({ x: side * (nave - 0.32 * U) - Math.sin(tilt) * (r * U - height / 2), y: storey[0] * U + r * U, z: lz, w: 0.05 * U, h: 0.05 * U, d: 0.48 * U, day: wd, night: wn });
+          }
+        }
+
+        // Cornice and the plain upper wall.
+        stone.push({ x: side * (nave + 0.2 * U), y: (L.SPRING + 0.1) * U, z: z - bay / 2, w: 0.7 * U, h: 0.3 * U, d: bay, day: sd, night: sn });
+        stone.push({ x: side * (nave + 0.75 * U), y: ((L.SPRING + L.TOP) / 2) * U, z: z - bay / 2, w: 0.5 * U, h: (L.TOP - L.SPRING) * U, d: bay, day: shade(sd, 0.96), night: shade(sn, 0.9) });
       }
     }
-    books.sort((a, b) => b.z - a.z);
-    const instanced = (list: Box[], material: THREE.Material) => {
-      const mesh = new THREE.InstancedMesh(box, material, Math.max(1, list.length));
-      const matrix = new THREE.Matrix4();
-      list.forEach((p, i) => {
-        matrix.makeScale(p.w, p.h, p.d);
-        matrix.setPosition(p.x, p.y, p.z);
-        mesh.setMatrixAt(i, matrix);
+
+    const box = this.geometry(new THREE.BoxGeometry(1, 1, 1));
+    const solid = this.shader(SOLID_FRAGMENT, SOLID_VERTEX, { uReach: { value: 1 } });
+    group.add(this.instanced(box, solid, stone), this.instanced(box, solid, cases));
+
+    // Pointed transverse arches at every pier.
+    const archGeo = this.geometry(new THREE.ExtrudeGeometry(pointedArch(nave + 0.3 * U, 0.55 * U), { depth: 0.5 * U, bevelEnabled: false, curveSegments: 20 }));
+    const arches: Part[] = [];
+    for (let b = 0; b <= T.bays; b++) arches.push({ x: 0, y: L.SPRING * U, z: nearZ - b * bay - 0.25 * U, w: 1, h: 1, d: 1, day: sd, night: sn });
+    group.add(this.instanced(archGeo, solid, arches));
+
+    // ---------------------------------------------------------------- the floor
+    const plain = (day: Rgb, night: Rgb, river: boolean) =>
+      this.shader(FLOOR_FRAGMENT, FLAT_VERTEX, {
+        uDay: { value: new THREE.Vector3(...day) },
+        uNight: { value: new THREE.Vector3(...night) },
+        uRiverDay: { value: new THREE.Vector3(...(river ? P.light.river : ([0, 0, 0] as Rgb))) },
+        uRiverNight: { value: new THREE.Vector3(...(river ? P.dark.river : ([0, 0, 0] as Rgb))) },
       });
-      mesh.count = list.length;
-      mesh.frustumCulled = false;
-      return mesh;
-    };
-    group.add(instanced(boards, m.wood), instanced(uprights, m.stone));
-    const bookMesh = instanced(books, m.books);
-    this.bookColors.length = 0;
-    books.forEach((b, i) => {
-      this.bookColors.push(b.tint);
-      bookMesh.setColorAt(i, b.tint);
-    });
-    group.add(bookMesh);
+    const floor = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(nave * 2.4, nearZ - far + 6 * U)), plain(P.light.floor, P.dark.floor, true));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, L.FLOOR * U, (nearZ + far) / 2);
+    group.add(floor);
 
-    // Pointed arches over the nave, every other pier.
-    const span = halfNave + shelfDepth;
-    const archShape = pointedArch(span, 4.4 * U, 0.35 * U);
-    const archGeo = new THREE.ShapeGeometry(archShape, 24);
-    const archTop = floorY + 3 * storey;
-    const arches: THREE.Mesh[] = [];
-    for (let b = 0; b < bays; b += 2) {
-      const arch = new THREE.Mesh(archGeo, m.stone);
-      arch.position.set(0, archTop, NEAR - b * bay - 0.1 * U);
-      arches.push(arch);
-    }
-    group.add(...arches);
+    // ---------------------------------------------------------------- the window
+    const half = nave * 0.6;
+    const windowHeight = half * 3.3;
+    const windowZ = far - 0.6 * U;
+    const windowBottom = (L.FLOOR + 2.5) * U;
+    const windowMesh = new THREE.Mesh(
+      this.geometry(new THREE.PlaneGeometry(half * 2, windowHeight)),
+      this.shader(WINDOW_FRAGMENT, FLAT_VERTEX, {
+        uGlassDay: { value: new THREE.Vector3(...P.light.glass) },
+        uGlassNight: { value: new THREE.Vector3(...P.dark.glass) },
+        uLead: { value: new THREE.Vector3(...P.light.lead) },
+      }),
+    );
+    windowMesh.position.set(0, windowBottom + windowHeight / 2, windowZ);
+    const endWall = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(nave * 2.6, (L.TOP - L.FLOOR) * U)), plain(sd, sn, false));
+    endWall.position.set(0, ((L.FLOOR + L.TOP) / 2) * U, windowZ - 2);
+    group.add(windowMesh, endWall);
+    this.windowCentre.set(0, windowBottom + windowHeight * 0.55, windowZ);
+    this.windowHalf = half;
 
-    // The great window at the far end, and its beams.
-    const windowShape = pointedArch(span * 0.55, 10 * U, 10 * U);
-    const windowMesh = new THREE.Mesh(new THREE.ShapeGeometry(windowShape, 32), m.window);
-    windowMesh.position.set(0, floorY + 2 * U, FAR - 200);
-    group.add(windowMesh);
-    const mullions = new THREE.Group();
-    for (let i = -2; i <= 2; i++) {
-      const bar = new THREE.Mesh(box, m.dark);
-      bar.scale.set(0.12 * U, 12 * U, 0.1 * U);
-      bar.position.set((i * span * 0.55) / 3, floorY + 8 * U, FAR - 190);
-      mullions.add(bar);
-    }
-    group.add(mullions);
-    const beamGeo = new THREE.PlaneGeometry(1, 1);
-    for (let i = 0; i < 4; i++) {
-      const beam = new THREE.Mesh(beamGeo, m.beam);
-      beam.scale.set(span * (0.25 + i * 0.08), 5600, 1);
-      beam.position.set((i - 1.5) * span * 0.18, floorY + 4 * U, FAR + 2400);
-      beam.rotation.set(-Math.PI / 2 + 0.32, 0, (i - 1.5) * 0.08);
-      group.add(beam);
+    // Halo and a fan of god rays, fading before they reach the cards.
+    const halo = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(half * 5, half * 5)), this.glow(1, P.light.halo, P.dark.halo, 0.9));
+    halo.position.copy(this.windowCentre).add(new THREE.Vector3(0, 0, 4 * U));
+    group.add(halo);
+    for (let i = 0; i < T.rays; i++) {
+      const spread = (i / Math.max(1, T.rays - 1) - 0.5) * 2;
+      const from = this.windowCentre.clone().add(new THREE.Vector3(spread * half * 0.6, (random() - 0.3) * half, 0));
+      const to = new THREE.Vector3(spread * nave * 1.1 + (random() - 0.5) * nave * 0.4, (L.FLOOR + random() * 4) * U, nearZ - 14 * U - random() * 20 * U);
+      group.add(new THREE.Mesh(this.geometry(ribbon(from, to, (0.5 + random() * 0.7) * U, (2 + random() * 3) * U)), this.glow(0, P.light.ray, P.dark.ray, 0.16 + random() * 0.12)));
     }
 
-    // Lanterns on chains, swaying.
-    const lanterns: THREE.Group[] = [];
-    const glows: THREE.Sprite[] = [];
-    for (let b = 1; b < bays; b += 3) {
-      for (const side of [-1, 1]) {
-        const lantern = new THREE.Group();
-        const anchorY = archTop + 3.6 * U;
-        const drop = (2.6 + random() * 2.2) * U;
-        lantern.position.set(side * (halfNave - 0.9 * U), anchorY, NEAR - b * bay - (side > 0 ? bay / 2 : 0));
-        const chain = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -drop, 0)]), m.chain);
-        const body = new THREE.Mesh(box, m.dark);
-        body.scale.set(0.28 * U, 0.42 * U, 0.28 * U);
-        body.position.y = -drop - 0.2 * U;
-        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTexture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-        glow.scale.setScalar(1.5 * U);
-        glow.position.y = -drop - 0.25 * U;
-        lantern.add(chain, body, glow);
-        lantern.userData.phase = random() * Math.PI * 2;
-        lanterns.push(lantern);
-        glows.push(glow);
-        group.add(lantern);
-      }
+    // ---------------------------------------------------------------- lanterns
+    const body = this.keep(new THREE.MeshBasicMaterial({ color: new THREE.Color() }));
+    this.cage = body;
+    const chain = this.keep(new THREE.LineBasicMaterial({ color: new THREE.Color().setRGB(0.35, 0.33, 0.3), transparent: true, opacity: 0.6 }));
+    const flame = this.glow(1, P.light.flame, P.dark.flame, 1);
+    const bodyGeo = this.geometry(new THREE.BoxGeometry(0.3 * U, 0.46 * U, 0.3 * U));
+    const flameGeo = this.geometry(new THREE.PlaneGeometry(1.3 * U, 1.3 * U));
+    // From the third bay on and close to the walls, so none hangs in front of the head or the sheets.
+    for (let b = 3; b < T.bays && this.lanterns.length < 12; b += 2) {
+      const side = this.lanterns.length % 2 === 0 ? -1 : 1;
+      const lantern = new THREE.Group();
+      const drop = (4 + random() * 4) * U;
+      lantern.position.set(side * nave * (0.78 + random() * 0.12), (L.SPRING + 3) * U, nearZ - b * bay - bay / 2);
+      const line = new THREE.Line(this.geometry(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, -drop, 0)])), chain);
+      const cage = new THREE.Mesh(bodyGeo, body);
+      cage.position.y = -drop - 0.23 * U;
+      const light = new THREE.Mesh(flameGeo, flame);
+      light.position.y = -drop - 0.25 * U;
+      lantern.add(line, cage, light);
+      group.add(lantern);
+      this.lanterns.push({ group: lantern, light: new THREE.Vector3(), phase: random() * Math.PI * 2, drop });
     }
 
-    // Veils of mist at a few depths.
-    const veils: THREE.Mesh[] = [];
-    for (let i = 0; i < 6; i++) {
-      const veil = new THREE.Mesh(new THREE.PlaneGeometry(span * 4, 9 * U), m.veil.clone());
-      veil.position.set(0, floorY + (1.5 + random() * 3) * U, -900 - i * 1000);
-      veil.userData.phase = random() * Math.PI * 2;
-      veil.userData.reach = span * (0.15 + random() * 0.2);
-      veils.push(veil);
-      group.add(veil);
+    // ---------------------------------------------------------------- mist and motes
+    for (let i = 0; i < T.mist; i++) {
+      const sheet = new THREE.Mesh(
+        this.geometry(new THREE.PlaneGeometry(nave * 3, 8 * U)),
+        this.shader(MIST_FRAGMENT, FLAT_VERTEX, { uMap: { value: this.mistTexture }, uOpacity: { value: 0.5 }, uDrift: { value: random() } }, { transparent: true, depthWrite: false }),
+      );
+      sheet.position.set(0, (L.FLOOR + 3 + random() * 6) * U, nearZ - (6 + (i * (T.bays * L.BAY - 10)) / Math.max(1, T.mist)) * U);
+      sheet.userData.speed = 0.004 + random() * 0.006;
+      group.add(sheet);
+      this.mist.push(sheet);
     }
+    const positions = new Float32Array(T.motes * 3);
+    for (let i = 0; i < T.motes; i++) {
+      positions[i * 3] = (random() - 0.5) * nave * 2;
+      positions[i * 3 + 1] = (L.FLOOR + random() * (L.SPRING - L.FLOOR + 4)) * U;
+      positions[i * 3 + 2] = nearZ - random() * (nearZ - far);
+    }
+    const moteGeo = this.geometry(new THREE.BufferGeometry());
+    moteGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    this.motes = new THREE.Points(
+      moteGeo,
+      this.keep(new THREE.PointsMaterial({ size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })),
+    );
+    this.motes.frustumCulled = false;
+    group.add(this.motes);
 
     this.scene.add(group);
-    this.built = { group, books: bookMesh, bookTotal: books.length, lanterns, glows, veils };
-    this.setScheme(this.scheme);
-    this.applyTier();
+    this.group = group;
   }
 
   update(frame: LayerFrame) {
     const rect = this.river.getBoundingClientRect();
     const canvasLeft = this.canvas.getBoundingClientRect().left;
-    const halfNave = Math.max(frame.viewWidth * 0.3, rect.width / 2 + frame.viewHeight / 9 * 0.35);
+    const U = frame.viewHeight / 9;
+    const nave = Math.max(frame.viewWidth * 0.3, rect.width / 2 + 0.45 * U);
     const centreX = rect.left + rect.width / 2 - canvasLeft - frame.viewWidth / 2;
-    const key = `${Math.round(frame.viewHeight / 8)}:${Math.round(halfNave / 8)}:${Math.round(centreX / 8)}`;
+    const key = `${Math.round(frame.viewHeight / 10)}:${Math.round(nave / 10)}:${this.tier}`;
     if (key !== this.key) {
       this.key = key;
-      this.build(frame.viewHeight, halfNave, centreX);
+      this.build(frame.viewHeight, nave);
     }
-    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.copy(frame.fog);
-    const built = this.built;
-    if (!built) return;
-    // A little parallax with the scroll (capped), so the room has depth.
-    built.group.position.y = Math.min(frame.scrollY * 0.03, (frame.viewHeight / 9) * 1.5);
-    for (const lantern of built.lanterns) {
-      const phase = lantern.userData.phase as number;
-      lantern.rotation.z = Math.sin(frame.time * 0.6 + phase) * 0.035;
-      lantern.rotation.x = Math.cos(frame.time * 0.45 + phase) * 0.02;
-    }
-    const flicker = WORLD_COLORS[this.scheme].glow;
-    built.glows.forEach((g, i) => {
-      (g.material as THREE.SpriteMaterial).opacity = flicker * (0.85 + 0.15 * Math.sin(frame.time * 7 + i * 1.7) * Math.sin(frame.time * 3.1 + i));
+    const group = this.group;
+    if (!group) return;
+    const u = this.uniforms;
+    u.uTime.value = frame.time;
+    u.uPixelRatio.value = frame.pixelRatio;
+    u.uDark.value = frame.dark;
+    u.uTheme.value = frame.theme;
+    u.uThemeColor.value.set(frame.themeColor.r, frame.themeColor.g, frame.themeColor.b);
+
+    // The room follows the river sideways, pans with the transitions, and rises a little with the scroll.
+    group.position.x = centreX + frame.pan * 0.35;
+    group.position.y = Math.min(frame.scrollY * 0.03, 1.5 * U);
+    u.uCentreX.value = group.position.x;
+
+    this.lanterns.forEach((l, i) => {
+      l.group.rotation.z = Math.sin(frame.time * 0.55 + l.phase) * 0.03;
+      l.group.rotation.x = Math.cos(frame.time * 0.4 + l.phase) * 0.02;
+      l.light.set(0, -l.drop - 0.25 * U, 0);
+      l.group.localToWorld(l.light);
+      const flicker = 0.9 + 0.1 * Math.sin(frame.time * 6.3 + i * 1.7) * Math.sin(frame.time * 2.9 + i);
+      u.uLanterns.value[i].set(l.light.x, l.light.y, l.light.z, flicker);
     });
-    // Mist drifts sideways, slowly, each veil at its own pace.
-    for (const veil of built.veils) {
-      veil.position.x = Math.sin(frame.time * 0.03 + (veil.userData.phase as number)) * (veil.userData.reach as number);
+    for (let i = this.lanterns.length; i < 12; i++) u.uLanterns.value[i].w = 0;
+
+    for (const g of this.glows) g.material.uniforms.uColour.value.set(...mixRgb(g.day, g.night, frame.dark));
+    this.cage?.color.setRGB(...mixRgb([0.66, 0.62, 0.56], [0.08, 0.07, 0.06], frame.dark));
+    this.sceneFog.color.copy(frame.fog);
+    for (const sheet of this.mist) {
+      const m = sheet.material as THREE.ShaderMaterial;
+      m.uniforms.uDrift.value += (sheet.userData.speed as number) * frame.dt;
+      m.uniforms.uOpacity.value = 0.5 - 0.2 * frame.dark;
     }
+    if (this.motes) {
+      const m = this.motes.material as THREE.PointsMaterial;
+      m.color.setRGB(...mixRgb(LIBRARY_PALETTE.light.mote, LIBRARY_PALETTE.dark.mote, frame.dark));
+      m.opacity = 0.35 + 0.35 * frame.dark;
+      this.motes.position.y = Math.sin(frame.time * 0.05) * 0.4 * U;
+    }
+
+    // Where the window is on screen (gl_FragCoord counts from the canvas bottom), for the light it scatters in the fog.
+    group.localToWorld(this.projected.copy(this.windowCentre));
+    this.edge.copy(this.projected).x += this.windowHalf;
+    this.projected.project(this.camera);
+    this.edge.project(this.camera);
+    const sx = (this.projected.x * 0.5 + 0.5) * frame.viewWidth;
+    const sy = (this.projected.y * 0.5 + 0.5) * frame.viewHeight;
+    const radius = Math.abs((this.edge.x - this.projected.x) * 0.5 * frame.viewWidth) * 3;
+    u.uWindowScreen.value.set(sx, sy, Math.max(80, radius), 0);
   }
 
-  dispose(keepShared = false) {
-    if (this.built) {
-      this.scene.remove(this.built.group);
-      this.built.group.traverse((o) => {
-        if (o instanceof THREE.Mesh || o instanceof THREE.Line || o instanceof THREE.Sprite) {
-          o.geometry?.dispose();
-          if (o instanceof THREE.Sprite || (o instanceof THREE.Mesh && o.material instanceof THREE.MeshBasicMaterial && o.material.map === this.mistTexture)) {
-            (o.material as THREE.Material).dispose();
-          }
-        }
-      });
-      this.built = null;
-    }
-    if (keepShared) return;
-    this.scene.remove(this.hemi, this.sun, this.ambient);
-    this.scene.fog = null;
-    for (const material of Object.values(this.materials)) material.dispose();
-    this.glowTexture.dispose();
+  private clear() {
+    if (this.group) this.scene.remove(this.group);
+    this.group = null;
+    for (const g of this.geometries) g.dispose();
+    for (const m of this.materials) m.dispose();
+    this.geometries.length = 0;
+    this.materials.length = 0;
+    this.lanterns = [];
+    this.glows = [];
+    this.mist = [];
+    this.motes = null;
+    this.cage = null;
+  }
+
+  dispose() {
+    this.clear();
     this.mistTexture.dispose();
+    if (this.scene.fog === this.sceneFog) this.scene.fog = null;
   }
 }
 
-/** A pointed (Gothic) arch band: outer half-width w, rise h, band thickness t. With t ≥ h it is a solid window. */
-function pointedArch(w: number, h: number, t: number): THREE.Shape {
-  const shape = new THREE.Shape();
-  shape.moveTo(-w, 0);
-  shape.quadraticCurveTo(-w, h * 0.75, 0, h);
-  shape.quadraticCurveTo(w, h * 0.75, w, 0);
-  if (t < h) {
-    const iw = w - t;
-    const ih = h - t;
-    shape.lineTo(iw, 0);
-    shape.quadraticCurveTo(iw, ih * 0.75, 0, ih);
-    shape.quadraticCurveTo(-iw, ih * 0.75, -iw, 0);
-  } else {
-    shape.lineTo(w, -h * 0.9);
-    shape.lineTo(-w, -h * 0.9);
+function pick<T>(list: readonly T[], random: () => number): T {
+  return list[Math.floor(random() * list.length)];
+}
+
+/** Points of an equilateral pointed arch of half span a, from the left springing over the apex to the right one. */
+function archPoints(a: number, steps = 18): THREE.Vector2[] {
+  const left: THREE.Vector2[] = [];
+  for (let i = 0; i <= steps; i++) {
+    // The left arc is centred on the right springing point, radius 2a.
+    const angle = Math.PI - (Math.PI / 3) * (i / steps);
+    left.push(new THREE.Vector2(a + 2 * a * Math.cos(angle), 2 * a * Math.sin(angle)));
   }
+  const right = left
+    .slice(0, -1)
+    .reverse()
+    .map((v) => new THREE.Vector2(-v.x, v.y));
+  return [...left, ...right];
+}
+
+/** A pointed arch rib: the band between an outer arch of half span a and an inner one t narrower, springing at y = 0. */
+function pointedArch(a: number, t: number): THREE.Shape {
+  const outer = archPoints(a);
+  const inner = archPoints(a - t).reverse();
+  const shape = new THREE.Shape(outer);
+  for (const v of inner) shape.lineTo(v.x, v.y);
   shape.closePath();
   return shape;
 }
 
-/** A soft white disc, brightest in the middle. */
-function radialTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 128;
-  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(0.25, "rgba(255,255,255,0.55)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 128, 128);
-  return new THREE.CanvasTexture(canvas);
+/** A long quad from `from` (uv.y = 1) to `to` (uv.y = 0), narrow at the window and wider toward the visitor. */
+function ribbon(from: THREE.Vector3, to: THREE.Vector3, startWidth: number, endWidth: number): THREE.BufferGeometry {
+  const dir = to.clone().sub(from).normalize();
+  const side = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 0, 1));
+  if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+  side.normalize();
+  const a = from.clone().addScaledVector(side, -startWidth / 2);
+  const b = from.clone().addScaledVector(side, startWidth / 2);
+  const c = to.clone().addScaledVector(side, endWidth / 2);
+  const d = to.clone().addScaledVector(side, -endWidth / 2);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute([a, b, c, d].flatMap((v) => [v.x, v.y, v.z]), 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+  g.setIndex([0, 1, 2, 0, 2, 3]);
+  return g;
 }
 
-/** Soft, wide wisps that tile sideways. */
+/** Soft wisps that tile sideways (alpha only). */
 function mistTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 128;
   const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
   const random = mulberry32(7);
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 80; i++) {
     const x = random() * 512;
     const y = 30 + random() * 70;
-    const r = 30 + random() * 70;
+    const r = 30 + random() * 80;
     for (const dx of [-512, 0, 512]) {
       const g = ctx.createRadialGradient(x + dx, y, 0, x + dx, y, r);
-      g.addColorStop(0, "rgba(255,255,255,0.18)");
+      g.addColorStop(0, "rgba(255,255,255,0.2)");
       g.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = g;
       ctx.fillRect(x + dx - r, y - r, r * 2, r * 2);

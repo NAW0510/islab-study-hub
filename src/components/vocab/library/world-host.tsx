@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { decideWorldMode, probeWebGL2 } from "@/lib/vocab/library/world-mode";
+import type { LibraryWorld } from "./world/engine";
 
 /**
  * Starts the Perpustakaan's WebGL world when the device allows it, and keeps
@@ -15,13 +16,18 @@ import { decideWorldMode, probeWebGL2 } from "@/lib/vocab/library/world-mode";
  *
  * The engine (three.js and the scene) is a dynamic import started when the
  * browser is idle after the page has shown, so it never weighs on the route's
- * first load or on its largest paint.
+ * first load or on its largest paint. Returns the running world (or null),
+ * for the page's transitions and its field theme; `themeRef` holds the theme
+ * the world should start with.
  */
 export function useLibraryWorld(
   pageRef: RefObject<HTMLElement | null>,
   headRef: RefObject<HTMLElement | null>,
   riverRef: RefObject<HTMLElement | null>,
-) {
+  themeRef: RefObject<string | null>,
+): RefObject<LibraryWorld | null> {
+  const worldRef = useRef<LibraryWorld | null>(null);
+
   useEffect(() => {
     const page = pageRef.current;
     const head = headRef.current;
@@ -37,10 +43,9 @@ export function useLibraryWorld(
     if (mode !== "gl") return;
 
     let cancelled = false;
-    let world: { dispose(): void } | null = null;
     const fallback = () => {
-      world?.dispose();
-      world = null;
+      worldRef.current?.dispose();
+      worldRef.current = null;
       page.dataset.libraryWorld = "dom";
     };
     const start = () => {
@@ -51,7 +56,8 @@ export function useLibraryWorld(
         )
         .then((created) => {
           if (cancelled) return created.dispose();
-          world = created;
+          worldRef.current = created;
+          created.setTheme(themeRef.current);
           page.dataset.libraryWorld = "gl";
         })
         .catch(() => {
@@ -67,8 +73,11 @@ export function useLibraryWorld(
       cancelled = true;
       if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idle);
       else window.clearTimeout(idle);
-      world?.dispose();
+      worldRef.current?.dispose();
+      worldRef.current = null;
       delete page.dataset.libraryWorld;
     };
-  }, [pageRef, headRef, riverRef]);
+  }, [pageRef, headRef, riverRef, themeRef]);
+
+  return worldRef;
 }

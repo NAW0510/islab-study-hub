@@ -369,6 +369,12 @@ html:has(dialog.mobile-menu[open]) {
   .segmented-sm .segmented-item {
     @apply h-7 min-w-0 px-3 text-xs;
   }
+  /* Over a picture (the Perpustakaan's world): frosted, no hard edge. */
+  .segmented-glass {
+    border-color: color-mix(in srgb, var(--border) 55%, transparent);
+    background: color-mix(in srgb, var(--surface) 62%, transparent);
+    backdrop-filter: blur(14px) saturate(1.2);
+  }
   @media (pointer: coarse) {
     .segmented-item,
     .segmented-sm .segmented-item {
@@ -707,6 +713,36 @@ html:has(dialog.mobile-menu[open]) {
   }
   .library-page[data-library-world="gl"] .library-item[data-flipped] .library-sheet {
     transform: none;
+  }
+  /* Shelf ↔ field: the head and the DOM controls leave with the scene and return with the new room. */
+  .library-head,
+  .library-page > nav,
+  .library-open,
+  .library-end {
+    transition:
+      opacity var(--dur-slow) var(--ease-std),
+      transform 600ms var(--ease-std);
+  }
+  .library-page[data-transition$="-out"] :is(.library-head, .library-open, .library-end, .library-page > nav) {
+    opacity: 0;
+    transform: translateX(-3rem);
+  }
+  .library-page[data-transition="close-out"] :is(.library-head, .library-open, .library-end, .library-page > nav) {
+    transform: translateX(3rem);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .library-page[data-transition] :is(.library-head, .library-open, .library-end, .library-page > nav) {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* The shelf ↔ field wash when the world isn't running (moved with transform and opacity only). */
+  .library-wash {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
   }
   .library-cursor {
     position: fixed;

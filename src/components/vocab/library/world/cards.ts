@@ -50,6 +50,10 @@ export type CardFrame = {
   foldLine: number;
   fog: THREE.Color;
   fogDepth: number;
+  /** Sideways pan of every sheet during a transition, CSS px. */
+  pan: number;
+  /** Textures drawn per frame: more while a transition covers the screen. */
+  texturesPerFrame: number;
 };
 
 const { sheet: SHEET } = LIBRARY_CONFIG;
@@ -178,13 +182,13 @@ export class CardsLayer {
       frame.viewHeight,
     );
 
-    // Textures: at most two per frame, nearest the middle of the screen first.
+    // Textures: a few per frame, nearest the middle of the screen first.
     const centre = frame.scrollY + frame.viewHeight / 2;
     const scale = Math.min(SHEET.TEXTURE_SCALE, window.devicePixelRatio || 1);
     const pending = list
       .filter((c) => this.awake.has(c.id) && (!c.textures || c.textures.key !== this.textureKey(c, scale)))
       .sort((a, b) => Math.abs(a.top - centre) - Math.abs(b.top - centre));
-    for (const card of pending.slice(0, 2)) this.draw(card, scale);
+    for (const card of pending.slice(0, frame.texturesPerFrame)) this.draw(card, scale);
 
     const settled = frame.scrollSpeed < 250;
     const follow = (rate: number) => 1 - Math.exp(-frame.dt / rate);
@@ -222,6 +226,7 @@ export class CardsLayer {
       u.uRise.value = easeOut(card.rise);
       u.uFog.value.copy(frame.fog);
       u.uFogDepth.value = frame.fogDepth;
+      u.uPan.value = frame.pan;
     }
   }
 
@@ -285,6 +290,7 @@ export class CardsLayer {
           uFog: { value: new THREE.Color() },
           uFogDepth: { value: 2600 },
           uCoverFraction: { value: front.coverFraction },
+          uPan: { value: 0 },
         },
       });
       card.mesh = new THREE.Mesh(this.geometry, material);
