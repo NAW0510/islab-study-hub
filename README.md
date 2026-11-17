@@ -4,6 +4,7 @@ Platform pribadi untuk mencatat perjalanan belajar Machine Learning & Data Scien
 
 - **Subjek & Silabus**: kelompokkan materi per bidang, tempel silabus (satu topik per baris), lalu tandai progres per topik (belum mulai, sedang dipelajari, selesai) beserta target tanggal.
 - **Kosakata**: glosarium pribadi istilah teknis (`/vocab`). Kamu menulis istilah + definisinya sendiri; sistem meng-embed teksnya (Voyage AI, lewat Edge Function `vocab-embed`) lalu menebak bidang/cabang ilmunya. Tebakan bisa dikonfirmasi atau diubah, dan pilihanmu tidak pernah ditimpa. Mendukung tempel banyak (satu istilah per baris), pencarian instan, dan istilah terdekat berdasarkan makna.
+- **Peta Otak**: semua istilah Kosakata sebagai satu peta (`/vocab/map`). Istilah yang maknanya dekat letaknya berdekatan, tiap bidang punya wilayah, dan slider Week memutar ulang bagaimana peta tumbuh. Tata letaknya (UMAP) dihitung di browser saat kamu menekan "Susun ulang"; istilah baru langsung ditaruh dekat istilah sejenis tanpa menyusun ulang.
 - **Catatan**: tulis materi yang sudah dipelajari dengan Markdown + rumus LaTeX (`$x^2$`, `$$…$$`), tabel, dan blok kode. Catatan bisa dihubungkan ke subjek/topik dan diberi tag. Tersedia pencarian dan filter.
 - **Sumber Belajar**: simpan link YouTube (judul dan thumbnail diambil otomatis), artikel, kursus, atau upload dokumen (PDF, slide, notebook) ke Supabase Storage.
 - **Laporan Mingguan**: Weekly Progress sesuai template Guidebook Mentee IS Lab (4 pertanyaan Learning Progress + 4 poin Project Progress untuk weekly meeting). Nomor Week dihitung otomatis dari timeline program, isian bisa diambil otomatis dari aktivitas minggu itu, lalu bisa diekspor ke **PDF** dan **Word (.docx)**, disalin dalam format chat WhatsApp, atau dibagikan lewat **link publik** (tanpa login, bisa dimatikan kapan saja).
@@ -77,6 +78,13 @@ npm run dev:local
 kredensialnya ada di `scripts/local-stack.mjs`), jadi data aslimu tidak tersentuh. Edge Function lokal:
 `npx supabase functions serve --env-file supabase/functions/.env` (salin dari `.env.example`; bisa menunjuk
 server tiruan `node scripts/voyage-mock.mjs`). Test database: `npm run test:db` (pgTAP).
+
+Untuk mencoba Peta Otak dengan jumlah istilah yang realistis, isi stack lokal dengan ±300 istilah sintetis
+berkelompok (butuh `functions serve` dan server tiruan di atas; hanya menyentuh akun dev lokal):
+
+```bash
+node scripts/seed-local-vocab.mjs --reset
+```
 
 ## Mengubah database (migrasi)
 
