@@ -2,7 +2,7 @@ import { BufferGeometry, Color, Float32BufferAttribute, Group, LineBasicMaterial
 import { scaffoldOpacity } from "@/lib/vocab/brain-model";
 import { LAYOUT_3D_CONFIG } from "@/lib/vocab/layout/config";
 import { termGroups } from "@/lib/vocab/map3d-model";
-import { colorVar, discTexture, disposeTree, HighlightLayer, setPoints, type GroupLabel, type Highlight, type SceneInput, type ViewScene } from "./common";
+import { colorVar, discTexture, disposeTree, fieldLabels, HighlightLayer, setPoints, type FieldLabel, type Highlight, type SceneInput, type ViewScene } from "./common";
 
 /** Dot sizes at the starting capacity (BRAIN_BASE_NEURONS); they shrink as the brain gets more neurons. */
 const SIZE = { scaffold: 0.03, lit: 0.085, mark: 0.17 } as const;
@@ -27,9 +27,9 @@ export class BrainScene implements ViewScene {
   private readonly marks: HighlightLayer;
   private positions = new Map<string, Vector3>();
   private ids: string[] = [];
-  private labels: GroupLabel[] = [];
-  /** Fields of the hovered and selected terms: only their names are shown over the brain. */
-  private focusFields = new Set<string>();
+  private labels: FieldLabel[] = [];
+  /** Fields of the hovered and selected terms: their names show at full strength. */
+  private focusFields = new Set<string | null>();
   /** Per scaffold point: the field owning its lobe (for re-tinting on hover). */
   private scaffoldField: (string | null)[] = [];
   private grey = new Color(0x999999);
@@ -134,7 +134,7 @@ export class BrainScene implements ViewScene {
     for (const [field, { at, n }] of sums) {
       const key = `lobe:${field}`;
       this.positions.set(key, at.divideScalar(n));
-      this.labels.push({ key, text: `${domains.get(field)?.name ?? "Bidang"} ${counts.get(field) ?? 0}`, priority: 950 });
+      this.labels.push({ key, text: `${domains.get(field)?.name ?? "Bidang"} ${counts.get(field) ?? 0}`, priority: 950, fieldId: field, count: counts.get(field) ?? 0 });
     }
   }
 
@@ -164,8 +164,7 @@ export class BrainScene implements ViewScene {
     this.focusFields = new Set();
     for (const id of [h.selectedId, h.hoverId]) {
       const point = id ? input.points.find((p) => p.id === id) : undefined;
-      const field = point ? termGroups(point.domain_id, input.domains).fieldId : null;
-      if (field) this.focusFields.add(field);
+      if (point) this.focusFields.add(termGroups(point.domain_id, input.domains).fieldId);
     }
   }
 
@@ -181,9 +180,9 @@ export class BrainScene implements ViewScene {
     return this.ids;
   }
 
-  /** A field's name appears only while one of its terms is hovered or selected, so the brain itself stays clear. */
+  /** The top fields' names, faint; another field's only while one of its terms is in focus (see FIELD_LABELS). */
   groupLabels() {
-    return this.labels.filter((l) => this.focusFields.has(l.key.slice("lobe:".length)));
+    return fieldLabels(this.labels.filter((l) => l.count > 0), this.focusFields);
   }
 
   frame() {
