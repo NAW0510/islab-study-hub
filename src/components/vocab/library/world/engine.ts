@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { LIBRARY_CONFIG } from "@/lib/vocab/library/config";
 import { foldLine } from "@/lib/vocab/library/fold";
 import { QualityGovernor, qualityLadder, type QualityLevel } from "@/lib/vocab/library/quality";
+import { currentScheme, onSchemeChange } from "@/lib/theme";
 import { CardsLayer } from "./cards";
 import { CompositePass } from "./composite";
 import { colorReader, fogOf, hexToRgb, type ColorReader, type Rgb, type Scheme } from "./palette";
@@ -112,8 +113,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
   const composite = new CompositePass();
   const reader = colorReader(page);
 
-  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  let scheme: Scheme = darkQuery.matches ? "dark" : "light";
+  let scheme: Scheme = currentScheme();
   let dark = scheme === "dark" ? 1 : 0;
   let theme = 0;
   let themeTarget = 0;
@@ -185,7 +185,9 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
     pulseStart = clock;
   };
   const onScheme = () => {
-    scheme = darkQuery.matches ? "dark" : "light";
+    const next = currentScheme();
+    if (next === scheme) return;
+    scheme = next;
     reader.reset();
     cards.setScheme(scheme);
     for (const layer of extra) layer.setScheme?.(scheme);
@@ -194,7 +196,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
   window.addEventListener("pointermove", onPointer, { passive: true });
   window.addEventListener("pointerdown", onDown, { passive: true });
   window.addEventListener("resize", resize);
-  darkQuery.addEventListener("change", onScheme);
+  const offScheme = onSchemeChange(onScheme);
   const resizeObserver = new ResizeObserver(remeasure);
   resizeObserver.observe(river);
   const mainObserver = new ResizeObserver(resize);
@@ -405,7 +407,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("resize", resize);
-      darkQuery.removeEventListener("change", onScheme);
+      offScheme();
       resizeObserver.disconnect();
       mainObserver.disconnect();
       mutationObserver.disconnect();

@@ -17,6 +17,13 @@ const TEXT_PAIRS: [string, string][] = [
   ["--text", "--bg"],
   ["--text", "--surface"],
   ["--text", "--surface-2"],
+  ["--text-2", "--bg"],
+  ["--text-2", "--surface"],
+  ["--text-2", "--surface-2"],
+  ["--text", "--mark-blue-soft"],
+  ["--text", "--mark-yellow-soft"],
+  ["--text", "--mark-red-soft"],
+  ["--text", "--mark-green-soft"],
   ["--muted", "--bg"],
   ["--muted", "--surface"],
   ["--muted", "--surface-2"],
@@ -92,6 +99,23 @@ describe.each(SCHEMES)("design tokens, %s mode", (scheme) => {
       expect(contrast(pick(tokens, name, scheme), pick(tokens, "--surface", scheme)), name).toBeGreaterThanOrEqual(floor);
     }
     expect(contrast(pick(tokens, "--domain-none", scheme), pick(tokens, "--surface", scheme))).toBeGreaterThanOrEqual(AA_MARK);
+  });
+
+  it("keeps the primaries visible as marks", () => {
+    for (const name of ["--mark-blue", "--mark-red", "--mark-green"]) {
+      expect(contrast(pick(tokens, name, scheme), pick(tokens, "--surface", scheme)), name).toBeGreaterThanOrEqual(AA_MARK);
+    }
+    // Yellow is light paint: on light paper it is decoration only and always
+    // carries an ink shape (below); at night it must stand out.
+    const yellowFloor = scheme === "dark" ? AA_MARK : 1.5;
+    expect(contrast(pick(tokens, "--mark-yellow", scheme), pick(tokens, "--surface", scheme))).toBeGreaterThanOrEqual(yellowFloor);
+  });
+
+  it("keeps a shape on a coloured tile visible", () => {
+    for (const tile of ["--mark-blue", "--mark-red", "--mark-green"]) {
+      expect(contrast(pick(tokens, "--paper", scheme), pick(tokens, tile, scheme)), tile).toBeGreaterThanOrEqual(AA_MARK);
+    }
+    expect(contrast(pick(tokens, "--paper-ink", scheme), pick(tokens, "--mark-yellow", scheme))).toBeGreaterThanOrEqual(AA_MARK);
   });
 
   it("keeps the tick on a finished topic visible", () => {

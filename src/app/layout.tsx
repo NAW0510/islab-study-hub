@@ -3,7 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import { APP_NAME } from "@/lib/constants";
-import { jakarta } from "./fonts";
+import { THEME_SCRIPT } from "@/lib/theme";
+import { hanken } from "./fonts";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,14 +28,22 @@ export const metadata: Metadata = {
 // Keep in sync with --bg in globals.css.
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f7f4" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f3" },
     { media: "(prefers-color-scheme: dark)", color: "#14171c" },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id" className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} h-full antialiased`}>
+    // The theme script may set data-theme on <html> before React hydrates.
+    <html
+      lang="id"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} ${hanken.variable} h-full antialiased`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-full font-sans">{children}</body>
     </html>
   );

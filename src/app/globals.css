@@ -4,38 +4,55 @@
  * Design tokens (see docs/DESIGN_SYSTEM.md).
  *
  * Colours use light-dark(): they follow `color-scheme`, which is "light dark"
- * on <html>, i.e. the system setting. To force a scheme on part of a page, put
- * `theme-scope scheme-light` or `theme-scope scheme-dark` on its wrapper.
+ * on <html> (the device setting) unless the theme button set
+ * `data-theme="light"` or `"dark"` there (src/lib/theme.ts). To force a scheme
+ * on part of a page, put `theme-scope scheme-light` or `theme-scope
+ * scheme-dark` on its wrapper.
  *
  * src/lib/design/contrast.test.ts reads this block and checks WCAG AA.
  */
 :root, .theme-scope {
-  /* Core: paper and ink */
-  --bg: light-dark(#f7f7f4, #14171c);
+  /* Core: calm paper and ink */
+  --bg: light-dark(#f6f6f3, #14171c);
   --surface: light-dark(#ffffff, #1b1f26);
-  --surface-2: light-dark(#efefea, #252a33);
-  --border: light-dark(#e3e3dd, #2c313b);
-  --border-strong: light-dark(#cdcdc5, #3d4450);
-  --text: light-dark(#0f1216, #ececea);
-  --muted: light-dark(#5c6370, #9aa1ad);
+  --surface-2: light-dark(#efefeb, #242932);
+  --border: light-dark(#e6e6e1, #2a2f38);
+  --border-strong: light-dark(#d4d4cd, #3a404b);
+  --text: light-dark(#0e1116, #ededea);
+  /* Body copy: a step softer than --text, for paragraphs */
+  --text-2: light-dark(#3b4150, #c3c8d1);
+  --muted: light-dark(#626a78, #9aa1ad);
+
+  /*
+   * Bauhaus primaries: shapes, tiles, bars and soft fills, never text. The
+   * same in both schemes, like paint; the soft fills follow the scheme.
+   */
+  --mark-blue: #2f66d0;
+  --mark-yellow: #f5b820;
+  --mark-red: #ef4339;
+  --mark-green: #148a5b;
+  --mark-blue-soft: light-dark(#eaf0fb, #1c2740);
+  --mark-yellow-soft: light-dark(#fdf4dc, #33290f);
+  --mark-red-soft: light-dark(#fde7e5, #3a1c1a);
+  --mark-green-soft: light-dark(#e3f2ea, #14301f);
 
   /* Accent: links, active navigation, focus, progress */
-  --accent: light-dark(#2a5bd7, #8fb0ff);
-  --accent-hover: light-dark(#1f49b6, #b3c9ff);
+  --accent: light-dark(#2f66d0, #8fb0ff);
+  --accent-hover: light-dark(#2453ad, #b3c9ff);
   --accent-fg: light-dark(#ffffff, #0b1430);
-  --accent-soft: light-dark(#e6edfc, #1c2740);
+  --accent-soft: var(--mark-blue-soft);
   --focus: var(--accent);
 
   /* Primary action: an ink pill */
-  --primary: light-dark(#0f1216, #ececea);
+  --primary: light-dark(#0e1116, #ededea);
   --primary-hover: light-dark(#2b313b, #ffffff);
   --primary-fg: light-dark(#ffffff, #14171c);
 
-  /* Signals: reserved for status, always shown with a label */
-  --signal-good: light-dark(#0ca30c, #0ca30c);
-  --signal-warn: light-dark(#fab219, #fab219);
-  --signal-bad: light-dark(#d03b3b, #d03b3b);
-  --success: light-dark(#006300, #3ecf5a);
+  /* Signals: reserved for status, always shown with a label (and a shape) */
+  --signal-good: var(--mark-green);
+  --signal-warn: var(--mark-yellow);
+  --signal-bad: var(--mark-red);
+  --success: light-dark(#0f7a4f, #5ccf95);
   --danger: light-dark(#b42318, #f97066);
   --danger-fg: light-dark(#ffffff, #2b0b08);
   --danger-soft: light-dark(#fdecea, #3a1a17);
@@ -66,13 +83,27 @@
   --domain-none: light-dark(#667085, #8590a6); /* netral: tanpa domain */
 
   /* Shape: the bigger the container, the bigger the radius */
-  --r-control: 0.5rem;
+  --r-control: 0.625rem;
   --r-btn: 999px;
-  --r-card: 0.875rem;
+  --r-card: 1rem;
   --r-panel: 1.5rem;
+  /* A card lifted under the pointer (see .lift) */
+  --lift-shadow:
+    0 12px 28px -12px light-dark(rgb(14 17 22 / 0.22), rgb(0 0 0 / 0.65)),
+    0 2px 6px -2px light-dark(rgb(14 17 22 / 0.08), rgb(0 0 0 / 0.4));
+
+  /*
+   * Clip paths of the Bauhaus shapes (components/shape.tsx), shared by the
+   * shapes and by the markers of tinted chips.
+   */
+  --clip-triangle: polygon(100% 0, 100% 100%, 0 100%);
+  --clip-plus: polygon(35% 0, 65% 0, 65% 35%, 100% 35%, 100% 65%, 65% 65%, 65% 100%, 35% 100%, 35% 65%, 0 65%, 0 35%, 35% 35%);
+  --clip-x: polygon(20% 0, 50% 30%, 80% 0, 100% 20%, 70% 50%, 100% 80%, 80% 100%, 50% 70%, 20% 100%, 0 80%, 30% 50%, 0 20%);
+  --clip-spark: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  --clip-diamond: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 
   /* Type */
-  --display-font: var(--font-jakarta), var(--font-geist-sans);
+  --display-font: var(--font-hanken), var(--font-geist-sans);
 
   /* Motion: three durations, one curve; animate transform and opacity only */
   --dur-fast: 120ms;
@@ -114,9 +145,11 @@
     size: A4;
     margin: 16mm 15mm;
   }
-  :root {
+  /* Paper is light, whatever the theme button says. */
+  :root,
+  :root[data-theme] {
     --bg: #ffffff !important;
-    color-scheme: light;
+    color-scheme: light !important;
   }
   html,
   body {
@@ -131,7 +164,18 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-text: var(--text);
+  --color-text-2: var(--text-2);
   --color-muted: var(--muted);
+  --color-mark-blue: var(--mark-blue);
+  --color-mark-yellow: var(--mark-yellow);
+  --color-mark-red: var(--mark-red);
+  --color-mark-green: var(--mark-green);
+  --color-mark-blue-soft: var(--mark-blue-soft);
+  --color-mark-yellow-soft: var(--mark-yellow-soft);
+  --color-mark-red-soft: var(--mark-red-soft);
+  --color-mark-green-soft: var(--mark-green-soft);
+  --color-paper: var(--paper);
+  --color-paper-ink: var(--paper-ink);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-fg: var(--accent-fg);
@@ -188,6 +232,13 @@
 
 html {
   color-scheme: light dark;
+}
+/* The theme button's choice (src/lib/theme.ts); without it, the device decides. */
+html[data-theme="light"] {
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
@@ -293,33 +344,155 @@ html:has(dialog.mobile-menu[open]) {
   }
 
   /*
-   * Tinted chip: a soft wash of --tone, a dot in the solid colour, text in ink.
-   * Pair with a `tone-*` class.
+   * Bauhaus shapes (components/shape.tsx): a square box cut to a shape and
+   * filled with a mark colour (bg-mark-*). Size it with size-*. A shape sets
+   * its own --shape-* values, so it never inherits a chip's.
+   */
+  .shape {
+    --shape-radius: 0;
+    --shape-clip: none;
+    --shape-shift: none;
+    display: inline-block;
+    flex-shrink: 0;
+    aspect-ratio: 1;
+    border-radius: var(--shape-radius);
+    clip-path: var(--shape-clip);
+    translate: var(--shape-shift);
+  }
+  .shape-circle { --shape-radius: 50%; }
+  .shape-square { --shape-radius: 12%; }
+  .shape-triangle { --shape-clip: var(--clip-triangle); }
+  .shape-plus { --shape-clip: var(--clip-plus); }
+  .shape-x { --shape-clip: var(--clip-x); }
+  .shape-spark { --shape-clip: var(--clip-spark); }
+  .shape-diamond { --shape-clip: var(--clip-diamond); }
+  /* The top half of a disc, centred in its box. */
+  .shape-half { --shape-radius: 50%; --shape-clip: inset(0 0 50% 0); --shape-shift: 0 25%; }
+  .shape-quarter { --shape-radius: 100% 0 0 0; }
+  .shape-leaf { --shape-radius: 50% 0 50% 50%; }
+
+  /*
+   * Tinted chip: a soft wash of --tone, a marker in the solid colour, text in
+   * ink. Pair with a `tone-*` class. Each tone has its own marker shape too,
+   * so domains and statuses differ without colour (colour blindness).
    */
   .chip-tone {
+    --shape-radius: 50%;
+    --shape-clip: none;
+    --shape-shift: none;
     background-color: color-mix(in srgb, var(--tone) 14%, var(--surface));
     color: var(--text);
   }
   .chip-tone::before {
     content: "";
-    @apply size-1.5 shrink-0 rounded-full;
+    @apply size-2 shrink-0;
     background-color: var(--tone);
+    border-radius: var(--shape-radius);
+    clip-path: var(--shape-clip);
+    translate: var(--shape-shift);
   }
   .tone-domain-1 { --tone: var(--domain-1); }
-  .tone-domain-2 { --tone: var(--domain-2); }
-  .tone-domain-3 { --tone: var(--domain-3); }
-  .tone-domain-4 { --tone: var(--domain-4); }
-  .tone-domain-5 { --tone: var(--domain-5); }
-  .tone-domain-6 { --tone: var(--domain-6); }
-  .tone-domain-7 { --tone: var(--domain-7); }
-  .tone-domain-8 { --tone: var(--domain-8); }
-  .tone-domain-9 { --tone: var(--domain-9); }
-  .tone-domain-10 { --tone: var(--domain-10); }
+  .tone-domain-2 { --tone: var(--domain-2); --shape-radius: 12%; }
+  .tone-domain-3 { --tone: var(--domain-3); --shape-radius: 0; --shape-clip: var(--clip-triangle); }
+  .tone-domain-4 { --tone: var(--domain-4); --shape-radius: 0; --shape-clip: var(--clip-plus); }
+  .tone-domain-5 { --tone: var(--domain-5); --shape-radius: 0; --shape-clip: var(--clip-x); }
+  .tone-domain-6 { --tone: var(--domain-6); --shape-radius: 0; --shape-clip: var(--clip-spark); }
+  .tone-domain-7 { --tone: var(--domain-7); --shape-clip: inset(0 0 50% 0); --shape-shift: 0 25%; }
+  .tone-domain-8 { --tone: var(--domain-8); --shape-radius: 100% 0 0 0; }
+  .tone-domain-9 { --tone: var(--domain-9); --shape-radius: 0; --shape-clip: var(--clip-diamond); }
+  .tone-domain-10 { --tone: var(--domain-10); --shape-radius: 50% 0 50% 50%; }
   .tone-none { --tone: var(--domain-none); }
   .tone-good { --tone: var(--signal-good); }
-  .tone-warn { --tone: var(--signal-warn); }
-  .tone-bad { --tone: var(--signal-bad); }
+  .tone-warn { --tone: var(--signal-warn); --shape-radius: 12%; }
+  .tone-bad { --tone: var(--signal-bad); --shape-radius: 0; --shape-clip: var(--clip-triangle); }
   .tone-info { --tone: var(--accent); }
+
+  /*
+   * Ring button: the one most important action of a page, framed by a ring
+   * of the four primaries. Use with .btn.
+   */
+  .btn-ring {
+    position: relative;
+    isolation: isolate;
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    transition-property: transform, background-color;
+  }
+  .btn-ring::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    padding: 2px;
+    border-radius: inherit;
+    background: conic-gradient(from 200deg, var(--mark-blue), var(--mark-green), var(--mark-yellow), var(--mark-red), var(--mark-blue));
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+  .btn-ring:hover {
+    background: var(--surface-2);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .btn-ring:hover {
+      transform: translateY(-1px);
+    }
+  }
+
+  /*
+   * Lift: a card rises and leans a hair under the pointer (or keyboard
+   * focus). The shadow is a pseudo-element that fades in, so only transform
+   * and opacity move.
+   */
+  .lift {
+    position: relative;
+    isolation: isolate;
+    transition: transform var(--dur-base) var(--ease-std);
+  }
+  .lift::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow: var(--lift-shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-base) var(--ease-std);
+  }
+  @media (hover: hover) {
+    .lift:is(:hover, :focus-within)::after {
+      opacity: 1;
+    }
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .lift:is(:hover, :focus-within) {
+      transform: translateY(-3px) rotate(-0.3deg);
+    }
+  }
+
+  /*
+   * A slow bob for the shapes beside the dashboard greeting. Decoration only;
+   * it stands still with reduced motion.
+   */
+  .bob {
+    animation: bob 4s ease-in-out infinite;
+  }
+  .bob-1 { animation-delay: -1s; }
+  .bob-2 { animation-delay: -2s; }
+  .bob-3 { animation-delay: -3s; }
+  @keyframes bob {
+    50% {
+      transform: translateY(-6px) rotate(-4deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bob {
+      animation: none;
+    }
+  }
 
   /*
    * Rolling text: on hover the label slides up and its copy slides in from

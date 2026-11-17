@@ -7,6 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { Info, Loader2, Maximize, Moon, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
 import type { NearestTerm } from "@/lib/actions/vocab";
 import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-template";
+import { currentScheme } from "@/lib/theme";
 import type { VocabDomain } from "@/lib/types";
 import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
@@ -32,7 +33,8 @@ const PANEL_WIDTH = 320;
 const SHEET_SHARE = 0.62;
 const FLY_MS = 450;
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+// The app's scheme (the theme button, else the device) picks the first view and theme.
+const prefersDark = () => currentScheme() === "dark";
 
 function remembered<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
