@@ -2,79 +2,73 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AdditiveBlending,
-  BoxGeometry,
-  BufferGeometry,
-  CanvasTexture,
-  Color,
-  DoubleSide,
-  EdgesGeometry,
-  Float32BufferAttribute,
-  Group,
-  Line,
-  LineBasicMaterial,
-  LineSegments,
-  Mesh,
-  MeshBasicMaterial,
-  NormalBlending,
-  PerspectiveCamera,
-  Points,
-  PointsMaterial,
-  Scene,
-  SRGBColorSpace,
-  Vector3,
-  WebGLRenderer,
-  type Texture,
-} from "three";
+import { Color, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
-import { Info, Loader2, Maximize, Moon, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
+import { Box, Brain, Info, Loader2, Maximize, Moon, Orbit, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
 import type { NearestTerm } from "@/lib/actions/vocab";
 import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-template";
 import type { VocabDomain } from "@/lib/types";
 import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
 import { placeLabels } from "@/lib/vocab/labels";
-import type { Point3 } from "@/lib/vocab/layout/run-layout-3d";
-import { groups3d, paddedCloud3d, pickNearest, visible3d, withoutOutliers3d, type Projected } from "@/lib/vocab/map3d-model";
+import { pickNearest, visible3d, type Layout3dData, type Projected } from "@/lib/vocab/map3d-model";
 import { fieldOf, firstSentence, mapStats, MIN_TERMS_FOR_MAP, type BoundaryLevel, type MapPoint } from "@/lib/vocab/map-model";
-import { asDomainColor } from "@/lib/vocab/seed-domains";
 import { EmptyState } from "../../ui";
 import { useToast } from "../../toast";
 import { MapDetailPanel } from "./map-detail-panel";
+import { BrainScene } from "./scenes/brain";
+import { colorVar, type SceneInput, type Theme, type View3d, type ViewScene } from "./scenes/common";
+import { CubeScene } from "./scenes/cube";
+import { SpaceScene } from "./scenes/space";
 import { useLayout3d } from "./use-layout-3d";
 
 type Props = { points: MapPoint[]; domains: VocabDomain[]; programStart: string };
-type Theme = "dark" | "light";
-type LabelSpec = { id: string; text: string; at: Point3; priority: number; field: boolean };
+type LabelSpec = { key: string; text: string; priority: number; group: boolean };
 
+const VIEW_KEY = "peta-otak-3d:tampilan";
 const THEME_KEY = "peta-otak-3d:tema";
 const HIT_RADIUS = 14;
 const TOUCH_HIT_RADIUS = 24;
 /** Width of the detail panel on wide screens (`md:w-80`) and the share of the canvas its bottom sheet covers on phones. */
 const PANEL_WIDTH = 320;
 const SHEET_SHARE = 0.62;
-const DOT_SIZE = 0.11;
-const MARK_SIZE = 0.21;
-/** Region fill opacity per canvas theme, and when its field is highlighted from the legend. */
-const REGION_OPACITY: Record<Theme, number> = { dark: 0.16, light: 0.17 };
-const REGION_HIGHLIGHT = 0.34;
 const FLY_MS = 450;
-const START_POSITION = new Vector3(2.3, 1.5, 2.7);
-const NO_COORDS: ReadonlyMap<string, Point3> = new Map();
+const AUTO_ROTATE_SPEED: Record<View3d, number> = { space: 0.25, brain: 0.6, cube: 0.7 };
 
-const colorVar = (domain: VocabDomain | null) => `var(--${asDomainColor(domain?.color)})`;
+const VIEWS: { key: View3d; label: string; Icon: typeof Orbit }[] = [
+  { key: "space", label: "Luar angkasa", Icon: Orbit },
+  { key: "brain", label: "Otak", Icon: Brain },
+  { key: "cube", label: "Kubus", Icon: Box },
+];
+
+const INFO: Record<View3d, string> = {
+  space:
+    "Tiap bidang adalah galaksi dengan lubang hitam di pusatnya, dan tiap cabang sebuah matahari. Planet adalah istilah inti di cabangnya; bulan mengorbit planet yang paling mirip maknanya; batuan adalah istilah yang hubungannya longgar atau belum punya domain. Saat “Putar otomatis” aktif, semuanya bergerak di orbitnya.",
+  brain:
+    "Tiap bidang menempati lobus otaknya sendiri, dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 250, setelah itu istilahmu sendiri yang membentuknya.",
+  cube:
+    "Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP menjaga struktur lokal, bukan jarak global.",
+};
+
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-function initialTheme(): Theme {
+function remembered<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
-    const saved = window.localStorage.getItem(THEME_KEY);
-    if (saved === "dark" || saved === "light") return saved;
+    const saved = window.localStorage.getItem(key);
+    if (saved && (allowed as readonly string[]).includes(saved)) return saved as T;
   } catch {
-    // no storage: fall back to the system setting
+    // no storage: use the default
   }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return fallback;
+}
+
+function remember(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // remembering a choice is a convenience only
+  }
 }
 
 function hasWebGL() {
@@ -86,78 +80,42 @@ function hasWebGL() {
   }
 }
 
-/** Round sprite for the points: a soft glow for the dark canvas, a crisp disc with a soft rim for the light one. */
-function dotTexture(kind: Theme): Texture {
-  const size = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const g = canvas.getContext("2d") as CanvasRenderingContext2D;
-  const gradient = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  if (kind === "dark") {
-    gradient.addColorStop(0, "rgba(255,255,255,1)");
-    gradient.addColorStop(0.22, "rgba(255,255,255,0.95)");
-    gradient.addColorStop(0.45, "rgba(255,255,255,0.35)");
-    gradient.addColorStop(1, "rgba(255,255,255,0)");
-  } else {
-    gradient.addColorStop(0, "rgba(255,255,255,1)");
-    gradient.addColorStop(0.62, "rgba(255,255,255,1)");
-    gradient.addColorStop(0.8, "rgba(255,255,255,0.35)");
-    gradient.addColorStop(1, "rgba(255,255,255,0)");
-  }
-  g.fillStyle = gradient;
-  g.fillRect(0, 0, size, size);
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  return texture;
-}
-
-/** Faint dot grid on the three back walls of the cube (x, y, z = −1): a frame like a 3D chart, not data. */
-function wallGrid(): BufferGeometry {
-  const steps = 10;
-  const positions: number[] = [];
-  for (let i = 0; i <= steps; i++) {
-    for (let j = 0; j <= steps; j++) {
-      const u = -1 + (2 * i) / steps;
-      const v = -1 + (2 * j) / steps;
-      positions.push(-1, u, v, u, -1, v, u, v, -1);
-    }
-  }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-  return geometry;
-}
-
 type Stage = {
   renderer: WebGLRenderer;
+  scene: Scene;
   camera: PerspectiveCamera;
   controls: OrbitControls;
-  frame: LineSegments;
-  grid: Points;
-  dots: Points;
-  marks: Points;
-  links: Group;
-  regions: Group;
-  textures: Record<Theme, Texture>;
   dirty: boolean;
   width: number;
   height: number;
   flight: { fromTarget: Vector3; toTarget: Vector3; fromPos: Vector3; toPos: Vector3; start: number } | null;
+  /** Scene time for orbits; only advances while things are allowed to move. */
+  time: number;
 };
+
+function makeScene(view: View3d): ViewScene {
+  if (view === "space") return new SpaceScene();
+  if (view === "brain") return new BrainScene();
+  return new CubeScene();
+}
 
 export default function BrainMap3D({ points, domains, programStart }: Props) {
   const toast = useToast();
   const hostRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLSpanElement>(null);
   const stageRef = useRef<Stage | null>(null);
+  const sceneRef = useRef<{ view: View3d; scene: ViewScene } | null>(null);
   const labelEls = useRef(new Map<string, HTMLSpanElement>());
   const labelsRef = useRef<LabelSpec[]>([]);
-  const visibleRef = useRef<{ id: string; at: Point3 }[]>([]);
   const panelOpenRef = useRef(false);
+  const animateRef = useRef(false);
+  const followRef = useRef<string | null>(null);
+  const focusRef = useRef<string | null>(null);
   const downRef = useRef<{ x: number; y: number } | null>(null);
 
   const [webgl] = useState(hasWebGL);
-  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [view, setView] = useState<View3d>(() => remembered(VIEW_KEY, ["space", "brain", "cube"], prefersDark() ? "space" : "brain"));
+  const [cubeTheme, setCubeTheme] = useState<Theme>(() => remembered(THEME_KEY, ["dark", "light"], prefersDark() ? "dark" : "light"));
   const [autoRotate, setAutoRotate] = useState(() => !reducedMotion());
   const [hiddenFields, setHiddenFields] = useState<Set<string>>(() => new Set());
   const [hover, setHover] = useState<{ id: string; px: number; py: number } | null>(null);
@@ -169,19 +127,21 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const [hoverField, setHoverField] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [hostSize, setHostSize] = useState({ w: 0, h: 0 });
+  const [labelList, setLabelList] = useState<LabelSpec[]>([]);
 
+  const theme: Theme = view === "space" ? "dark" : view === "brain" ? "light" : cubeTheme;
   const domainIdx = useMemo(() => domainIndex(domains), [domains]);
   const { week: currentWeek } = currentWeekInfo(programStart, todayISO());
   const [week, setWeek] = useState(currentWeek);
 
-  const { state: layout, retry } = useLayout3d(points);
-  const coords = layout.phase === "ready" ? layout.coords : NO_COORDS;
+  const { state: layout, retry } = useLayout3d(points, domainIdx);
+  const data: Layout3dData | null = layout.phase === "ready" ? layout.data : null;
+  const coords = useMemo(() => data?.coords ?? new Map(), [data]);
   const visible = useMemo(
     () => visible3d(points, coords, { programStart, week, hiddenFields, domains: domainIdx }),
     [points, coords, programStart, week, hiddenFields, domainIdx],
   );
   const pointById = useMemo(() => new Map(points.map((p) => [p.id, p])), [points]);
-  const groups = useMemo(() => groups3d(visible, coords, level, domainIdx), [visible, coords, level, domainIdx]);
   const stats = useMemo(() => mapStats(visible, { programStart, currentWeek, domains: domainIdx }), [visible, programStart, currentWeek, domainIdx]);
   const searchHit = normalizeSearch(query.trim());
 
@@ -197,33 +157,11 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     host.prepend(renderer.domElement);
 
     const scene = new Scene();
-    const camera = new PerspectiveCamera(45, 1, 0.01, 50);
-    camera.position.copy(START_POSITION);
+    const camera = new PerspectiveCamera(45, 1, 0.01, 200);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 0.5;
-    controls.maxDistance = 9;
-    controls.autoRotateSpeed = 0.7;
-    controls.saveState();
-
-    const frame = new LineSegments(new EdgesGeometry(new BoxGeometry(2, 2, 2)), new LineBasicMaterial({ transparent: true, opacity: 0.4 }));
-    const grid = new Points(wallGrid(), new PointsMaterial({ size: 0.014, transparent: true, opacity: 0.45, depthWrite: false }));
-    const textures = { dark: dotTexture("dark"), light: dotTexture("light") };
-    const material = () => new PointsMaterial({ vertexColors: true, transparent: true, depthWrite: false, sizeAttenuation: true });
-    const dots = new Points(new BufferGeometry(), material());
-    const marks = new Points(new BufferGeometry(), material());
-    (dots.material as PointsMaterial).size = DOT_SIZE;
-    (marks.material as PointsMaterial).size = MARK_SIZE;
-    const links = new Group();
-    const regions = new Group();
-    // Transparent objects are drawn in this order (not by creation order): regions (1) under lines (2)
-    // under points (3, 4). Set on the objects themselves: a Group's renderOrder would outrank its children's.
-    dots.renderOrder = 3;
-    marks.renderOrder = 4;
-    scene.add(frame, grid, regions, links, dots, marks);
-
-    const stage: Stage = { renderer, camera, controls, frame, grid, dots, marks, links, regions, textures, dirty: true, width: 0, height: 0, flight: null };
+    const stage: Stage = { renderer, scene, camera, controls, dirty: true, width: 0, height: 0, flight: null, time: 0 };
     stageRef.current = stage;
 
     const resize = () => {
@@ -246,6 +184,14 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     let last = performance.now();
     const tick = (now: number) => {
       frameId = requestAnimationFrame(tick);
+      const delta = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const current = sceneRef.current?.scene;
+
+      if (current && animateRef.current) {
+        stage.time += delta;
+        if (current.tick(stage.time, delta)) stage.dirty = true;
+      }
       if (stage.flight) {
         const t = Math.min(1, (now - stage.flight.start) / FLY_MS);
         const e = 1 - (1 - t) ** 3;
@@ -253,13 +199,23 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         camera.position.lerpVectors(stage.flight.fromPos, stage.flight.toPos, e);
         if (t >= 1) stage.flight = null;
         stage.dirty = true;
+      } else if (current && followRef.current) {
+        // A selected body that orbits: keep it in the middle of the view.
+        const at = current.positionOf(followRef.current);
+        if (at) {
+          const shift = at.clone().sub(controls.target);
+          if (shift.lengthSq() > 1e-10) {
+            controls.target.add(shift);
+            camera.position.add(shift);
+            stage.dirty = true;
+          }
+        }
       }
-      const moved = controls.update(Math.min(0.1, (now - last) / 1000));
-      last = now;
+      const moved = controls.update(delta);
       if (moved || stage.dirty) {
         renderer.render(scene, camera);
         stage.dirty = false;
-        positionLabels(stage, labelsRef.current, labelEls.current);
+        if (current) positionLabels(stage, current, labelsRef.current, labelEls.current);
       }
     };
     frameId = requestAnimationFrame(tick);
@@ -268,21 +224,15 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       cancelAnimationFrame(frameId);
       observer.disconnect();
       controls.dispose();
-      for (const object of [frame, grid, dots, marks]) {
-        object.geometry.dispose();
-        (object.material as PointsMaterial).dispose();
-      }
-      disposeGroup(links);
-      disposeGroup(regions);
-      textures.dark.dispose();
-      textures.light.dispose();
+      sceneRef.current?.scene.dispose();
+      sceneRef.current = null;
       renderer.dispose();
       renderer.domElement.remove();
       stageRef.current = null;
     };
   }, [webgl]);
 
-  // ── Colours: read the design tokens as the chosen canvas theme resolves them ──
+  // ── Colours: read the design tokens as the canvas theme resolves them ───
   const resolve = useCallback((css: string) => {
     const probe = probeRef.current;
     if (!probe) return new Color(0x888888);
@@ -296,122 +246,94 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     return color;
   }, []);
 
-  // Theme: blending, sprite and frame colours.
-  useEffect(() => {
+  const sceneInput = useMemo<SceneInput | null>(
+    () => (data ? { data, points, visible, domains: domainIdx, color: resolve, theme, level } : null),
+    [data, points, visible, domainIdx, resolve, theme, level],
+  );
+
+  const flyTo = useCallback((at: Vector3) => {
     const stage = stageRef.current;
     if (!stage) return;
-    for (const layer of [stage.dots, stage.marks]) {
-      const material = layer.material as PointsMaterial;
-      material.map = stage.textures[theme];
-      material.blending = theme === "dark" ? AdditiveBlending : NormalBlending;
-      material.needsUpdate = true;
+    const direction = stage.camera.position.clone().sub(stage.controls.target);
+    const distance = Math.min(direction.length(), 1.8);
+    const toPos = at.clone().add(direction.normalize().multiplyScalar(distance));
+    if (reducedMotion()) {
+      stage.controls.target.copy(at);
+      stage.camera.position.copy(toPos);
+      stage.dirty = true;
+      return;
     }
-    (stage.frame.material as LineBasicMaterial).color = resolve("var(--border-strong)");
-    (stage.grid.material as PointsMaterial).color = resolve("var(--muted)");
-    stage.dirty = true;
-    try {
-      window.localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // remembering the choice is a convenience only
-    }
-  }, [theme, resolve]);
+    stage.flight = { fromTarget: stage.controls.target.clone(), toTarget: at.clone(), fromPos: stage.camera.position.clone(), toPos, start: performance.now() };
+  }, []);
 
-  // Points: positions and colours of everything visible.
+  // ── The scene for the chosen view: swapped when the view changes, rebuilt when its input changes ──
   useEffect(() => {
     const stage = stageRef.current;
-    visibleRef.current = visible.map((p) => ({ id: p.id, at: coords.get(p.id) as Point3 }));
-    if (!stage) return;
-    const background = resolve("var(--surface)");
-    const byField = new Map<string, Color>();
-    const positions = new Float32Array(visible.length * 3);
-    const colors = new Float32Array(visible.length * 3);
-    visible.forEach((p, i) => {
-      positions.set(coords.get(p.id) as Point3, i * 3);
-      const field = fieldOf(p.domain_id, domainIdx);
-      const key = field?.id ?? "none";
-      if (!byField.has(key)) byField.set(key, resolve(field ? colorVar(field) : "var(--domain-none)"));
-      const color = (byField.get(key) as Color).clone();
-      if (p.domain_source === "pending") color.lerp(background, 0.5);
-      colors.set([color.r, color.g, color.b], i * 3);
-    });
-    const geometry = stage.dots.geometry;
-    geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-    geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-    geometry.computeBoundingSphere();
-    stage.dirty = true;
-  }, [visible, coords, domainIdx, theme, resolve]);
-
-  // Highlights: the selected and hovered terms, drawn larger on top.
-  const effectiveAutoRotate = autoRotate && !selectedId && !hover;
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    stage.controls.autoRotate = effectiveAutoRotate;
-    const ids = [selectedId, hover?.id].filter((id, i, all): id is string => Boolean(id) && all.indexOf(id) === i && coords.has(id as string));
-    const white = new Color(theme === "dark" ? 0xffffff : 0x000000);
-    const positions = new Float32Array(ids.length * 3);
-    const colors = new Float32Array(ids.length * 3);
-    ids.forEach((id, i) => {
-      positions.set(coords.get(id) as Point3, i * 3);
-      const color = resolve(colorVar(fieldOf(pointById.get(id)?.domain_id ?? null, domainIdx))).lerp(white, 0.3);
-      colors.set([color.r, color.g, color.b], i * 3);
-    });
-    const geometry = stage.marks.geometry;
-    geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-    geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-    geometry.computeBoundingSphere();
-    stage.dirty = true;
-  }, [selectedId, hover?.id, coords, pointById, domainIdx, theme, resolve, effectiveAutoRotate]);
-
-  // Regions: a translucent hull around each field's (or branch's) terms, like the 2D map.
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    disposeGroup(stage.regions);
-    for (const g of groups) {
-      const cloud = paddedCloud3d(withoutOutliers3d(g.members)).map((p) => new Vector3(p[0], p[1], p[2]));
-      let geometry: ConvexGeometry;
-      try {
-        geometry = new ConvexGeometry(cloud);
-      } catch {
-        continue; // a degenerate cloud cannot be wrapped; its points are still drawn
+    if (!stage || !sceneInput) return;
+    let current = sceneRef.current;
+    if (!current || current.view !== view) {
+      if (current) {
+        stage.scene.remove(current.scene.root);
+        current.scene.dispose();
       }
-      const material = new MeshBasicMaterial({
-        color: resolve(colorVar(g.field)),
-        transparent: true,
-        opacity: hoverField === g.field.id ? REGION_HIGHLIGHT : REGION_OPACITY[theme],
-        depthWrite: false,
-        side: DoubleSide,
-      });
-      const mesh = new Mesh(geometry, material);
-      mesh.renderOrder = 1;
-      stage.regions.add(mesh);
+      current = { view, scene: makeScene(view) };
+      sceneRef.current = current;
+      stage.scene.add(current.scene.root);
+      current.scene.build(sceneInput);
+      const { target, position } = current.scene.frame();
+      stage.flight = null;
+      stage.controls.target.copy(target);
+      stage.camera.position.copy(position);
+      stage.controls.minDistance = position.distanceTo(target) * 0.12;
+      stage.controls.maxDistance = position.distanceTo(target) * 3;
+      stage.controls.saveState();
+    } else {
+      current.scene.build(sceneInput);
     }
+    stage.controls.autoRotateSpeed = AUTO_ROTATE_SPEED[view];
     stage.dirty = true;
-  }, [groups, hoverField, theme, resolve]);
 
-  // Lines from the selected term to its nearest neighbours (scores from the real embeddings).
+    // A search result that was hidden a moment ago can be flown to now.
+    const pending = focusRef.current;
+    const at = pending ? current.scene.positionOf(pending) : null;
+    if (pending && at) {
+      focusRef.current = null;
+      flyTo(at);
+    }
+  }, [view, sceneInput, flyTo]);
+
+  // Selected/hovered marks and neighbour lines.
   useEffect(() => {
     const stage = stageRef.current;
-    if (!stage) return;
-    disposeGroup(stage.links);
-    const from = selectedId ? coords.get(selectedId) : undefined;
-    if (from && neighbours?.id === selectedId) {
-      const ink = resolve("var(--text)");
-      const shown = new Set(visible.map((p) => p.id));
-      for (const n of neighbours.list) {
-        const to = coords.get(n.id);
-        if (!to || !shown.has(n.id)) continue;
-        const s = Math.max(0, Math.min(1, n.similarity));
-        const geometry = new BufferGeometry();
-        geometry.setAttribute("position", new Float32BufferAttribute([...from, ...to], 3));
-        const line = new Line(geometry, new LineBasicMaterial({ color: ink, transparent: true, opacity: 0.15 + 0.6 * s }));
-        line.renderOrder = 2;
-        stage.links.add(line);
-      }
-    }
+    const current = sceneRef.current;
+    if (!stage || !current || !sceneInput) return;
+    current.scene.highlight(
+      {
+        selectedId,
+        hoverId: hover?.id ?? null,
+        neighbours: neighbours?.id === selectedId ? neighbours.list.map((n) => ({ id: n.id, similarity: n.similarity })) : [],
+      },
+      sceneInput,
+    );
     stage.dirty = true;
-  }, [selectedId, neighbours, coords, visible, theme, resolve]);
+  }, [selectedId, hover?.id, neighbours, sceneInput, view]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    const current = sceneRef.current;
+    if (!stage || !current || !sceneInput) return;
+    current.scene.emphasize(hoverField, sceneInput);
+    stage.dirty = true;
+  }, [hoverField, sceneInput, view]);
+
+  // Motion: the camera turns and orbits move while "Putar otomatis" is on (paused while a term is in focus).
+  useEffect(() => {
+    const stage = stageRef.current;
+    const moving = autoRotate && !reducedMotion();
+    animateRef.current = moving && view === "space";
+    if (stage) stage.controls.autoRotate = moving && !selectedId && !hover;
+    followRef.current = view === "space" ? selectedId : null;
+  }, [autoRotate, selectedId, hover, view]);
 
   // The detail panel covers part of the canvas: shift the view so the middle of what is left is the middle of the picture.
   useEffect(() => {
@@ -420,15 +342,10 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     if (stage) applyViewOffset(stage, panelOpenRef.current);
   }, [selectedId]);
 
-  // Labels: field names at their centres, plus selected, hovered, searched and newest terms.
+  // Labels: group names (regions, galaxies, suns, lobes) plus selected, hovered, searched and newest terms.
   useEffect(() => {
-    const specs: LabelSpec[] = groups.map(({ group, centre, members }) => ({
-      id: `group:${group.id}`,
-      text: `${group.name} ${members.length}`,
-      at: centre,
-      priority: 950,
-      field: true,
-    }));
+    const current = sceneRef.current?.scene;
+    const specs: LabelSpec[] = (current?.groupLabels() ?? []).map((l) => ({ ...l, group: true }));
     const newest = [...visible].sort((a, b) => b.learned_on.localeCompare(a.learned_on)).slice(0, 12);
     const wanted = new Map<string, number>();
     newest.forEach((p, i) => wanted.set(p.id, (12 - i) / 13));
@@ -438,14 +355,16 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     if (hover) wanted.set(hover.id, 900);
     if (selectedId) wanted.set(selectedId, 1000);
     for (const [id, priority] of wanted) {
-      const at = coords.get(id);
       const point = pointById.get(id);
-      if (at && point && visible.some((v) => v.id === id)) specs.push({ id, text: point.term, at, priority, field: false });
+      if (point && current?.positionOf(id)) specs.push({ key: id, text: point.term, priority, group: false });
     }
     labelsRef.current = specs;
     const stage = stageRef.current;
     if (stage) stage.dirty = true;
-  }, [groups, visible, coords, pointById, searchHit, hover, selectedId]);
+    // Mirror the specs into state on the next frame, so React renders their elements.
+    const frame = requestAnimationFrame(() => setLabelList(specs));
+    return () => cancelAnimationFrame(frame);
+  }, [sceneInput, view, visible, pointById, searchHit, hover, selectedId]);
 
   // ── Week playback (same as the 2D map) ──────────────────────────────────
   useEffect(() => {
@@ -463,22 +382,6 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   }, [playing, currentWeek]);
 
   // ── Camera moves ────────────────────────────────────────────────────────
-  const flyTo = useCallback((at: Point3) => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const target = new Vector3(...at);
-    const direction = stage.camera.position.clone().sub(stage.controls.target);
-    const distance = Math.min(direction.length(), 1.8);
-    const toPos = target.clone().add(direction.normalize().multiplyScalar(distance));
-    if (reducedMotion()) {
-      stage.controls.target.copy(target);
-      stage.camera.position.copy(toPos);
-      stage.dirty = true;
-      return;
-    }
-    stage.flight = { fromTarget: stage.controls.target.clone(), toTarget: target, fromPos: stage.camera.position.clone(), toPos, start: performance.now() };
-  }, []);
-
   const resetView = () => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -490,21 +393,36 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const focusPoint = useCallback(
     (id: string) => {
       setSelectedId(id);
-      const at = coords.get(id);
+      const at = sceneRef.current?.scene.positionOf(id);
       if (at) flyTo(at);
+      else focusRef.current = id;
     },
-    [coords, flyTo],
+    [flyTo],
   );
+
+  const chooseView = (next: View3d) => {
+    setView(next);
+    setHover(null);
+    remember(VIEW_KEY, next);
+  };
+  const chooseTheme = (next: Theme) => {
+    setCubeTheme(next);
+    remember(THEME_KEY, next);
+  };
 
   // ── Pointer: hover and pick (dragging belongs to OrbitControls) ─────────
   const project = (): Projected[] => {
     const stage = stageRef.current;
-    if (!stage) return [];
-    const v = new Vector3();
-    return visibleRef.current.map(({ id, at }) => {
-      v.set(at[0], at[1], at[2]).project(stage.camera);
-      return { id, x: ((v.x + 1) / 2) * stage.width, y: ((1 - v.y) / 2) * stage.height, depth: v.z };
-    });
+    const current = sceneRef.current?.scene;
+    if (!stage || !current) return [];
+    const out: Projected[] = [];
+    for (const id of current.pickable()) {
+      const at = current.positionOf(id);
+      if (!at) continue;
+      const v = at.clone().project(stage.camera);
+      out.push({ id, x: ((v.x + 1) / 2) * stage.width, y: ((1 - v.y) / 2) * stage.height, depth: v.z });
+    }
+    return out;
   };
   const locate = (event: React.PointerEvent) => {
     const rect = (hostRef.current as HTMLDivElement).getBoundingClientRect();
@@ -562,16 +480,10 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   }
 
   const onNeighbours = useCallback((id: string, list: NearestTerm[]) => setNeighbours({ id, list }), []);
-  const registerLabel = useCallback((id: string, el: HTMLSpanElement | null) => {
-    if (el) labelEls.current.set(id, el);
-    else labelEls.current.delete(id);
+  const registerLabel = useCallback((key: string, el: HTMLSpanElement | null) => {
+    if (el) labelEls.current.set(key, el);
+    else labelEls.current.delete(key);
   }, []);
-  const [labelList, setLabelList] = useState<LabelSpec[]>([]);
-  useEffect(() => {
-    // Mirror the label specs into state on the next frame, so React renders their elements.
-    const frame = requestAnimationFrame(() => setLabelList(labelsRef.current));
-    return () => cancelAnimationFrame(frame);
-  }, [groups, visible, coords, searchHit, hover, selectedId]);
 
   // ── States without a space ──────────────────────────────────────────────
   if (points.length < MIN_TERMS_FOR_MAP) {
@@ -619,18 +531,36 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       return next;
     });
   const hoverPoint = hover ? pointById.get(hover.id) : undefined;
+  const role = hover && view === "space" ? data?.roles.get(hover.id) : undefined;
+  const roleText = role ? { planet: "Planet: istilah inti di cabangnya", moon: `Bulan dari ${pointById.get(role.kind === "moon" ? role.parent : "")?.term ?? "planet"}`, rock: "Batuan: hubungannya longgar" }[role.kind] : null;
 
   return (
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tampilan 3D">
+          {VIEWS.map(({ key, label, Icon }) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={view === key}
+              onClick={() => chooseView(key)}
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-xs font-medium transition-colors",
+                view === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
+              )}
+            >
+              <Icon className="size-3.5" /> {label}
+            </button>
+          ))}
+        </div>
         <form onSubmit={submitSearch} className="relative min-w-48 flex-1" role="search">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari istilah di ruang 3D, lalu Enter"
+            placeholder="Cari istilah, lalu Enter"
             aria-label="Cari istilah di ruang 3D"
             list="map3d-terms"
             className="input pl-9"
@@ -641,35 +571,39 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
             ))}
           </datalist>
         </form>
-        <label className="flex items-center gap-2 text-sm text-muted">
-          Batas
-          <select value={level} onChange={(e) => setLevel(e.target.value as BoundaryLevel)} className="input w-auto" aria-label="Tingkat batas wilayah">
-            <option value="bidang">Bidang</option>
-            <option value="cabang">Cabang</option>
-            <option value="none">Tanpa batas</option>
-          </select>
-        </label>
-        <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tema kanvas 3D">
-          {(
-            [
-              { key: "dark", label: "Gelap", Icon: Moon },
-              { key: "light", label: "Terang", Icon: Sun },
-            ] as const
-          ).map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={theme === key}
-              onClick={() => setTheme(key)}
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-xs font-medium transition-colors",
-                theme === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
-              )}
-            >
-              <Icon className="size-3.5" /> {label}
-            </button>
-          ))}
-        </div>
+        {view === "cube" && (
+          <>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              Batas
+              <select value={level} onChange={(e) => setLevel(e.target.value as BoundaryLevel)} className="input w-auto" aria-label="Tingkat batas wilayah">
+                <option value="bidang">Bidang</option>
+                <option value="cabang">Cabang</option>
+                <option value="none">Tanpa batas</option>
+              </select>
+            </label>
+            <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tema kubus">
+              {(
+                [
+                  { key: "dark", label: "Gelap", Icon: Moon },
+                  { key: "light", label: "Terang", Icon: Sun },
+                ] as const
+              ).map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={cubeTheme === key}
+                  onClick={() => chooseTheme(key)}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-xs font-medium transition-colors",
+                    cubeTheme === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
+                  )}
+                >
+                  <Icon className="size-3.5" /> {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         <button
           type="button"
           className={cn("btn btn-sm", autoRotate ? "btn-primary" : "btn-secondary")}
@@ -678,15 +612,14 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         >
           <Rotate3d className="size-3.5" /> Putar otomatis
         </button>
-        <button type="button" className="icon-btn" aria-label="Cara membaca ruang 3D" aria-expanded={showInfo} onClick={() => setShowInfo((v) => !v)}>
+        <button type="button" className="icon-btn" aria-label="Cara membaca tampilan ini" aria-expanded={showInfo} onClick={() => setShowInfo((v) => !v)}>
           <Info className="size-4" />
         </button>
       </div>
       {showInfo && (
         <p className="card px-4 py-3 text-sm text-muted">
-          Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP
-          menjaga struktur lokal, bukan jarak global. Seret untuk memutar, gulir atau cubit untuk zoom, klik kanan atau dua jari untuk
-          menggeser. Susunan 3D dihitung dan disimpan di browser ini, jadi perangkat lain bisa menunjukkan sudut yang berbeda.
+          {INFO[view]} Seret untuk memutar, gulir atau cubit untuk zoom, klik kanan atau dua jari untuk menggeser. Susunan 3D dihitung dan disimpan di
+          browser ini.
         </p>
       )}
 
@@ -726,16 +659,18 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
           </dl>
         </div>
 
-        {/* Canvas: its own light or dark theme, like the app's two modes */}
+        {/* Canvas: its own theme (space is always dark, the brain always light, the cube either) */}
         <div
           ref={hostRef}
           className={cn(
             "theme-scope card relative order-2 h-[min(70dvh,44rem)] min-h-96 touch-none overflow-hidden text-text select-none",
             theme === "dark" ? "scheme-dark" : "scheme-light",
-            "bg-[radial-gradient(ellipse_at_center,var(--surface-2),var(--bg))]",
+            view === "space"
+              ? "bg-[radial-gradient(ellipse_at_center,var(--surface),var(--bg)_70%)]"
+              : "bg-[radial-gradient(ellipse_at_center,var(--surface-2),var(--bg))]",
           )}
           role="img"
-          aria-label={`Peta Otak 3D: ${visible.length} istilah. Daftar lengkapnya ada di tab Daftar.`}
+          aria-label={`Peta Otak 3D, tampilan ${VIEWS.find((v) => v.key === view)?.label}: ${visible.length} istilah. Daftar lengkapnya ada di tab Daftar.`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -747,13 +682,12 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
             {labelList.map((l) => (
               <span
-                key={l.id}
-                ref={(el) => registerLabel(l.id, el)}
-                data-field={l.field ? "" : undefined}
+                key={l.key}
+                ref={(el) => registerLabel(l.key, el)}
                 className={cn(
                   "invisible absolute top-0 left-0 whitespace-nowrap text-text [text-shadow:0_0_3px_var(--surface),0_0_3px_var(--surface),0_0_6px_var(--surface)]",
-                  l.field ? "text-[11px] font-semibold tracking-[0.04em] uppercase" : "text-[11px]",
-                  l.id === selectedId && "font-semibold",
+                  l.group ? "text-[11px] font-semibold tracking-[0.04em] uppercase" : "text-[11px]",
+                  l.key === selectedId && "font-semibold",
                 )}
               >
                 {l.text}
@@ -798,6 +732,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
             >
               <p className="font-display text-sm font-semibold tracking-tight">{hoverPoint.term}</p>
               <p className="mt-0.5 text-muted">{domainPath(hoverPoint.domain_id, domainIdx) || "Tanpa domain"}</p>
+              {roleText && <p className="mt-0.5 text-muted">{roleText}</p>}
               <p className="mt-1 text-muted">
                 Dipelajari {formatDate(hoverPoint.learned_on)}, {weekMarker(weekNumberFor(programStart, hoverPoint.learned_on))}
               </p>
@@ -869,15 +804,6 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function disposeGroup(group: Group) {
-  for (const child of [...group.children]) {
-    const object = child as Line | Mesh;
-    object.geometry.dispose();
-    (object.material as LineBasicMaterial | MeshBasicMaterial).dispose();
-    group.remove(object);
-  }
-}
-
 /**
  * Shifts the picture so that its middle is the middle of the part the detail
  * panel leaves free: the panel covers the right on wide screens and the bottom
@@ -904,25 +830,25 @@ function applyViewOffset(stage: Stage, panelOpen: boolean) {
 }
 
 /** Places the HTML labels over the canvas: project, avoid collisions and the edges, hide the rest. */
-function positionLabels(stage: Stage, specs: readonly LabelSpec[], elements: ReadonlyMap<string, HTMLSpanElement>) {
+function positionLabels(stage: Stage, scene: ViewScene, specs: readonly LabelSpec[], elements: ReadonlyMap<string, HTMLSpanElement>) {
   const { camera, width, height } = stage;
-  const v = new Vector3();
   const boxes: { id: string; x: number; y: number; width: number; height: number; priority: number }[] = [];
   for (const spec of specs) {
-    const el = elements.get(spec.id);
-    if (!el) continue;
-    v.set(spec.at[0], spec.at[1], spec.at[2]).project(camera);
+    const el = elements.get(spec.key);
+    const at = scene.positionOf(spec.key);
+    if (!el || !at) continue;
+    const v = at.clone().project(camera);
     if (v.z < -1 || v.z > 1) continue;
     const sx = ((v.x + 1) / 2) * width;
     const sy = ((1 - v.y) / 2) * height;
     const w = el.offsetWidth;
     const h = el.offsetHeight;
-    let x = spec.field ? sx - w / 2 : sx + 9;
-    if (!spec.field && x + w > width - 4) x = sx - 9 - w;
-    if (spec.field) x = Math.min(Math.max(x, 4), width - 4 - w);
+    let x = spec.group ? sx - w / 2 : sx + 9;
+    if (!spec.group && x + w > width - 4) x = sx - 9 - w;
+    if (spec.group) x = Math.min(Math.max(x, 4), width - 4 - w);
     const y = sy - h / 2;
     if (x < 4 || y < 4 || y + h > height - 4) continue;
-    boxes.push({ id: spec.id, x, y, width: w, height: h, priority: spec.priority });
+    boxes.push({ id: spec.key, x, y, width: w, height: h, priority: spec.priority });
   }
   const shown = new Set(placeLabels(boxes, 40));
   const at = new Map(boxes.map((b) => [b.id, b]));

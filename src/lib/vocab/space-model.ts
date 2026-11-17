@@ -292,7 +292,7 @@ export function spaceLayout(terms: readonly SpaceTerm[], roles: ReadonlyMap<stri
         });
         moons.sort((a, b) => a.id.localeCompare(b.id));
         moons.forEach((mo, mi) => {
-          const mr = 0.055 + 0.022 * mi;
+          const mr = 0.09 + 0.03 * mi;
           const own2 = basisFor(norm(add(normal, scale(u, (hash01(mo.id, 8) * 2 - 1) * 0.6))));
           bodies.push({
             key: mo.id,

@@ -10,6 +10,7 @@ import {
   readCache,
   readPrevious,
   sphereDirections,
+  termGroups,
   visible3d,
   withoutOutliers3d,
   writeCache,
@@ -206,3 +207,13 @@ describe("regions", () => {
     for (const p of cloud.slice(0, 8)) expect(Math.hypot(...p)).toBeCloseTo(0.1, 10);
   });
 });
+
+describe("termGroups", () => {
+  it("files a branch term under its branch and field, a field term under the field's own 'umum' group", () => {
+    expect(termGroups("dl", domains)).toEqual({ fieldId: "ml", branchKey: "dl" });
+    expect(termGroups("st", domains)).toEqual({ fieldId: "st", branchKey: "st:umum" });
+    expect(termGroups(null, domains)).toEqual({ fieldId: null, branchKey: null });
+    expect(termGroups("gone", domains)).toEqual({ fieldId: null, branchKey: null });
+  });
+});
+
