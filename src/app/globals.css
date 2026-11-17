@@ -1292,6 +1292,78 @@ html:has(dialog.mobile-menu[open]) {
     }
   }
 
+  /*
+   * Main navigation (components/shell/): a number, the label and the
+   * section's shape. The current page is a raised paper pill with its shape
+   * at full strength; on navigation that shape travels to the new page
+   * (view transition "nav-active").
+   */
+  .nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border-radius: var(--r-control);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--muted);
+    transition:
+      background-color var(--dur-fast) var(--ease-std),
+      color var(--dur-fast) var(--ease-std);
+  }
+  .nav-item:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .nav-item[aria-current="page"] {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--lift-shadow);
+  }
+  .nav-item:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .nav-number {
+    font-family: var(--display-font);
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+  .nav-item .nav-shape {
+    opacity: 0.5;
+  }
+  .nav-item[aria-current="page"] .nav-shape {
+    opacity: 1;
+  }
+  .nav-rail {
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+  }
+
+  /* The theme button shows the scheme it switches to; CSS knows it before React does. */
+  .theme-icon-sun {
+    display: none;
+  }
+  :root[data-theme="dark"] .theme-icon-sun {
+    display: block;
+  }
+  :root[data-theme="dark"] .theme-icon-moon {
+    display: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .theme-icon-sun {
+      display: block;
+    }
+    :root:not([data-theme]) .theme-icon-moon {
+      display: none;
+    }
+  }
+
   /* Full-screen navigation on phones (see components/shell/mobile-menu.tsx). */
   .mobile-menu {
     @apply m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto bg-bg p-0 text-text;

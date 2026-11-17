@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { LogOut } from "lucide-react";
+import { Shape } from "@/components/shape";
 import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "./brand-mark";
 
 export function Brand() {
   return (
-    <Link href="/" className="flex items-center gap-2.5">
+    <Link href="/" className="flex items-center gap-3 rounded-control">
       <BrandMark />
       <span className="leading-tight">
-        <span className="block font-display text-sm font-semibold tracking-tight">{APP_NAME}</span>
+        <span className="block font-display text-[1.0625rem] font-semibold tracking-tight">{APP_NAME}</span>
         <span className="block text-xs text-muted">ML &amp; Data Science</span>
       </span>
     </Link>
@@ -22,9 +23,12 @@ export function WeekChip({ marker, period, className }: { marker: string; period
     <Link
       href="/reports"
       title={`${marker} · ${period}`}
-      className={cn("chip border border-border bg-surface text-text hover:border-border-strong", className)}
+      className={cn(
+        "chip h-[1.875rem] border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text hover:bg-surface-2",
+        className,
+      )}
     >
-      <span className="size-1.5 rounded-full bg-accent" />
+      <Shape kind="circle" color="blue" className="size-2" />
       <span className="font-display tracking-tight tabular-nums">{marker}</span>
     </Link>
   );
