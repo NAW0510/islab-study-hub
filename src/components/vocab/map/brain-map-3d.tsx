@@ -45,7 +45,7 @@ const INFO: Record<View3d, string> = {
   space:
     "Tiap bidang adalah galaksi dengan lubang hitam di pusatnya, dan tiap cabang sebuah matahari. Planet adalah istilah inti di cabangnya; bulan mengorbit planet yang paling mirip maknanya; batuan adalah istilah yang hubungannya longgar atau belum punya domain. Saat “Putar otomatis” aktif, semuanya bergerak di orbitnya.",
   brain:
-    "Tiap bidang menempati lobus otaknya sendiri, dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya.",
+    "Tiap bidang menempati lobus otaknya sendiri (namanya muncul saat kamu menyorot atau memilih salah satu istilahnya), dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya.",
   cube:
     "Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP menjaga struktur lokal, bukan jarak global.",
 };

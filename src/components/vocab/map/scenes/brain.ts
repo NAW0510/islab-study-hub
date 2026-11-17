@@ -28,6 +28,8 @@ export class BrainScene implements ViewScene {
   private positions = new Map<string, Vector3>();
   private ids: string[] = [];
   private labels: GroupLabel[] = [];
+  /** Fields of the hovered and selected terms: only their names are shown over the brain. */
+  private focusFields = new Set<string>();
   /** Per scaffold point: the field owning its lobe (for re-tinting on hover). */
   private scaffoldField: (string | null)[] = [];
   private grey = new Color(0x999999);
@@ -158,6 +160,13 @@ export class BrainScene implements ViewScene {
       return this.fieldColour.get(termGroups(point?.domain_id ?? null, input.domains).fieldId ?? "none") ?? this.grey;
     };
     this.marks.update(h, { ...input, theme: "light" }, colourOf, (key) => this.positionOf(key));
+
+    this.focusFields = new Set();
+    for (const id of [h.selectedId, h.hoverId]) {
+      const point = id ? input.points.find((p) => p.id === id) : undefined;
+      const field = point ? termGroups(point.domain_id, input.domains).fieldId : null;
+      if (field) this.focusFields.add(field);
+    }
   }
 
   tick() {
@@ -172,8 +181,9 @@ export class BrainScene implements ViewScene {
     return this.ids;
   }
 
+  /** A field's name appears only while one of its terms is hovered or selected, so the brain itself stays clear. */
   groupLabels() {
-    return this.labels;
+    return this.labels.filter((l) => this.focusFields.has(l.key.slice("lobe:".length)));
   }
 
   frame() {
