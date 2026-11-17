@@ -236,13 +236,19 @@ export const LAYOUT_3D_CONFIG = {
    */
   BRAIN_FULL_TERMS: 350,
   /**
-   * Neuron tidur (titik kecil): 2.000 titik → jarak antartetangga 6,7 mm
-   * (0,074 satuan, sekitar 2,5× diameter titik, jadi tidak berdempet) dan
-   * garis tepi tertutup 95%. 1.500 → 7,8 mm / 91%; 2.500 → 6,0 mm / 97%.
+   * Kapasitas awal neuron: 1.500 titik → jarak antartetangga 7,8 mm (0,085
+   * satuan, sekitar 3× diameter titik) dan garis tepi tertutup 91%.
+   * Pembanding: 2.000 → 6,7 mm / 95%; 2.500 → 6,0 mm / 97%.
    */
-  BRAIN_MIN_SLOTS: 2000,
-  /** Slot bertambah bila istilah banyak: max(MIN, PER_TERM × istilah), paling banyak sejumlah titik yang dipanggang (5.000). */
-  BRAIN_SLOTS_PER_TERM: 2,
+  BRAIN_BASE_NEURONS: 1500,
+  /**
+   * Setiap kali jumlah istilah melewati kapasitas, kapasitas bertambah
+   * sebanyak ini (1.501 istilah → 2.000 neuron, 2.001 → 2.500, …), jadi
+   * selalu ada neuron untuk setiap istilah. Sampai 5.000 neuron diambil dari
+   * titik model yang dipanggang; di atasnya neuron baru dibuat di permukaan,
+   * di antara neuron yang bertetangga.
+   */
+  BRAIN_NEURON_STEP: 500,
   /** Kepekatan kerangka neuron tidur: dari MAX (sedikit istilah) turun ke MIN saat istilah ≥ BRAIN_FULL_TERMS. */
   BRAIN_SCAFFOLD_MAX: 0.55,
   BRAIN_SCAFFOLD_MIN: 0.2,

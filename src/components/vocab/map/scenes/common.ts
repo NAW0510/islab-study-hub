@@ -147,6 +147,11 @@ export class HighlightLayer {
     this.root.add(this.lines, this.marks);
   }
 
+  /** Changes the size of the marks (for scenes whose points shrink as they get denser). */
+  resize(size: number) {
+    (this.marks.material as PointsMaterial).size = size;
+  }
+
   update(h: Highlight, input: SceneInput, colorOf: (id: string) => Color, positionOf: (key: string) => Vector3 | null) {
     const blend = input.theme === "dark" ? AdditiveBlending : NormalBlending;
     const material = this.marks.material as PointsMaterial;

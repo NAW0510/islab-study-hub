@@ -47,13 +47,104 @@ export function regionOf(p: V3): number {
 }
 
 /**
+ * How many neurons the brain has for `terms` terms: BRAIN_BASE_NEURONS to
+ * begin with, then BRAIN_NEURON_STEP more each time the terms pass it.
+ */
+export function neuronCapacity(terms: number): number {
+  const { BRAIN_BASE_NEURONS: base, BRAIN_NEURON_STEP: step } = LAYOUT_3D_CONFIG;
+  return terms <= base ? base : base + step * Math.ceil((terms - base) / step);
+}
+
+/**
  * The first `n` neuron slots. The baked points are in farthest-point order,
- * so any prefix is spread evenly over the brain's outer surface.
+ * so any prefix is spread evenly over the brain's outer surface; beyond them,
+ * new points are made between neighbouring ones (see `densify`).
  */
 export function scaffoldSlots(n: number): { at: V3; region: number }[] {
-  return brainPoints()
-    .slice(0, Math.max(0, n))
-    .map((at) => ({ at, region: regionOf(at) }));
+  const baked = brainPoints();
+  const count = Math.max(0, n);
+  const points = count <= baked.length ? baked.slice(0, count) : [...baked, ...densify(baked, count - baked.length)];
+  return points.map((at) => ({ at, region: regionOf(at) }));
+}
+
+/** A uniform grid over points, for neighbour queries. */
+class Grid {
+  private readonly cells = new Map<string, number[]>();
+  constructor(private readonly size: number) {}
+  private key(p: V3, d: V3 = [0, 0, 0]) {
+    return `${Math.floor(p[0] / this.size) + d[0]},${Math.floor(p[1] / this.size) + d[1]},${Math.floor(p[2] / this.size) + d[2]}`;
+  }
+  add(p: V3, index: number) {
+    const key = this.key(p);
+    const cell = this.cells.get(key);
+    if (cell) cell.push(index);
+    else this.cells.set(key, [index]);
+  }
+  /** Indices in the 27 cells around `p`. */
+  near(p: V3): number[] {
+    const out: number[] = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) out.push(...(this.cells.get(this.key(p, [dx, dy, dz])) ?? []));
+    return out;
+  }
+}
+
+/**
+ * `extra` new points on the brain's surface, beyond the baked ones. Each
+ * round takes the midpoints between every point and its three nearest
+ * neighbours (on a surface sampled this densely a midpoint lies on it, a
+ * fraction of a millimetre off), then adds them farthest-first, at most half
+ * as many as there already are, so the new points fill the gaps evenly.
+ * Deterministic.
+ */
+export function densify(base: readonly V3[], extra: number): V3[] {
+  const points: V3[] = [...base];
+  const added: V3[] = [];
+  // Typical spacing of the base: median distance to the nearest neighbour, over an even sample.
+  const sample = base.filter((_, i) => i % Math.max(1, Math.floor(base.length / 120)) === 0);
+  const gaps = sample.map((p) => Math.min(...base.map((q) => (q === p ? Infinity : dist(p, q))))).sort((a, b) => a - b);
+  const baseSpacing = gaps[Math.floor(gaps.length / 2)] ?? 0.05;
+  while (added.length < extra) {
+    // The surface area stays the same, so spacing² × N stays about constant.
+    const spacing = baseSpacing * Math.sqrt(base.length / points.length);
+    const size = spacing * 2.5;
+    const grid = new Grid(size);
+    points.forEach((p, i) => grid.add(p, i));
+
+    const seen = new Set<string>();
+    const candidates: V3[] = [];
+    points.forEach((p, i) => {
+      const nearest = grid
+        .near(p)
+        .filter((j) => j !== i)
+        .map((j) => ({ j, d: dist(p, points[j]) }))
+        .sort((a, b) => a.d - b.d || a.j - b.j)
+        .slice(0, 3);
+      for (const { j } of nearest) {
+        const key = i < j ? `${i}|${j}` : `${j}|${i}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const q = points[j];
+        candidates.push([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2]);
+      }
+    });
+
+    // Farthest-first: repeatedly take the candidate farthest from every point so far.
+    const nearestTo = candidates.map((c) => Math.min(size * 1.5, ...grid.near(c).map((j) => dist(c, points[j]))));
+    const candidateGrid = new Grid(size);
+    candidates.forEach((c, i) => candidateGrid.add(c, i));
+    const want = Math.min(extra - added.length, Math.ceil(points.length / 2), candidates.length);
+    for (let k = 0; k < want; k++) {
+      let best = -1;
+      for (let i = 0; i < candidates.length; i++) if (nearestTo[i] >= 0 && (best < 0 || nearestTo[i] > nearestTo[best])) best = i;
+      if (best < 0) break;
+      const p = candidates[best];
+      points.push(p);
+      added.push(p);
+      nearestTo[best] = -1;
+      for (const i of candidateGrid.near(p)) if (nearestTo[i] >= 0) nearestTo[i] = Math.min(nearestTo[i], dist(candidates[i], p));
+    }
+  }
+  return added;
 }
 
 /**
@@ -144,8 +235,7 @@ export type BrainLayout = {
  * (or, when every lobe is taken, the largest field's).
  */
 export function brainLayout(terms: readonly { id: string; fieldId: string | null; at: V3 }[]): BrainLayout {
-  const C = LAYOUT_3D_CONFIG;
-  const slots = scaffoldSlots(Math.max(C.BRAIN_MIN_SLOTS, C.BRAIN_SLOTS_PER_TERM * terms.length));
+  const slots = scaffoldSlots(neuronCapacity(terms.length));
   const counts = new Map<string, number>();
   for (const t of terms) if (t.fieldId) counts.set(t.fieldId, (counts.get(t.fieldId) ?? 0) + 1);
   const { units, parts } = allocateLobes([...counts].map(([fieldId, count]) => ({ fieldId, count })));
@@ -163,16 +253,26 @@ export function brainLayout(terms: readonly { id: string; fieldId: string | null
   const termSlot = new Map<string, number>();
   const largest = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   const groups = new Map<string | null, { id: string; at: V3 }[]>();
-  for (const t of terms) groups.set(t.fieldId, [...(groups.get(t.fieldId) ?? []), { id: t.id, at: t.at }]);
+  for (const t of terms) {
+    const list = groups.get(t.fieldId);
+    if (list) list.push({ id: t.id, at: t.at });
+    else groups.set(t.fieldId, [{ id: t.id, at: t.at }]);
+  }
   const used = new Set<number>();
-  for (const [fieldId, members] of groups) {
-    const owner = fieldId ?? (slotField.some((f) => f === null) ? null : largest);
-    const mine = slots.map((s, index) => ({ index, at: s.at })).filter(({ index }) => slotField[index] === owner && !used.has(index));
-    for (const [id, slot] of placeOnSlots(members, mine)) {
+  const take = (members: readonly { id: string; at: V3 }[], allowed: (index: number) => boolean) => {
+    const free = slots.map((s, index) => ({ index, at: s.at })).filter(({ index }) => allowed(index) && !used.has(index));
+    for (const [id, slot] of placeOnSlots(members, free)) {
       termSlot.set(id, slot);
       used.add(slot);
     }
+  };
+  for (const [fieldId, members] of groups) {
+    const owner = fieldId ?? (slotField.some((f) => f === null) ? null : largest);
+    take(members, (index) => slotField[index] === owner);
   }
+  // A field with more terms than its lobes hold spills over into the nearest free neurons elsewhere.
+  const left = terms.filter((t) => !termSlot.has(t.id)).map((t) => ({ id: t.id, at: t.at }));
+  if (left.length) take(left, () => true);
   return { slots: slots.map((s) => s.at), slotRegion: slots.map((s) => s.region), slotField, termSlot };
 }
 
