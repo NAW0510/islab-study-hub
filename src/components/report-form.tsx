@@ -67,7 +67,7 @@ export function ReportForm({
       setFillMessage(
         filled.length
           ? `Ditambahkan ke: ${filled.join(" & ")}. Rapikan dulu sebelum disimpan.`
-          : "Belum ada catatan, topik, atau sumber yang tercatat pada periode ini.",
+          : "Belum ada catatan, topik, sumber, atau istilah yang tercatat pada periode ini.",
       );
     });
   }

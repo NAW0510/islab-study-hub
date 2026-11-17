@@ -329,6 +329,65 @@ html:has(dialog.mobile-menu[open]) {
     }
   }
 
+  /*
+   * Marquee strip (components/vocab/term-marquee.tsx). Two identical groups,
+   * each at least as wide as the strip, slide left by their own width, so the
+   * loop has no seam however few items there are. Transform only. It stops on
+   * hover, while something inside has focus, and while the "Jeda" checkbox in
+   * the surrounding `.marquee-host` is ticked. With reduced motion it stands
+   * still, the copy is gone, and the strip scrolls sideways instead.
+   */
+  .marquee {
+    display: flex;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent);
+  }
+  .marquee-group {
+    display: flex;
+    flex-shrink: 0;
+    min-width: 100%;
+    align-items: center;
+    justify-content: space-around;
+    gap: 1.5rem;
+    padding-right: 1.5rem;
+    animation: marquee-slide var(--marquee-duration, 40s) linear infinite;
+  }
+  .marquee:hover .marquee-group,
+  .marquee:focus-within .marquee-group,
+  .marquee-host:has(.marquee-pause:checked) .marquee-group {
+    animation-play-state: paused;
+  }
+  .marquee-toggle:has(:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .marquee-toggle .when-paused,
+  .marquee-host:has(.marquee-pause:checked) .marquee-toggle .when-running {
+    display: none;
+  }
+  .marquee-host:has(.marquee-pause:checked) .marquee-toggle .when-paused {
+    display: block;
+  }
+  @keyframes marquee-slide {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee {
+      overflow-x: auto;
+      mask-image: none;
+    }
+    .marquee-group {
+      animation: none;
+      justify-content: flex-start;
+    }
+    .marquee-group[aria-hidden="true"],
+    .marquee-toggle {
+      display: none;
+    }
+  }
+
   /* Full-screen navigation on phones (see components/shell/mobile-menu.tsx). */
   .mobile-menu {
     @apply m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto bg-bg p-0 text-text;

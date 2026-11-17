@@ -33,7 +33,7 @@ export default async function SubjectPage({
   const tab: Tab = tabParam === "catatan" || tabParam === "sumber" ? tabParam : "silabus";
 
   // Everything in one parallel round trip (the subject check no longer blocks the rest).
-  const [{ data: subject }, topicsRes, notesRes, resourcesRes] = await Promise.all([
+  const [{ data: subject }, topicsRes, notesRes, resourcesRes, termsRes] = await Promise.all([
     supabase.from("subjects").select("*").eq("id", id).maybeSingle<Subject>(),
     supabase.from("syllabus_items").select("*").eq("subject_id", id).order("position").order("created_at"),
     supabase
@@ -43,6 +43,8 @@ export default async function SubjectPage({
       .order("learned_on", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase.from("resources").select(RESOURCE_SELECT).eq("subject_id", id).order("created_at", { ascending: false }),
+    // Kosakata terms linked to a topic (counted per topic below; spec §9).
+    supabase.from("vocab_terms").select("syllabus_item_id").is("deleted_at", null).not("syllabus_item_id", "is", null),
   ]);
   if (!subject) notFound();
 
@@ -56,8 +58,12 @@ export default async function SubjectPage({
 
   const noteCounts = countBy(notes, (n) => n.syllabus_item_id);
   const resourceCounts = countBy(resources, (r) => r.syllabus_item_id);
+  const termCounts = countBy((termsRes.data ?? []) as { syllabus_item_id: string | null }[], (t) => t.syllabus_item_id);
   const counts = Object.fromEntries(
-    topics.map((t) => [t.id, { notes: noteCounts[t.id] ?? 0, resources: resourceCounts[t.id] ?? 0 }]),
+    topics.map((t) => [
+      t.id,
+      { notes: noteCounts[t.id] ?? 0, resources: resourceCounts[t.id] ?? 0, terms: termCounts[t.id] ?? 0 },
+    ]),
   );
 
   const tabs: { key: Tab; label: string; count: number }[] = [
