@@ -20,7 +20,12 @@ export function unitNormalize(vectors: readonly (readonly number[])[]): number[]
  * `margin` leaves a little room at the edges.
  */
 export function fitToBox(points: readonly Point[], margin = 0.05): Point[] {
-  if (points.length === 0) return [];
+  return boxFit(points, margin).points;
+}
+
+/** `fitToBox` that also reports the factor it multiplied by (1 when there was nothing to scale). */
+export function boxFit(points: readonly Point[], margin = 0.05): { points: Point[]; scale: number } {
+  if (points.length === 0) return { points: [], scale: 1 };
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -35,5 +40,5 @@ export function fitToBox(points: readonly Point[], margin = 0.05): Point[] {
   const cy = (minY + maxY) / 2;
   const half = Math.max(maxX - minX, maxY - minY) / 2;
   const scale = half > 0 ? (1 - margin) / half : 1;
-  return points.map(([x, y]) => [(x - cx) * scale, (y - cy) * scale]);
+  return { points: points.map(([x, y]) => [(x - cx) * scale, (y - cy) * scale]), scale };
 }

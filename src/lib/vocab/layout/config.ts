@@ -36,6 +36,65 @@ export const LAYOUT_CONFIG = {
   /** Skala sebaran; dipasangkan dengan MIN_DIST. Dibiarkan di nilai bawaan. */
   UMAP_SPREAD: 1,
 
+  // ── Tambahan di atas UMAP baku ────────────────────────────────────────
+  /**
+   * Gravitasi lemah ke titik tengah peta, diterapkan tiap epoch (bagian dari
+   * jarak ke tengah, ikut mendingin bersama laju belajar UMAP).
+   *
+   * Kenapa perlu: UMAP hanya menarik titik yang bertetangga. Dua kelompok
+   * tanpa satu pun tetangga bersama (mis. Bahasa Jepang dan Statistika) cuma
+   * saling tolak sepanjang optimasi, sehingga jaraknya jadi puluhan satuan
+   * dan tiap kelompok mengerut jadi bintik ketika peta dimuat ke kotaknya.
+   * Jarak sejauh itu tidak membawa informasi (UMAP menjaga struktur lokal,
+   * bukan jarak global). Gravitasi menahan kelompok agar tidak hanyut:
+   * mereka berhenti di jarak tempat tolakan dan gravitasi seimbang. Ini
+   * teknik baku tata letak graf (mis. "gravity" di ForceAtlas2).
+   *
+   * Diukur pada 213 istilah uji: 0 → kelompok berupa bintik, ruang kosong
+   * lebar; 0,06–0,12 → kelompok terpisah jelas dan peta terisi; 0,2 →
+   * kelompok mulai saling menempel. Tetangga terdekat tiap istilah tidak
+   * berubah (kemurnian 5 tetangga tetap 0,97–0,98).
+   */
+  UMAP_GRAVITY: 0.1,
+  /**
+   * Titik awal UMAP. Bawaan umap-js adalah sebaran ACAK di kotak ±10,
+   * sehingga susunan peta berubah total tiap kali disusun. Di sini titik
+   * awal selalu bermakna:
+   *   - susun dari awal: proyeksi PCA (deterministik, menjaga susunan
+   *     global; dianjurkan Kobak & Linderman, 2021);
+   *   - susun ulang: posisi di peta yang sekarang (lihat RELAYOUT_ANCHOR).
+   *
+   * Setengah lebar kotak titik awal PCA = nilai ini × √N. Kotak ±10 dirancang
+   * untuk ribuan titik; dengan skala √N kerapatan awal kira-kira tetap
+   * berapa pun jumlah istilahnya.
+   */
+  UMAP_INIT_EXTENT_PER_SQRT_N: 0.25,
+  /** Batas atas kotak titik awal: nilai bawaan UMAP. */
+  UMAP_INIT_MAX_EXTENT: 10,
+
+  // ── Susun ulang: menjaga peta tetap dikenali ──────────────────────────
+  /**
+   * Saat susun ulang, tiap istilah yang posisinya berasal dari penyusunan
+   * sebelumnya ditarik ke posisi lamanya (bagian dari jaraknya per epoch),
+   * seperti "alignment regularisation" pada AlignedUMAP. Istilah baru bebas
+   * mencari tempat. Procrustes sesudahnya meluruskan sisa putaran.
+   *
+   * Diukur dengan menambah 43 istilah ke peta 213 istilah (pergeseran
+   * rata-rata, lebar peta = 2): tanpa jangkar dan mulai dari awal ≈ 0,45
+   * (wilayah berpindah tempat); mulai dari peta lama tanpa jangkar ≈ 0,3;
+   * jangkar 0,2–0,4 ≈ 0,10–0,14 (wilayah tetap di tempatnya, hanya
+   * susunan dalam kelompok yang bergeser). Lebih besar = lebih kaku.
+   */
+  RELAYOUT_ANCHOR: 0.25,
+  /**
+   * Susun ulang hanya berangkat dari peta lama kalau minimal sebagian ini
+   * dari istilahnya pernah ditempatkan oleh penyusunan (bukan kNN). Di
+   * bawahnya peta lama terlalu sedikit untuk jadi pegangan: susun dari awal.
+   */
+  WARM_START_MIN_SHARE: 0.5,
+  /** Istilah tanpa posisi berangkat dari rata-rata berbobot sekian istilah termiripnya (sama dengan KNN_PLACEMENT_K). */
+  WARM_START_K: 5,
+
   // ── Kapan menyarankan "Susun ulang" ───────────────────────────────────
   /**
    * Istilah baru ditempatkan dekat tetangganya (kNN) tanpa menyusun ulang.
@@ -78,5 +137,9 @@ export type LayoutParams = {
   minDist?: number;
   spread?: number;
   supervised?: boolean;
+  /** Titik awal UMAP: PCA (peta pertama) atau peta sebelumnya (susun ulang). */
+  init?: "pca" | "previous";
+  /** Satuan UMAP per satuan kotak peta; dipakai susun ulang berikutnya untuk berangkat dari peta ini. */
+  unitsPerBox?: number;
   model?: string;
 };

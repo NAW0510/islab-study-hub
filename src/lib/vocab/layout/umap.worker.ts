@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { runLayout, type LayoutResult } from "./run-layout";
+import { runLayout, type LayoutResult, type PreviousLayout } from "./run-layout";
 
 /**
  * Web Worker entry: computes the map layout off the main thread so the page
@@ -7,7 +7,7 @@ import { runLayout, type LayoutResult } from "./run-layout";
  *
  *   new Worker(new URL("./umap.worker.ts", import.meta.url))
  */
-export type LayoutRequest = { vectors: number[][]; seed: number; labels: number[] | null };
+export type LayoutRequest = { vectors: number[][]; seed: number; labels: number[] | null; previous: PreviousLayout | null };
 export type LayoutMessage =
   | { type: "progress"; value: number }
   | { type: "done"; result: LayoutResult; ms: number }
