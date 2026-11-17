@@ -8,7 +8,9 @@
 - Fase 0 (pengaman dan fondasi) dan Fase 1 (design system dan shell) selesai dan sudah ada di `main`.
 - Fase 2 (Kosakata MVP) selesai dan sudah di `main`: migrasi + fungsi `vocab-embed` ter-deploy di Supabase remote, 8/8 uji penerimaan lulus (7/7 kasus klasifikasi benar dengan Voyage asli — docs/VOCAB_CALIBRATION.md). Ambang klasifikasi masih nilai awal; kalibrasi setelah ±30 istilah nyata.
 - Fase 3 (Peta Otak 2D) selesai dan sudah di `main` (PR #5): migrasi `vocab_map` dan `vocab-embed` v2 (penempatan kNN) di remote, QA di data asli oke.
-- Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus, branch `feat/peta-otak-3d`) selesai; menunggu QA dan merge. Visualisasi 3D baru = satu `ViewScene` + satu entri di `src/components/vocab/map/scenes/registry.ts`.
+- Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) selesai dan sudah di `main` (PR #6). Visualisasi 3D baru = satu `ViewScene` + satu entri di `src/components/vocab/map/scenes/registry.ts`.
+- Next.js dan `eslint-config-next` di 16.4.5 (PR #4).
+- Fase 4 (integrasi Kosakata dan sisa redesign) sedang dikerjakan di branch `feat/fase-4-integrasi`.
 - Bentuk otak dari model "Brain" karya dgallichan (CC BY 4.0); kredit wajib tetap tampil di app dan README.
 - Data uji peta lokal: `node scripts/seed-local-vocab.mjs --reset` (akun dev lokal saja).
 
