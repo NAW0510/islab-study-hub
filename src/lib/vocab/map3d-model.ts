@@ -15,6 +15,12 @@ import type { Role } from "./space-model";
 
 export const CACHE_KEY = "peta-otak-3d:v1";
 
+/**
+ * Version of the layout models (space roles, brain anatomy). Part of the
+ * fingerprint, so a cache computed with an older model is not reused.
+ */
+export const LAYOUT_MODEL_VERSION = 2;
+
 /** What the worker computes for the three 3D views. */
 export type Layout3dData = {
   /** Cube view: UMAP 3D positions. */
@@ -67,7 +73,7 @@ export function fingerprint(
     a = Math.imul(a ^ 0x2c, 0x01000193);
     b = Math.imul(b ^ 0x3b, 0x01000193);
   }
-  return `${parts.length}-${(a >>> 0).toString(16)}${(b >>> 0).toString(16)}`;
+  return `m${LAYOUT_MODEL_VERSION}.${parts.length}-${(a >>> 0).toString(16)}${(b >>> 0).toString(16)}`;
 }
 
 const isPoint3 = (value: unknown): value is Point3 =>

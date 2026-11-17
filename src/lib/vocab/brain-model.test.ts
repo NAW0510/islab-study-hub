@@ -1,22 +1,33 @@
 import { describe, expect, it } from "vitest";
 import type { Point3 } from "./layout/run-layout-3d";
-import { allocateLobes, brainField, brainLayout, BRAIN_REGIONS, placeOnSlots, regionOf, scaffoldOpacity, scaffoldSlots } from "./brain-model";
+import { allocateLobes, brainField, brainLayout, brainNormal, BRAIN_REGIONS, gyri, placeOnSlots, regionOf, scaffoldOpacity, scaffoldSlots } from "./brain-model";
 
 const dist = (a: Point3, b: Point3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 describe("brain shape", () => {
-  it("is a closed shape with a fissure between the hemispheres", () => {
-    expect(brainField([0, 0.1, 0.4])).toBeLessThan(0); // inside the left/right hemisphere
-    expect(brainField([0, 0.1, -0.4])).toBeLessThan(0);
+  it("is a closed shape with fissures, a cerebellum and a brainstem", () => {
+    expect(brainField([0, 0.1, 0.4])).toBeLessThan(0); // inside the right hemisphere
+    expect(brainField([0, 0.1, -0.4])).toBeLessThan(0); // and the left one
     expect(brainField([0, 2, 0])).toBeGreaterThan(0); // outside
-    expect(brainField([0.3, 0.66, 0])).toBeGreaterThan(0); // the top of the fissure is a gap
+    expect(brainField([0.2, 0.5, 0])).toBeGreaterThan(0); // the longitudinal fissure is a gap between the hemispheres
+    expect(brainField([-0.6, -0.44, 0.3])).toBeLessThan(0); // cerebellum
+    expect(brainField([-0.24, -0.85, 0])).toBeLessThan(0); // brainstem
+    expect(brainField([0, -0.9, 0.6])).toBeGreaterThan(0); // nothing hangs below the temporal lobes
+  });
+
+  it("has an outward normal and a fold field that changes sign (gyri and sulci)", () => {
+    const n = brainNormal([0, 0.68, 0.42]); // top of the right hemisphere
+    expect(n[1]).toBeGreaterThan(0.5);
+    const samples = Array.from({ length: 200 }, (_, i) => gyri([Math.sin(i) * 0.8, Math.cos(i * 1.3) * 0.5, Math.sin(i * 0.7) * 0.6]));
+    expect(Math.min(...samples)).toBeLessThan(-0.5);
+    expect(Math.max(...samples)).toBeGreaterThan(0.5);
   });
 
   it("names lobes by position", () => {
     expect(BRAIN_REGIONS[regionOf([0.7, 0.2, -0.3])]).toBe("Frontal kiri");
     expect(BRAIN_REGIONS[regionOf([0.7, 0.2, 0.3])]).toBe("Frontal kanan");
     expect(BRAIN_REGIONS[regionOf([-0.6, -0.45, 0.2])]).toBe("Otak kecil");
-    expect(BRAIN_REGIONS[regionOf([0.1, -0.3, 0.6])]).toBe("Temporal kanan");
+    expect(BRAIN_REGIONS[regionOf([0.1, -0.3, 0.7])]).toBe("Temporal kanan");
     expect(BRAIN_REGIONS[regionOf([-0.7, 0.1, -0.3])]).toBe("Oksipital kiri");
   });
 });
@@ -24,9 +35,9 @@ describe("brain shape", () => {
 describe("scaffoldSlots", () => {
   const slots = scaffoldSlots(400, 5);
 
-  it("puts every slot on the surface, deterministically", () => {
+  it("puts every slot on the surface (lifted a hair above the folds, well under a dot's size), deterministically", () => {
     expect(slots).toHaveLength(400);
-    for (const s of slots) expect(Math.abs(brainField(s.at))).toBeLessThan(0.03);
+    for (const s of slots) expect(Math.abs(brainField(s.at))).toBeLessThan(0.05);
     expect(scaffoldSlots(400, 5)).toEqual(slots);
   });
 
@@ -34,6 +45,10 @@ describe("scaffoldSlots", () => {
     const nearest = slots.map((s, i) => Math.min(...slots.map((o, j) => (i === j ? Infinity : dist(s.at, o.at))))).sort((a, b) => a - b);
     const median = nearest[Math.floor(nearest.length / 2)];
     expect(nearest[0]).toBeGreaterThan(0.4 * median);
+  });
+
+  it("holds for many slots and seeds: the far-field shortcut never cuts the brain", () => {
+    for (const seed of [1, 2, 3]) for (const s of scaffoldSlots(1500, seed)) expect(Math.abs(brainField(s.at))).toBeLessThan(0.05);
   });
 
   it("covers every lobe", () => {
