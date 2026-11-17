@@ -129,6 +129,18 @@ Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`]
 | Kontrol zoom | `icon-btn` di pojok kiri atas. Di layar sentuh hanya "Tampilkan seluruh peta" (cubit untuk zoom) |
 | Gerak | Pindah ke titik 450 ms, perpindahan setelah susun ulang 600 ms. Tanpa animasi saat `prefers-reduced-motion` |
 
+### Pola Peta Otak 3D (`src/components/vocab/map/brain-map-3d.tsx` + `scenes/`)
+
+| Unsur | Aturan |
+|---|---|
+| Kanvas | Pembungkus `theme-scope scheme-dark`/`scheme-light` + `text-text`, jadi semua token, termasuk panel detail, mengikuti tema kanvas, bukan tema aplikasi. Latar gradien radial dari token |
+| Warna 3D | Warna token dibaca lewat elemen probe (`getComputedStyle`), supaya `light-dark()` terselesaikan. Warna benda fisik (lubang hitam, gas panas, cahaya bintang, jaringan) boleh berupa konstanta di scene karena bagian dari gambar, bukan antarmuka |
+| Label | Overlay HTML yang diproyeksikan dari 3D tiap frame, tabrakan diselesaikan dengan `placeLabels`. Nama bidang: lima terbesar 60%, yang disorot 100% (`FIELD_LABELS`). Tanpa angka jumlah |
+| Sorotan | `HighlightLayer`: titik terpilih/hover lebih besar dan garis ke tetangga, ikut bergerak bila istilahnya bergerak |
+| Gerak | Kamera berputar dan orbit bergerak hanya saat "Putar otomatis" aktif; tidak bergerak saat `prefers-reduced-motion` |
+
+**Menambah visualisasi 3D**: tulis kelas yang mengimplementasikan `ViewScene` (`scenes/common.ts`), lalu tambahkan satu entri di `scenes/registry.ts`. Entri itu berisi label, ikon, tema (tetap atau `"choice"`), kontrol Batas, gerak sendiri, kecepatan putar, latar, teks info, kredit, dan baris tooltip. Cangkangnya tidak perlu diubah. Scene menerima tata letak dari worker (posisi kubus, peran, tetangga, slot otak), semua istilah dan yang tampil, domain, dan fungsi warna token.
+
 ## Yang sengaja tidak ikut berubah
 
 `.report-paper` (dokumen laporan mingguan dan halaman berbagi `/r/[token]`) dikunci ke warna, radius, dan font sebelum redesign, supaya tampilan layar, PDF, dan Word tetap sama. Jangan mengarahkan token di blok itu ke token global.

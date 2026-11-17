@@ -92,6 +92,15 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Interaksi: tooltip, panel detail/bottom sheet dengan 6 istilah terdekat dari embedding asli, cari, legenda, slider Week + "Putar", seret titik (d3-force), zoom.
 - RPC: `vocab_map_points` (ringan, tanpa vektor), `vocab_embeddings`, `save_vocab_layout`, `vocab_knn_neighbors`, `save_vocab_placements`.
 
+### Peta Otak 3D (`/vocab/map/3d`)
+- Tiga tampilan di balik satu sakelar, terdaftar di `src/components/vocab/map/scenes/registry.ts`:
+  - **Luar angkasa** (selalu gelap): galaksi per bidang dengan lubang hitam (event horizon, cincin foton, cakram akresi), matahari per cabang, dan istilah sebagai planet/bulan/batuan dengan orbit Kepler. Perannya dihitung dari embedding, per cabang.
+  - **Otak** (selalu terang): neuron di permukaan luar model "Brain" karya dgallichan (CC BY 4.0), dipanggang dengan `scripts/bake-brain-points.mjs`. Lobus dibagi ke bidang menurut ukurannya. Kapasitas 1.500 neuron, bertambah 500 setiap kali terlewati.
+  - **Kubus**: UMAP 3D dengan wilayah transparan per bidang/cabang dan pilihan Gelap/Terang.
+- Semua dihitung di browser (Web Worker) dan disimpan di `localStorage`, dengan sidik jari istilah + domain + versi model. Tidak ada tabel atau RPC baru.
+- Label: lima bidang terbesar tampil 60%; bidang dari istilah yang disorot tampil penuh; tanpa angka jumlah.
+- Menambah visualisasi 3D baru: satu kelas `ViewScene` + satu entri registry (lihat `docs/DESIGN_SYSTEM.md`).
+
 ## 5. Model data (Supabase / Postgres)
 
 Semua tabel: `id uuid`, `user_id` (default `auth.uid()`), `created_at`, `updated_at` (trigger otomatis), RLS owner-only.
@@ -139,7 +148,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
 - ✅ Fase 2 (Kosakata MVP) selesai dan sudah di `main`; fungsi `vocab-embed` aktif di remote dengan Voyage asli (7/7 kasus klasifikasi benar).
 - ✅ Fase 3 (Peta Otak 2D) selesai dan sudah di `main`; migrasi `vocab_map` dan `vocab-embed` v2 di remote.
-- 🔄 Peta Otak 3D (`/vocab/map/3d`) sedang dikerjakan sebagai tampilan kedua.
+- 🔄 Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) di branch `feat/peta-otak-3d`, menunggu QA dan merge.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.
