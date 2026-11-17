@@ -15,6 +15,7 @@ import type { SyllabusItem } from "@/lib/types";
 import { cn, daysFromToday, formatDate } from "@/lib/utils";
 import { DeleteButton, StatusCheck, StatusSelect } from "./action-buttons";
 import { ActionForm, SubmitButton } from "./action-form";
+import { ListItemMotion } from "./motion";
 
 type TopicCounts = { notes: number; resources: number; terms: number };
 type Counts = Record<string, TopicCounts>;
@@ -52,15 +53,17 @@ export function SyllabusList({
       {ordered.length > 0 && (
         <ol className="card divide-y divide-border">
           {ordered.map((item, index) => (
-            <SyllabusRow
-              key={item.id}
-              item={item}
-              index={index}
-              isFirst={index === 0}
-              isLast={index === ordered.length - 1}
-              counts={counts[item.id]}
-              onMove={(direction) => move(item.id, direction)}
-            />
+            // New topics rise in, removed ones fade, moved ones glide to their place.
+            <ListItemMotion key={item.id}>
+              <SyllabusRow
+                item={item}
+                index={index}
+                isFirst={index === 0}
+                isLast={index === ordered.length - 1}
+                counts={counts[item.id]}
+                onMove={(direction) => move(item.id, direction)}
+              />
+            </ListItemMotion>
           ))}
         </ol>
       )}
@@ -124,16 +127,16 @@ function SyllabusRow({
   }
 
   return (
-    <li className="group flex gap-3 px-4 py-3.5">
+    <li className="group flex gap-3.5 bg-surface px-5 py-4 first:rounded-t-card last:rounded-b-card">
       <StatusCheck
         value={item.status}
         action={setSyllabusStatus.bind(null, item.id)}
         label={`Selesai: ${item.title}`}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="text-xs text-muted tabular-nums">{index + 1}.</span>
-          <span className={cn("min-w-0 font-medium", done && "text-muted line-through decoration-muted/50")}>
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-display text-xs text-muted tabular-nums">{String(index + 1).padStart(2, "0")}</span>
+          <span className={cn("min-w-0 font-semibold", done && "text-muted line-through decoration-muted/50")}>
             {item.title}
           </span>
         </div>

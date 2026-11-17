@@ -1,11 +1,12 @@
 "use client";
 
-import { Library, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { RESOURCE_TYPE_LABELS, RESOURCE_TYPES, STATUS_META, STATUSES } from "@/lib/constants";
 import type { ResourceType, Status, SubjectRef } from "@/lib/types";
 import { useUrlFilters } from "@/lib/use-url-filters";
 import { cn } from "@/lib/utils";
+import { ListItemMotion } from "./motion";
 import { ReturnToLink } from "./return-to-link";
 import { EmptyState, PageHeader } from "./ui";
 
@@ -48,7 +49,7 @@ export function ResourceBrowser({
   const newHref = `/resources/new${newParams.size ? `?${newParams}` : ""}`;
 
   const addButton = (
-    <ReturnToLink href={newHref} className="btn btn-primary">
+    <ReturnToLink href={newHref} className="btn btn-ring h-11 px-5">
       <Plus className="size-4" /> Tambah sumber
     </ReturnToLink>
   );
@@ -136,7 +137,11 @@ export function ResourceBrowser({
 
       {visible.length === 0 ? (
         <EmptyState
-          icon={Library}
+          shapes={[
+            ["half", "blue"],
+            ["square", "green"],
+            ["circle", "red"],
+          ]}
           title={hasFilters ? "Tidak ada sumber yang cocok" : "Belum ada sumber belajar"}
           description={
             hasFilters
@@ -146,9 +151,12 @@ export function ResourceBrowser({
           action={!hasFilters && addButton}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           {visible.map((i) => (
-            <div key={i.id}>{i.card}</div>
+            // A deleted resource fades and the rest glide up.
+            <ListItemMotion key={i.id}>
+              <div>{i.card}</div>
+            </ListItemMotion>
           ))}
         </div>
       )}

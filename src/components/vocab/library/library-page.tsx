@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { BookA, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { weekNumberFor } from "@/lib/report-template";
 import type { SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
 import { useUrlFilters } from "@/lib/use-url-filters";
@@ -397,14 +397,13 @@ export function LibraryPage({
       {!onTermPage &&
         (terms.length === 0 ? (
           <EmptyState
-            icon={BookA}
             title="Rak masih kosong"
             description="Tambahkan istilah di Kosakata › Daftar; setiap istilah menjadi satu lembar di sini."
           />
         ) : (
           !showingFields &&
           listed.length === 0 && (
-            <EmptyState icon={BookA} title="Tidak ada istilah yang cocok" description="Coba kata kunci lain atau hapus filter." />
+            <EmptyState title="Tidak ada istilah yang cocok" description="Coba kata kunci lain atau hapus filter." />
           )
         ))}
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BookOpen, Library, NotebookPen } from "lucide-react";
+import { Library, NotebookPen } from "lucide-react";
+import { SharedTitle } from "@/components/motion";
 import { SubjectFormPanel } from "@/components/subject-form";
 import { EmptyState, PageHeader, ProgressBar } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -41,7 +42,11 @@ export default async function SubjectsPage({
 
       {subjects.length === 0 ? (
         <EmptyState
-          icon={BookOpen}
+          shapes={[
+            ["square", "green"],
+            ["circle", "yellow"],
+            ["triangle", "blue"],
+          ]}
           title="Belum ada subjek"
           description="Buat subjek pertamamu, mis. “Machine Learning” atau “Statistika untuk Data Science”."
         />
@@ -56,23 +61,29 @@ export default async function SubjectsPage({
               <Link
                 key={subject.id}
                 href={`/subjects/${subject.id}`}
-                className="card group flex flex-col p-5 transition hover:border-accent/40"
+                className="card lift flex flex-col p-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) sm:p-6"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className={cn("size-2.5 shrink-0 rounded-full", color.dot)} />
-                  <h2 className="truncate font-display font-semibold tracking-tight group-hover:text-accent">{subject.title}</h2>
+                <div className="flex items-start gap-3.5">
+                  <span
+                    aria-hidden="true"
+                    className={cn("flex size-10 shrink-0 items-center justify-center rounded-control [&::before]:size-3.5", color.soft)}
+                  />
+                  {/* The name travels to the subject's page when it opens. */}
+                  <SharedTitle name={`subject-${subject.id}`}>
+                    <h2 className="display w-fit pt-1.5 text-[1.375rem] leading-tight tracking-[-0.02em]">{subject.title}</h2>
+                  </SharedTitle>
                 </div>
                 {subject.description && (
-                  <p className="mt-2 line-clamp-2 text-sm text-muted">{subject.description}</p>
+                  <p className="mt-3 line-clamp-2 text-[0.9375rem] text-text-2">{subject.description}</p>
                 )}
-                <div className="mt-auto pt-5">
+                <div className="mt-auto pt-6">
                   {current && (
-                    <p className="mb-2 truncate text-xs text-muted">
-                      Sedang: <span className="text-text">{current.title}</span>
+                    <p className="mb-2.5 truncate text-[0.8125rem] text-muted">
+                      Sedang: <span className="font-medium text-text">{current.title}</span>
                     </p>
                   )}
-                  <ProgressBar value={percent(done, own.length)} barClassName={color.bar} />
-                  <div className="mt-2.5 flex items-center gap-4 text-xs text-muted">
+                  <ProgressBar value={percent(done, own.length)} barClassName={color.bar} className="h-2" />
+                  <div className="mt-3 flex items-center gap-4 text-[0.8125rem] text-muted">
                     <span className="tabular-nums">
                       {done}/{own.length} topik selesai
                     </span>

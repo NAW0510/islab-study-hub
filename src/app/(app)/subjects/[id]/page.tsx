@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Library, NotebookPen, Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { DeleteButton } from "@/components/action-buttons";
 import { NoteCard } from "@/components/note-card";
 import { ResourceCard } from "@/components/resource-card";
@@ -81,12 +81,8 @@ export default async function SubjectPage({
             <ArrowLeft className="size-3.5" /> Semua subjek
           </Link>
         }
-        title={
-          <span className="flex items-center gap-3">
-            <span className={cn("size-3 shrink-0 rounded-full", color.dot)} />
-            {subject.title}
-          </span>
-        }
+        title={subject.title}
+        titleName={`subject-${subject.id}`}
         description={subject.description}
         actions={
           <>
@@ -99,16 +95,22 @@ export default async function SubjectPage({
         }
       />
 
-      <div className="card mb-8 p-4">
-        <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2 text-sm">
-          <span>
-            <span className="font-semibold tabular-nums">{done}</span>
-            <span className="text-muted"> dari {topics.length} topik selesai</span>
-            {active > 0 && <span className="text-muted"> · {active} sedang dipelajari</span>}
-          </span>
-          <span className="font-semibold tabular-nums">{percent(done, topics.length)}%</span>
+      <div className="card mb-10 flex items-center gap-5 p-5">
+        <span
+          aria-hidden="true"
+          className={cn("flex size-12 shrink-0 items-center justify-center rounded-control [&::before]:size-4", color.soft)}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <span>
+              <span className="font-semibold tabular-nums">{done}</span>
+              <span className="text-muted"> dari {topics.length} topik selesai</span>
+              {active > 0 && <span className="text-muted"> · {active} sedang dipelajari</span>}
+            </span>
+            <span className="display text-2xl tabular-nums">{percent(done, topics.length)}%</span>
+          </div>
+          <ProgressBar value={percent(done, topics.length)} barClassName={color.bar} className="h-2" />
         </div>
-        <ProgressBar value={percent(done, topics.length)} barClassName={color.bar} className="h-2" />
       </div>
 
       <UrlTabs
@@ -126,7 +128,11 @@ export default async function SubjectPage({
               </div>
               {notes.length === 0 ? (
                 <EmptyState
-                  icon={NotebookPen}
+                  shapes={[
+                    ["triangle", "red"],
+                    ["circle", "blue"],
+                    ["square", "yellow"],
+                  ]}
                   title="Belum ada catatan"
                   description="Tulis ringkasan dari materi yang sudah kamu pelajari di subjek ini."
                 />
@@ -151,7 +157,11 @@ export default async function SubjectPage({
               </div>
               {resources.length === 0 ? (
                 <EmptyState
-                  icon={Library}
+                  shapes={[
+                    ["half", "blue"],
+                    ["square", "green"],
+                    ["circle", "red"],
+                  ]}
                   title="Belum ada sumber belajar"
                   description="Simpan video YouTube, PDF, atau artikel yang kamu perlukan untuk subjek ini."
                 />

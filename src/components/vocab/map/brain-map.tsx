@@ -496,8 +496,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   // ── States without a map ────────────────────────────────────────────────
   if (advice.kind === "empty") {
     return (
-      <EmptyState
-        icon={Plus}
+      <EmptyState
         title="Peta butuh beberapa istilah dulu"
         description={`Peta Otak terbentuk dari kedekatan makna antaristilah, jadi butuh minimal 5 istilah. Sekarang baru ada ${advice.total}.`}
         action={

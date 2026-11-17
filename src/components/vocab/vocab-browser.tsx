@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useTransition } from "react";
-import { BookA, LayoutGrid, List, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { LayoutGrid, List, Loader2, RefreshCw, Search, X } from "lucide-react";
 import { deleteTerm, restoreTerm, retryPending, type SaveTermResult } from "@/lib/actions/vocab";
 import { callAction } from "@/lib/call-action";
 import { currentWeekInfo, weekNumberFor } from "@/lib/report-template";
@@ -10,6 +10,8 @@ import type { SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
 import { useUrlFilters } from "@/lib/use-url-filters";
 import { cn, excerpt, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, suggestionsFor } from "@/lib/vocab/format";
+import { ListItemMotion, ViewSwap } from "../motion";
+import { Shape } from "../shape";
 import { EmptyState, PageHeader } from "../ui";
 import { useToast } from "../toast";
 import { BulkAdd } from "./bulk-add";
@@ -157,6 +159,8 @@ export function VocabBrowser({
 
   const selected = selectedId ? (terms.find((t) => t.id === selectedId) ?? null) : null;
   const cards = f.view === "kartu";
+  // Switching Daftar ↔ Kartu is a transition, so the views crossfade in place.
+  const setView = (view: "kartu" | undefined) => startTransition(() => update({ view }));
 
   return (
     <>
@@ -172,8 +176,11 @@ export function VocabBrowser({
       </div>
 
       {(needReview > 0 || unprocessed > 0) && (
-        <div className="card mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-accent/30 bg-accent-soft/40 px-4 py-3 text-sm">
-          <span className="font-medium">
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card bg-mark-yellow-soft px-5 py-3.5 text-sm">
+          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-control bg-mark-yellow">
+            <Shape kind="circle" color="paper-ink" className="size-3" />
+          </span>
+          <span className="font-semibold">
             {needReview > 0 && `${needReview} istilah menunggu domain`}
             {needReview > 0 && unprocessed > 0 && " · "}
             {unprocessed > 0 && `${unprocessed} belum diproses`}
@@ -216,7 +223,7 @@ export function VocabBrowser({
             type="button"
             className="segmented-item"
             aria-pressed={!cards}
-            onClick={() => update({ view: undefined })}
+            onClick={() => setView(undefined)}
           >
             <List className="size-4" /> Daftar
           </button>
@@ -224,7 +231,7 @@ export function VocabBrowser({
             type="button"
             className="segmented-item"
             aria-pressed={cards}
-            onClick={() => update({ view: "kartu" })}
+            onClick={() => setView("kartu")}
           >
             <LayoutGrid className="size-4" /> Kartu
           </button>
@@ -261,7 +268,11 @@ export function VocabBrowser({
 
       {terms_.length === 0 ? (
         <EmptyState
-          icon={BookA}
+          shapes={[
+            ["plus", "yellow"],
+            ["circle", "blue"],
+            ["triangle", "red"],
+          ]}
           title={terms.length === 0 ? "Belum ada istilah" : "Tidak ada istilah yang cocok"}
           description={
             terms.length === 0
@@ -270,50 +281,55 @@ export function VocabBrowser({
           }
         />
       ) : cards ? (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Kartu istilah">
-          {terms_.map((t) => (
-            <VocabCard
-              key={t.id}
-              term={t}
-              domains={domainIdx}
-              programStart={programStart}
-              onOpen={() => setSelectedId(t.id)}
-            />
-          ))}
-        </ul>
+        <ViewSwap key="kartu">
+          <ul className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Kartu istilah">
+            {terms_.map((t) => (
+              <ListItemMotion key={t.id} glide={false}>
+                <VocabCard term={t} domains={domainIdx} programStart={programStart} onOpen={() => setSelectedId(t.id)} />
+              </ListItemMotion>
+            ))}
+          </ul>
+        </ViewSwap>
       ) : (
-        <ul className="card divide-y divide-border">
-          {terms_.map((t) => (
-            <li key={t.id} className="px-4 py-3">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(t.id)}
-                  className="font-display font-semibold tracking-tight hover:text-accent"
-                >
-                  {t.term}
-                </button>
-                {t.aliases.length > 0 && <span className="text-xs text-muted">({t.aliases.join(", ")})</span>}
-                <span
-                  className="ml-auto shrink-0 text-xs text-muted tabular-nums"
-                  title={`Dipelajari ${t.learned_on}`}
-                >
-                  W{weekNumberFor(programStart, t.learned_on)}
-                </span>
-              </div>
-              {t.definition.trim() && <p className="mt-0.5 line-clamp-2 text-sm text-muted">{excerpt(t.definition, 180)}</p>}
-              <div className="mt-1.5">
-                <TermRowStatus
-                  term={t}
-                  domains={domainIdx}
-                  suggestions={suggestionsFor(t, domainIdx)}
-                  onOpen={() => setSelectedId(t.id)}
-                  onDone={refresh}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
+        <ViewSwap key="daftar">
+          <ul className="card divide-y divide-border">
+            {terms_.map((t) => (
+              // A saved term rises into the list; a deleted one fades (and comes back with "Urungkan").
+              <ListItemMotion key={t.id} glide={false}>
+                <li className="bg-surface px-5 py-3.5 first:rounded-t-card last:rounded-b-card">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(t.id)}
+                      className="font-display text-[1.0625rem] font-semibold tracking-tight hover:text-accent"
+                    >
+                      {t.term}
+                    </button>
+                    {t.aliases.length > 0 && <span className="text-xs text-muted">({t.aliases.join(", ")})</span>}
+                    <span
+                      className="ml-auto shrink-0 font-display text-xs text-muted tabular-nums"
+                      title={`Dipelajari ${t.learned_on}`}
+                    >
+                      W{weekNumberFor(programStart, t.learned_on)}
+                    </span>
+                  </div>
+                  {t.definition.trim() && (
+                    <p className="mt-1 line-clamp-2 text-sm text-text-2">{excerpt(t.definition, 180)}</p>
+                  )}
+                  <div className="mt-2">
+                    <TermRowStatus
+                      term={t}
+                      domains={domainIdx}
+                      suggestions={suggestionsFor(t, domainIdx)}
+                      onOpen={() => setSelectedId(t.id)}
+                      onDone={refresh}
+                    />
+                  </div>
+                </li>
+              </ListItemMotion>
+            ))}
+          </ul>
+        </ViewSwap>
       )}
 
       {selected && (

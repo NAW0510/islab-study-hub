@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { NoteWithRefs } from "@/lib/types";
 import { excerpt, formatDate } from "@/lib/utils";
+import { SharedTitle } from "./motion";
 import { SubjectChip, Tag } from "./ui";
 
 export function NoteCard({ note }: { note: NoteWithRefs }) {
@@ -16,11 +17,14 @@ export function NoteCard({ note }: { note: NoteWithRefs }) {
           </>
         )}
       </div>
-      <h3 className="display text-[1.375rem] leading-tight tracking-[-0.02em] text-balance">
-        <Link href={`/notes/${note.id}`} className="after:absolute after:inset-0 after:rounded-card">
-          {note.title}
-        </Link>
-      </h3>
+      {/* The title travels to the note's page when it opens. */}
+      <SharedTitle name={`note-${note.id}`}>
+        <h3 className="display w-fit text-[1.375rem] leading-tight tracking-[-0.02em] text-balance">
+          <Link href={`/notes/${note.id}`} className="after:absolute after:inset-0 after:rounded-card">
+            {note.title}
+          </Link>
+        </h3>
+      </SharedTitle>
       {preview && <p className="mt-2 line-clamp-2 max-w-[46ch] text-[0.9375rem] text-text-2">{preview}</p>}
       {(note.subject || note.tags.length > 0) && (
         // Chips sit above the full-card link so they stay clickable.

@@ -312,6 +312,13 @@ html:has(dialog.mobile-menu[open]) {
   animation-duration: var(--vt-move);
   animation-timing-function: var(--ease-std);
 }
+/* A list item: a new one rises into its place, a removed one fades. */
+::view-transition-new(.vt-item-in) {
+  animation: vt-rise-in var(--vt-enter) var(--ease-std) both;
+}
+::view-transition-old(.vt-item-out) {
+  animation: vt-fade-out var(--vt-exit) var(--ease-std) both;
+}
 /* Same place, other content (a list switching views): a quick crossfade. */
 ::view-transition-old(.vt-swap) {
   animation: vt-fade-out var(--vt-exit) var(--ease-std) both;
