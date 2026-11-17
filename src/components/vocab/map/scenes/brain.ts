@@ -134,7 +134,7 @@ export class BrainScene implements ViewScene {
     for (const [field, { at, n }] of sums) {
       const key = `lobe:${field}`;
       this.positions.set(key, at.divideScalar(n));
-      this.labels.push({ key, text: `${domains.get(field)?.name ?? "Bidang"} ${counts.get(field) ?? 0}`, priority: 950, fieldId: field, count: counts.get(field) ?? 0 });
+      this.labels.push({ key, text: domains.get(field)?.name ?? "Bidang", priority: 950, fieldId: field, count: counts.get(field) ?? 0 });
     }
   }
 

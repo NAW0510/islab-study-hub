@@ -463,7 +463,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
     // left of their point near the right edge, and whatever still does not fit is left out.
     const EDGE = 4;
     for (const r of regions) {
-      const text = `${r.name} ${r.count}`;
+      const text = r.name;
       const width = text.length * 7.6 + 8; // semibold capitals with letter spacing
       const sx = r.center[0] * view.k + view.x;
       const sy = r.center[1] * view.k + view.y;

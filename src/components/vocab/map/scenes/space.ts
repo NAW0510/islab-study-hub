@@ -333,7 +333,7 @@ export class SpaceScene implements ViewScene {
       this.positions.set(hole.key, centre);
       this.positions.set(`label:${hole.key}`, centre.clone().addScaledVector(normal, galaxy.radius * 0.42));
       const count = liveFields.get(galaxy.fieldId) ?? 0;
-      this.galaxyLabels.push({ key: `label:${hole.key}`, text: `${field?.name ?? "Bidang"} ${count}`, priority: 950, fieldId: galaxy.fieldId, count });
+      this.galaxyLabels.push({ key: `label:${hole.key}`, text: field?.name ?? "Bidang", priority: 950, fieldId: galaxy.fieldId, count });
     }
 
     // Suns (with the orbits of their planets) and the loose cluster of terms without a domain.

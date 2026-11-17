@@ -105,7 +105,7 @@ export class CubeScene implements ViewScene {
     this.labels = [];
     for (const g of groups3d(visible, data.coords, input.level, domains)) {
       this.positions.set(`group:${g.group.id}`, new Vector3(...g.centre));
-      this.labels.push({ key: `group:${g.group.id}`, text: `${g.group.name} ${g.members.length}`, priority: 950 });
+      this.labels.push({ key: `group:${g.group.id}`, text: g.group.name, priority: 950 });
       const cloud = paddedCloud3d(withoutOutliers3d(g.members)).map((p) => new Vector3(p[0], p[1], p[2]));
       let geometry: ConvexGeometry;
       try {
