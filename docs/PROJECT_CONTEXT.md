@@ -83,6 +83,14 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Klasifikasi domain otomatis: Edge Function `vocab-embed` meng-embed teks lewat Voyage AI (`voyage-4`, 512 dimensi, pgvector), membandingkannya dengan prototipe domain + centroid istilah yang sudah disetujui, lalu memutuskan `auto` atau `pending` (ambang di `supabase/functions/_shared/vocab-config.ts`; kalibrasi di docs/VOCAB_CALIBRATION.md). Status `confirmed`/`manual` tidak pernah ditimpa (dijamin di SQL).
 - Tabel `vocab_domains` (maks dua tingkat, soft delete) dan `vocab_terms` (soft delete, kolom peta untuk Fase 3), RLS owner-only, RPC batch security invoker.
 - UI: tambah cepat, tempel banyak (satu batch embedding), banner tinjau, saran domain sekali klik, drawer detail dengan istilah terdekat, kelola domain (gabung/hapus/klasifikasi ulang).
+- Sub-tab bersama: Daftar · Peta Otak · Domain.
+
+### Peta Otak (`/vocab/map`, sejak Fase 3)
+- Tiap istilah satu titik berwarna bidangnya; wilayah per bidang atau cabang (padded hull, pencilan tidak ikut membentuk wilayah); label yang saling menghindar.
+- Tata letak: PCA untuk 3–14 istilah, UMAP (`umap-js`, di Web Worker) mulai 15 istilah. Dimulai dari PCA atau dari peta sekarang, dengan gravitasi lemah ke tengah dan jangkar ke posisi lama saat susun ulang, lalu Procrustes menjaga orientasi. Semua angka di `src/lib/vocab/layout/config.ts`.
+- Istilah baru ditempatkan oleh `vocab-embed` di rata-rata berbobot 5 tetangga terdekat yang sudah berposisi (`map_placed = 'knn'`); banner menyarankan susun ulang setelah cukup banyak.
+- Interaksi: tooltip, panel detail/bottom sheet dengan 6 istilah terdekat dari embedding asli, cari, legenda, slider Week + "Putar", seret titik (d3-force), zoom.
+- RPC: `vocab_map_points` (ringan, tanpa vektor), `vocab_embeddings`, `save_vocab_layout`, `vocab_knn_neighbors`, `save_vocab_placements`.
 
 ## 5. Model data (Supabase / Postgres)
 
@@ -119,7 +127,7 @@ src/components/                               komponen UI
 
 Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 
-## 7. Kondisi saat ini (per 14 November 2026, Week 7 program, setelah Fase 1)
+## 7. Kondisi saat ini (per 17 November 2026, Week 8 program, Fase 3 berjalan)
 
 - ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi.
 - ✅ Semua tabel (termasuk `profiles` dan `weekly_reports`) sudah ada di Supabase. Laporan Mingguan bisa dipakai.
@@ -129,11 +137,12 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Unit test dengan Vitest (`npm test`), termasuk uji kontras warna.
 - ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, sidebar bernomor, menu layar penuh di mobile, dashboard dengan penanda Week. Halaman selain dashboard baru memakai gaya dasarnya; restyle penuh di Fase 4.
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
-- ✅ Fase 2 (Kosakata MVP) dikerjakan di branch `feat/fase-2-kosakata`: migrasi sudah di remote, fungsi `vocab-embed` teruji E2E di stack lokal (52 test pgTAP + 106 test Vitest). Deploy fungsi + API key Voyage menunggu Gate B.
+- ✅ Fase 2 (Kosakata MVP) selesai dan sudah di `main`; fungsi `vocab-embed` aktif di remote dengan Voyage asli (7/7 kasus klasifikasi benar).
+- 🔄 Fase 3 (Peta Otak) di branch `feat/fase-3-peta-otak`: selesai dan teruji di stack lokal dengan 300 istilah (79 test pgTAP, 159 test Vitest). Migrasi `vocab_map` dan versi baru `vocab-embed` belum di remote.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.
-- ⚠️ `npm audit` melaporkan kerentanan pada dependensi produksi (termasuk `next` 16.3.6), perlu upgrade terpisah.
+- ⚠️ `next` 16.4.1 masih ditandai punya kerentanan yang diketahui (pengingat upgrade bawaan Next saat `next build`), perlu upgrade terpisah.
 - ⚠️ Belum ada soft delete (`deleted_at`). Ini dibutuhkan kalau nanti ada sinkronisasi offline ke mobile.
 
 ## 8. Rencana/ide yang sudah pernah terpikir
