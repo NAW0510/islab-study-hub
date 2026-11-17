@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { VocabDomain } from "@/lib/types";
-import type { Layout3dMessage, Layout3dRequest, Term3d } from "@/lib/vocab/layout/umap3d.worker";
-import { fingerprint, readCache, readPrevious, writeCache, type Layout3dData } from "@/lib/vocab/map3d-model";
+import type { Layout3dMessage, Layout3dRequest } from "@/lib/vocab/layout/umap3d.worker";
+import { fingerprint, readCache, readPrevious, termGroups, writeCache, type Layout3dData } from "@/lib/vocab/map3d-model";
 import { fieldOf, type MapPoint } from "@/lib/vocab/map-model";
 
 export type Layout3dState =
@@ -22,14 +22,6 @@ const storage = () => {
     return null;
   }
 };
-
-/** Field and branch of a term, as the space and brain views group them. */
-function termGroups(domainId: string | null, domains: ReadonlyMap<string, VocabDomain>): Omit<Term3d, "id"> {
-  const domain = domainId ? domains.get(domainId) : undefined;
-  if (!domain) return { fieldId: null, branchKey: null };
-  const field = fieldOf(domain.id, domains) ?? domain;
-  return { fieldId: field.id, branchKey: domain.parent_id ? domain.id : `${domain.id}:umum` };
-}
 
 /**
  * Everything the 3D views need for the given terms. With an up-to-date cache

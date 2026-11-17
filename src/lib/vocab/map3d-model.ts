@@ -164,6 +164,18 @@ export function writeCache(storage: Pick<Storage, "setItem"> | null | undefined,
   }
 }
 
+/**
+ * Field and branch of a term, as the space and brain views group them: the
+ * branch key is the branch id, or `<fieldId>:umum` for a term filed directly
+ * under a field. Both null without a (known) domain.
+ */
+export function termGroups(domainId: string | null, domains: ReadonlyMap<string, VocabDomain>): { fieldId: string | null; branchKey: string | null } {
+  const domain = domainId ? domains.get(domainId) : undefined;
+  if (!domain) return { fieldId: null, branchKey: null };
+  const field = fieldOf(domain.id, domains) ?? domain;
+  return { fieldId: field.id, branchKey: domain.parent_id ? domain.id : `${domain.id}:umum` };
+}
+
 // ── What is shown ─────────────────────────────────────────────────────────
 
 /** Points with a 3D position, learned up to the end of `week`, whose field is not hidden. */
