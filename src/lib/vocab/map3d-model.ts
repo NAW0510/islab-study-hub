@@ -2,32 +2,58 @@ import { weekNumberFor } from "../report-template";
 import type { VocabDomain } from "../types";
 import { LAYOUT_3D_CONFIG, LAYOUT_CONFIG } from "./layout/config";
 import type { Point3 } from "./layout/run-layout-3d";
+import type { BrainLayout } from "./brain-model";
 import { fieldOf, groupOf, type BoundaryLevel, type MapPoint } from "./map-model";
+import type { Role } from "./space-model";
 
 /** Pure helpers behind the 3D brain map: the browser cache, what is shown, and picking. */
 
 // ── Cache ─────────────────────────────────────────────────────────────────
-// The 3D layout is computed in the browser and kept in localStorage, so a
-// second visit with the same terms appears at once without fetching vectors.
+// Everything the 3D views need is computed in the browser (in a Web Worker)
+// and kept in localStorage, so a second visit with the same terms and domains
+// appears at once without fetching vectors.
 
 export const CACHE_KEY = "peta-otak-3d:v1";
 
-export type Cached3d = {
-  v: 1;
+/** What the worker computes for the three 3D views. */
+export type Layout3dData = {
+  /** Cube view: UMAP 3D positions. */
+  coords: Map<string, Point3>;
+  /** UMAP units per box unit, for the next run to start from this one. */
+  unitsPerBox: number | null;
+  /** The two most similar terms of every term (brain synapses). */
+  neighbours: Map<string, string[]>;
+  /** Space view: planet, moon or rock. */
+  roles: Map<string, Role>;
+  /** Brain view: neuron slots and which term lights which slot. */
+  brain: BrainLayout;
+};
+
+type Stored = {
+  v: 2;
   fingerprint: string;
   unitsPerBox: number | null;
   coords: Record<string, Point3>;
+  neighbours: Record<string, string[]>;
+  roles: Record<string, Role>;
+  brain: { slots: number[]; region: number[]; fields: string[]; owner: number[]; termSlot: Record<string, number> };
 };
 
 /**
- * Changes whenever the set of terms or any term's embedding changes. Editing a
- * term's text clears its 2D position and the Edge Function places it again, so
- * the 2D coordinates double as an "embedding version". Domain changes do not
- * move anything in 3D and are left out.
+ * Changes whenever the set of terms, any term's embedding, or any term's
+ * domain changes (galaxies and lobes depend on fields and branches). Editing
+ * a term's text clears its 2D position and the Edge Function places it
+ * again, so the 2D coordinates double as an "embedding version".
  */
-export function fingerprint(points: readonly Pick<MapPoint, "id" | "has_embedding" | "map_x" | "map_y">[]): string {
+export function fingerprint(
+  points: readonly Pick<MapPoint, "id" | "has_embedding" | "map_x" | "map_y" | "domain_id">[],
+  fieldIdOf: (domainId: string | null) => string | null = () => null,
+): string {
   const parts = points
-    .map((p) => `${p.id}:${p.has_embedding ? 1 : 0}:${p.map_x?.toFixed(4) ?? "-"}:${p.map_y?.toFixed(4) ?? "-"}`)
+    .map(
+      (p) =>
+        `${p.id}:${p.has_embedding ? 1 : 0}:${p.map_x?.toFixed(4) ?? "-"}:${p.map_y?.toFixed(4) ?? "-"}:${p.domain_id ?? "-"}>${fieldIdOf(p.domain_id) ?? "-"}`,
+    )
     .sort();
   // Two FNV-1a hashes with different seeds: short, and collisions are practically impossible here.
   let a = 0x811c9dc5;
@@ -47,28 +73,91 @@ export function fingerprint(points: readonly Pick<MapPoint, "id" | "has_embeddin
 const isPoint3 = (value: unknown): value is Point3 =>
   Array.isArray(value) && value.length === 3 && value.every((x) => typeof x === "number" && Number.isFinite(x));
 
-/** Reads the cached layout; anything missing, unreadable or malformed counts as no cache. */
-export function readCache(storage: Pick<Storage, "getItem"> | null | undefined): Cached3d | null {
+const isRole = (value: unknown): value is Role => {
+  const r = value as Role;
+  return Boolean(r) && (r.kind === "planet" || r.kind === "rock" || (r.kind === "moon" && typeof r.parent === "string"));
+};
+
+function parse(storage: Pick<Storage, "getItem"> | null | undefined): Omit<Partial<Stored>, "v"> & { v?: number } {
   try {
     const raw = storage?.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw) as Partial<Cached3d>;
-    if (value.v !== 1 || typeof value.fingerprint !== "string" || !value.coords || typeof value.coords !== "object") return null;
-    const coords: Record<string, Point3> = {};
-    for (const [id, p] of Object.entries(value.coords)) if (isPoint3(p)) coords[id] = p;
-    const unitsPerBox = typeof value.unitsPerBox === "number" && value.unitsPerBox > 0 ? value.unitsPerBox : null;
-    return { v: 1, fingerprint: value.fingerprint, unitsPerBox, coords };
+    return raw ? (JSON.parse(raw) as Omit<Partial<Stored>, "v"> & { v?: number }) : {};
+  } catch {
+    return {};
+  }
+}
+
+const pointsOf = (value: unknown): Record<string, Point3> => {
+  const coords: Record<string, Point3> = {};
+  if (value && typeof value === "object") for (const [id, p] of Object.entries(value)) if (isPoint3(p)) coords[id] = p;
+  return coords;
+};
+
+/** The full cached layout (format 2); anything missing, older, unreadable or malformed counts as no cache. */
+export function readCache(storage: Pick<Storage, "getItem"> | null | undefined): { fingerprint: string; data: Layout3dData } | null {
+  try {
+    const value = parse(storage);
+    const brain = value.brain;
+    if (value.v !== 2 || typeof value.fingerprint !== "string" || !brain || !Array.isArray(brain.slots)) return null;
+    const count = brain.slots.length / 3;
+    if (!Number.isInteger(count) || brain.region?.length !== count || brain.owner?.length !== count || !Array.isArray(brain.fields)) return null;
+
+    const roles = new Map<string, Role>();
+    for (const [id, role] of Object.entries(value.roles ?? {})) if (isRole(role)) roles.set(id, role);
+    const neighbours = new Map<string, string[]>();
+    for (const [id, list] of Object.entries(value.neighbours ?? {})) if (Array.isArray(list)) neighbours.set(id, list.filter((x) => typeof x === "string"));
+    const termSlot = new Map<string, number>();
+    for (const [id, slot] of Object.entries(brain.termSlot ?? {})) if (Number.isInteger(slot) && slot >= 0 && slot < count) termSlot.set(id, slot);
+
+    return {
+      fingerprint: value.fingerprint,
+      data: {
+        coords: new Map(Object.entries(pointsOf(value.coords))),
+        unitsPerBox: typeof value.unitsPerBox === "number" && value.unitsPerBox > 0 ? value.unitsPerBox : null,
+        neighbours,
+        roles,
+        brain: {
+          slots: Array.from({ length: count }, (_, i) => [brain.slots[3 * i], brain.slots[3 * i + 1], brain.slots[3 * i + 2]] as Point3),
+          slotRegion: brain.region,
+          slotField: brain.owner.map((k) => (k >= 0 ? (brain.fields[k] ?? null) : null)),
+          termSlot,
+        },
+      },
+    };
   } catch {
     return null;
   }
 }
 
-/** Saves the layout; a full or blocked storage is not an error (the map is simply computed again next time). */
-export function writeCache(storage: Pick<Storage, "setItem"> | null | undefined, value: Omit<Cached3d, "v">): boolean {
+/** Only the cube positions of the last layout (format 1 or 2), for the next run to start from. */
+export function readPrevious(storage: Pick<Storage, "getItem"> | null | undefined): { coords: Record<string, Point3>; unitsPerBox: number | null } | null {
+  const value = parse(storage);
+  if ((value.v !== 1 && value.v !== 2) || !value.coords) return null;
+  const unitsPerBox = typeof value.unitsPerBox === "number" && value.unitsPerBox > 0 ? value.unitsPerBox : null;
+  return { coords: pointsOf(value.coords), unitsPerBox };
+}
+
+/** Saves the layout; a full or blocked storage is not an error (it is simply computed again next time). */
+export function writeCache(storage: Pick<Storage, "setItem"> | null | undefined, key: string, data: Layout3dData): boolean {
   try {
-    const coords: Record<string, Point3> = {};
-    for (const [id, p] of Object.entries(value.coords)) coords[id] = p.map((x) => Number(x.toFixed(4))) as Point3;
-    storage?.setItem(CACHE_KEY, JSON.stringify({ v: 1, ...value, coords }));
+    const round = (x: number) => Number(x.toFixed(4));
+    const fields = [...new Set(data.brain.slotField.filter((f): f is string => f !== null))];
+    const stored: Stored = {
+      v: 2,
+      fingerprint: key,
+      unitsPerBox: data.unitsPerBox,
+      coords: Object.fromEntries([...data.coords].map(([id, p]) => [id, p.map(round) as Point3])),
+      neighbours: Object.fromEntries(data.neighbours),
+      roles: Object.fromEntries(data.roles),
+      brain: {
+        slots: data.brain.slots.flatMap((p) => p.map((x) => Number(x.toFixed(3)))),
+        region: data.brain.slotRegion,
+        fields,
+        owner: data.brain.slotField.map((f) => (f === null ? -1 : fields.indexOf(f))),
+        termSlot: Object.fromEntries(data.brain.termSlot),
+      },
+    };
+    storage?.setItem(CACHE_KEY, JSON.stringify(stored));
     return Boolean(storage);
   } catch {
     return false;

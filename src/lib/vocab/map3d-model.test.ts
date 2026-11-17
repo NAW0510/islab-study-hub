@@ -8,11 +8,14 @@ import {
   paddedCloud3d,
   pickNearest,
   readCache,
+  readPrevious,
   sphereDirections,
   visible3d,
   withoutOutliers3d,
   writeCache,
+  type Layout3dData,
 } from "./map3d-model";
+import type { Role } from "./space-model";
 import type { MapPoint } from "./map-model";
 
 const domain = (id: string, name: string, parent_id: string | null = null): VocabDomain => ({
@@ -51,33 +54,64 @@ function memoryStorage() {
 }
 
 describe("fingerprint", () => {
-  it("ignores order and domain changes, but notices new terms and re-embedded ones", () => {
+  it("ignores order, but notices new terms, re-embedded terms and domain changes", () => {
     const base = fingerprint([point("a"), point("b")]);
     expect(fingerprint([point("b"), point("a")])).toBe(base);
-    expect(fingerprint([point("a", { domain_id: "st" }), point("b")])).toBe(base);
     expect(fingerprint([point("a"), point("b"), point("c")])).not.toBe(base);
     expect(fingerprint([point("a", { map_x: null, map_y: null, has_embedding: false }), point("b")])).not.toBe(base);
     expect(fingerprint([point("a", { map_x: 0.3 }), point("b")])).not.toBe(base);
+    expect(fingerprint([point("a", { domain_id: "st" }), point("b")])).not.toBe(base);
+    // A branch moved to another field changes the picture too.
+    expect(fingerprint([point("a"), point("b")], () => "ml")).not.toBe(fingerprint([point("a"), point("b")], () => "st"));
   });
 });
 
+const sample: Layout3dData = {
+  coords: new Map([["a", [0.123456, -1, 0.5] as Point3]]),
+  unitsPerBox: 4.2,
+  neighbours: new Map([["a", ["b", "c"]]]),
+  roles: new Map<string, Role>([
+    ["a", { kind: "planet" }],
+    ["b", { kind: "moon", parent: "a" }],
+    ["c", { kind: "rock" }],
+  ]),
+  brain: {
+    slots: [
+      [0.1234, 0, 0],
+      [0, 1, 0],
+    ],
+    slotRegion: [0, 4],
+    slotField: ["ml", null],
+    termSlot: new Map([["a", 0]]),
+  },
+};
+
 describe("readCache / writeCache", () => {
-  it("round-trips, rounding coordinates", () => {
+  it("round-trips the whole layout, rounding coordinates", () => {
     const storage = memoryStorage();
-    expect(writeCache(storage, { fingerprint: "f", unitsPerBox: 4.2, coords: { a: [0.123456, -1, 0.5] } })).toBe(true);
-    expect(readCache(storage)).toEqual({ v: 1, fingerprint: "f", unitsPerBox: 4.2, coords: { a: [0.1235, -1, 0.5] } });
+    expect(writeCache(storage, "f", sample)).toBe(true);
+    const back = readCache(storage);
+    expect(back?.fingerprint).toBe("f");
+    expect(back?.data.coords.get("a")).toEqual([0.1235, -1, 0.5]);
+    expect(back?.data.roles).toEqual(sample.roles);
+    expect(back?.data.neighbours).toEqual(sample.neighbours);
+    expect(back?.data.brain).toEqual({ ...sample.brain, slots: [[0.123, 0, 0], [0, 1, 0]] });
+    expect(readPrevious(storage)).toEqual({ coords: { a: [0.1235, -1, 0.5] }, unitsPerBox: 4.2 });
   });
 
-  it("treats missing, broken or foreign data as no cache, and never throws", () => {
+  it("treats missing, broken, older or foreign data as no cache, and never throws", () => {
     const storage = memoryStorage();
     expect(readCache(storage)).toBeNull();
     expect(readCache(null)).toBeNull();
     storage.data.set(CACHE_KEY, "{not json");
     expect(readCache(storage)).toBeNull();
-    storage.data.set(CACHE_KEY, JSON.stringify({ v: 2, fingerprint: "f", coords: {} }));
+    expect(readPrevious(storage)).toBeNull();
+    // Format 1 (cube only): no full cache, but its positions still seed the next layout.
+    storage.data.set(CACHE_KEY, JSON.stringify({ v: 1, fingerprint: "f", unitsPerBox: 3, coords: { a: [1, 2], b: [0, 0, 0] } }));
     expect(readCache(storage)).toBeNull();
-    storage.data.set(CACHE_KEY, JSON.stringify({ v: 1, fingerprint: "f", unitsPerBox: -1, coords: { a: [1, 2], b: [0, 0, 0] } }));
-    expect(readCache(storage)).toEqual({ v: 1, fingerprint: "f", unitsPerBox: null, coords: { b: [0, 0, 0] } });
+    expect(readPrevious(storage)).toEqual({ coords: { b: [0, 0, 0] }, unitsPerBox: 3 });
+    storage.data.set(CACHE_KEY, JSON.stringify({ v: 2, fingerprint: "f", brain: { slots: [1, 2], region: [], owner: [], fields: [] } }));
+    expect(readCache(storage)).toBeNull();
 
     const throwing = {
       getItem: () => {
@@ -88,7 +122,8 @@ describe("readCache / writeCache", () => {
       },
     };
     expect(readCache(throwing)).toBeNull();
-    expect(writeCache(throwing, { fingerprint: "f", unitsPerBox: null, coords: {} })).toBe(false);
+    expect(readPrevious(throwing)).toBeNull();
+    expect(writeCache(throwing, "f", sample)).toBe(false);
   });
 });
 
