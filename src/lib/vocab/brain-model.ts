@@ -4,142 +4,35 @@ import type { Point3 } from "./layout/run-layout-3d";
 
 /**
  * The "Otak" view of the 3D brain map, as pure functions. A procedural brain
- * with real proportions (length : width : height ≈ 1 : 0.84 : 0.56): two
- * hemispheres split by the longitudinal fissure, temporal lobes under the
- * Sylvian fissure, the cerebellum with its fine folds, the pons and the
- * brainstem, and a labyrinth of gyri and sulci on the cortex. Neuron slots
- * sit on the crests of the folds. Each field gets one or more lobes; each
- * term lights up one slot in its field's lobes, near the terms most like it.
+ * (two hemispheres with the longitudinal fissure, temporal lobes, cerebellum,
+ * brainstem; folds as a pattern on the surface) is covered with evenly spread
+ * neuron slots. Each field gets one or more lobes; each term lights up one
+ * slot in its field's lobes, near the terms most like it.
  *
- * Distances are signed: negative inside the brain, zero on its surface.
  * Axes: x = front (+) / back (−), y = up, z = left (−) / right (+).
  */
 
 type V3 = Point3;
 const dist = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
-/** Approximate signed distance to an axis-aligned ellipsoid (exact enough near its surface). */
-function ellipsoid(p: V3, c: V3, r: V3): number {
-  const k = Math.hypot((p[0] - c[0]) / r[0], (p[1] - c[1]) / r[1], (p[2] - c[2]) / r[2]);
-  return (k - 1) * Math.min(r[0], r[1], r[2]);
-}
-/** Smooth union and intersection (polynomial, blend width `k`). */
-const smin = (a: number, b: number, k: number) => {
-  const h = Math.max(k - Math.abs(a - b), 0) / k;
-  return Math.min(a, b) - h * h * k * 0.25;
-};
-const smax = (a: number, b: number, k: number) => -smin(-a, -b, k);
-/** Cuts a groove: removes the part of the solid where `groove < 0`, down to `depth` below the surface. */
-const carve = (solid: number, groove: number, depth: number) => Math.max(solid, Math.min(-groove, solid + depth));
+const PARTS: { c: V3; r: V3 }[] = [
+  ...[-1, 1].flatMap((s) => [
+    { c: [0, 0.08, s * 0.4] as V3, r: [0.95, 0.6, 0.36] as V3 }, // cerebral hemisphere
+    { c: [0.12, -0.28, s * 0.42] as V3, r: [0.48, 0.27, 0.3] as V3 }, // temporal lobe
+  ]),
+  { c: [-0.6, -0.45, 0], r: [0.33, 0.2, 0.58] }, // cerebellum
+  { c: [-0.28, -0.7, 0], r: [0.13, 0.3, 0.13] }, // brainstem
+];
 
-function capsule(p: V3, a: V3, b: V3, r: number): number {
-  const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-  const ap = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
-  const t = Math.max(0, Math.min(1, (ap[0] * ab[0] + ap[1] * ab[1] + ap[2] * ab[2]) / (ab[0] ** 2 + ab[1] ** 2 + ab[2] ** 2)));
-  return Math.hypot(ap[0] - ab[0] * t, ap[1] - ab[1] * t, ap[2] - ab[2] * t) - r;
-}
-
-/** One cerebral hemisphere (side −1 = left, +1 = right) with its temporal lobe, before folding. */
-function hemisphere(p: V3, side: number): number {
-  const [x, y, z] = p;
-  const front = Math.max(0, x);
-  const back = Math.max(0, -x - 0.3);
-  // Lower and narrower towards the frontal pole, a little pointed at the occipital pole.
-  const ry = 0.6 * (1 - 0.22 * front * front);
-  const rz = 0.42 * (1 - 0.14 * front * front - 0.3 * back * back);
-  const cy = 0.08 - 0.07 * front * front;
-  let d = ellipsoid(p, [0, cy, side * 0.42], [1.0, ry, rz]);
-  d = smax(d, -(y + 0.3), 0.08); // flat underside
-  // Temporal lobe: under the side, its front end lower than its back.
-  const temporal = ellipsoid([x, y + 0.12 * (x - 0.1), z], [0.1, -0.3, side * 0.52], [0.52, 0.22, 0.27]);
-  d = smin(d, temporal, 0.07);
-  // Sylvian fissure: the groove between the temporal lobe and the frontal/parietal lobes, on the outside.
-  if (x > -0.28 && x < 0.5 && Math.abs(z) > 0.42) {
-    const lineY = -0.15 + 0.17 * ((0.5 - x) / 0.78);
-    d = carve(d, Math.abs(y - lineY) - 0.016, 0.09);
-  }
-  return d;
-}
-
-/** The two hemispheres with the longitudinal fissure between them, before folding. */
-function cerebrum(p: V3): number {
-  // A plain minimum keeps the deep crease where the hemispheres meet.
-  let d = Math.min(hemisphere(p, -1), hemisphere(p, 1));
-  // Longitudinal fissure: a gap between the hemispheres, down to the corpus callosum. Wide enough
-  // (0.056) for the surface mesh (one grid cell ≈ 0.023) to show it.
-  d = Math.max(d, -Math.max(Math.abs(p[2]) - 0.028, -0.08 - p[1]));
-  return d;
-}
-
-function hindbrain(p: V3): { cerebellum: number; stem: number } {
-  const [, y, z] = p;
-  let cerebellum = ellipsoid(p, [-0.6, -0.44, 0], [0.37, 0.22, 0.6]);
-  // Folia: fine, nearly horizontal folds.
-  if (Math.abs(cerebellum) < 0.08) cerebellum -= 0.011 * Math.sin((2 * Math.PI * (y + 0.12 * z * z)) / 0.075);
-  const pons = ellipsoid(p, [-0.18, -0.56, 0], [0.17, 0.15, 0.17]);
-  const medulla = capsule(p, [-0.2, -0.62, 0], [-0.27, -1.02, 0], 0.095);
-  return { cerebellum, stem: smin(pons, medulla, 0.06) };
-}
-
-// Gyri: a random wave field with one wavelength. Its zero crossings meander like a maze, which is
-// what the sulci on a cortex look like. 24 fixed directions and phases keep it deterministic.
-const GYRUS_WAVELENGTH = 0.24;
-const WAVES = (() => {
-  const random = mulberry32(9);
-  const n = 24;
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  return Array.from({ length: n }, (_, i) => {
-    const y = 1 - (2 * (i + 0.5)) / n;
-    const r = Math.sqrt(1 - y * y);
-    return { d: [Math.cos(golden * i) * r, y, Math.sin(golden * i) * r] as V3, phase: random() * Math.PI * 2 };
-  });
-})();
-const WAVE_K = (2 * Math.PI) / GYRUS_WAVELENGTH;
-const WAVE_NORM = Math.sqrt(WAVES.length / 2);
-
-/** The fold field, roughly −2…2: positive on gyri (ridges), negative in sulci (grooves). */
-export function gyri(p: V3): number {
-  // A gentle warp makes the maze less regular.
-  const q: V3 = [p[0] + 0.04 * Math.sin(3.1 * p[1] + 1.3 * p[2]), p[1] + 0.04 * Math.sin(2.7 * p[2] + 1.9 * p[0]), p[2] + 0.03 * Math.sin(2.3 * p[0] + 1.1 * p[1])];
-  let sum = 0;
-  for (const { d, phase } of WAVES) sum += Math.cos(WAVE_K * (d[0] * q[0] + d[1] * q[1] + d[2] * q[2]) + phase);
-  return sum / WAVE_NORM;
-}
-
-/** Depth of the folds on the cortex. */
-const FOLD_DEPTH = 0.032;
-
-/**
- * Signed distance to the brain surface, folds included. The folds are only
- * evaluated near the surface (they do not matter far from it), which keeps
- * this cheap enough to sample a million times for the surface mesh.
- */
+/** Negative inside the brain, zero on its surface (in "ellipsoid radii", roughly distance). */
 export function brainField(p: V3): number {
-  // Far outside an ellipsoid that holds the whole brain (checked in the tests) the exact value does not matter.
-  const outer = ellipsoid(p, [0, -0.15, 0], [1.25, 1.1, 1.05]);
-  if (outer > 0.12) return outer;
-  let cortex = cerebrum(p);
-  if (Math.abs(cortex) < 0.1) cortex -= FOLD_DEPTH * Math.tanh(1.6 * (gyri(p) + 0.3));
-  const { cerebellum, stem } = hindbrain(p);
-  return Math.min(cortex, cerebellum, stem);
-}
-
-/** Outward surface normal at `p` (gradient of the distance, by central differences). */
-export function brainNormal(p: V3, h = 0.004): V3 {
-  const g: V3 = [0, 0, 0];
-  for (let a = 0; a < 3; a++) {
-    const plus = [...p] as V3;
-    const minus = [...p] as V3;
-    plus[a] += h;
-    minus[a] -= h;
-    g[a] = brainField(plus) - brainField(minus);
+  let best = Infinity;
+  for (const { c, r } of PARTS) {
+    const v = Math.hypot((p[0] - c[0]) / r[0], (p[1] - c[1]) / r[1], (p[2] - c[2]) / r[2]) - 1;
+    if (v < best) best = v;
   }
-  const l = Math.hypot(g[0], g[1], g[2]) || 1;
-  return [g[0] / l, g[1] / l, g[2] / l];
+  return best;
 }
-
-/** The box the brain fits in: centre and half the longest side. */
-export const BRAIN_BOUNDS = { centre: [0, -0.15, 0] as V3, half: 1.1 };
 
 /**
  * Lobes, in an order where neighbours in the list are neighbours on the brain
@@ -157,40 +50,41 @@ export const BRAIN_REGIONS = [
   "Frontal kanan",
 ] as const;
 
-/** Index in BRAIN_REGIONS of the lobe a surface point belongs to (the brainstem counts with the cerebellum). */
+/** Index in BRAIN_REGIONS of the lobe a surface point belongs to. */
 export function regionOf(p: V3): number {
   const [x, y, z] = p;
-  if (y < -0.3 && x < -0.12) return 4; // cerebellum, pons, brainstem
+  if (y < -0.25 && x < -0.25) return 4; // cerebellum (and brainstem)
   const left = z < 0;
-  if (y < -0.1 && x > -0.4 && Math.abs(z) > 0.3) return left ? 3 : 5; // temporal
-  if (x > 0.28) return left ? 0 : 8; // frontal
-  if (x < -0.5) return left ? 2 : 6; // occipital
-  return left ? 1 : 7; // parietal
-}
-
-/** Whether a surface point is on the crest of a fold (where neurons sit); the stem has no folds. */
-function onCrest(p: V3): boolean {
-  if (regionOf(p) === 4) {
-    if (p[1] < -0.62 || (p[0] > -0.36 && p[1] < -0.4)) return true; // pons and medulla
-    return Math.sin((2 * Math.PI * (p[1] + 0.12 * p[2] * p[2])) / 0.075) > 0.1;
-  }
-  return gyri(p) + 0.3 > 0.35;
+  if (y < -0.12 && x > -0.45) return left ? 3 : 5;
+  if (x > 0.25) return left ? 0 : 8;
+  if (x < -0.45) return left ? 2 : 6;
+  return left ? 1 : 7;
 }
 
 /**
- * `n` neuron slots spread evenly over the crests of the folds (farthest
- * point sampling from many candidates on the surface), lifted a hair above
- * the surface so they sit on it. Deterministic for a seed.
+ * Fold pattern on the surface, 0…1: meandering ridges (gyri) on the cerebrum,
+ * fine parallel folds on the cerebellum. Slots are only placed where it is
+ * above a threshold, so the grooves (sulci) between ridges stay empty.
+ */
+export function foldPattern(p: V3): number {
+  const [x, y, z] = p;
+  if (regionOf(p) === 4) return 0.5 + 0.5 * Math.sin(38 * y + 3 * Math.sin(5 * z));
+  const meander = 13 * (0.8 * x + 0.35 * Math.sin(3.1 * y + 1.7 * z) + 0.45 * y * z) + 2.3 * Math.sin(2.2 * x - 1.3 * z) + 1.4 * Math.sin(4.1 * y);
+  return 0.5 + 0.5 * Math.sin(meander);
+}
+
+/**
+ * `n` neuron slots spread evenly over the folded surface (farthest point
+ * sampling from many candidates near the surface). Deterministic for a seed.
  */
 export function scaffoldSlots(n: number, seed = 11): { at: V3; region: number }[] {
   if (n <= 0) return [];
   const random = mulberry32(seed);
   const want = Math.max(4 * n, 6000);
-  const { centre, half } = BRAIN_BOUNDS;
   const candidates: V3[] = [];
-  for (let tries = 0; candidates.length < want && tries < want * 600; tries++) {
-    const p: V3 = [centre[0] + (random() * 2 - 1) * half, centre[1] + (random() * 2 - 1) * half, centre[2] + (random() * 2 - 1) * 0.92];
-    if (Math.abs(brainField(p)) < 0.016 && onCrest(p)) candidates.push(p);
+  for (let tries = 0; candidates.length < want && tries < want * 400; tries++) {
+    const p: V3 = [random() * 2.2 - 1.1, random() * 1.8 - 1.0, random() * 1.8 - 0.9];
+    if (Math.abs(brainField(p)) < 0.025 && foldPattern(p) > 0.38) candidates.push(p);
   }
 
   // Farthest point sampling: each new slot is the candidate farthest from all slots so far.
@@ -206,11 +100,7 @@ export function scaffoldSlots(n: number, seed = 11): { at: V3; region: number }[
       if (d < nearest[i]) nearest[i] = d;
     }
   }
-  return chosen.map((at) => {
-    const normal = brainNormal(at);
-    const lifted: V3 = [at[0] + normal[0] * 0.012, at[1] + normal[1] * 0.012, at[2] + normal[2] * 0.012];
-    return { at: lifted, region: regionOf(at) };
-  });
+  return chosen.map((at) => ({ at, region: regionOf(at) }));
 }
 
 /**
