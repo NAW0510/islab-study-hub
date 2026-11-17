@@ -398,7 +398,7 @@ export class SpaceScene implements ViewScene {
   }
 
   tick(seconds: number, delta: number) {
-    if (!this.layout) return false;
+    if (!this.layout || (delta === 0 && seconds === this.now)) return false;
     this.now = seconds;
     this.place(seconds);
     for (const disk of this.disks) {

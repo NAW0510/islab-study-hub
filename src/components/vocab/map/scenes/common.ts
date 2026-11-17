@@ -59,7 +59,11 @@ export interface ViewScene {
   highlight(h: Highlight, input: SceneInput): void;
   /** Stronger look for one field (legend hover); null to reset. */
   emphasize(fieldId: string | null, input: SceneInput): void;
-  /** Advances animation to `seconds` of scene time; returns true when something moved. */
+  /**
+   * Called every frame. `seconds` is scene time, which only advances (by
+   * `delta`) while motion is allowed. Returns true when something changed and
+   * the frame must be drawn.
+   */
   tick(seconds: number, delta: number): boolean;
   /** Current position of a term id or a group key; null when it is not drawn. */
   positionOf(key: string): Vector3 | null;

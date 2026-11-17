@@ -188,9 +188,11 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       last = now;
       const current = sceneRef.current?.scene;
 
-      if (current && animateRef.current) {
-        stage.time += delta;
-        if (current.tick(stage.time, delta)) stage.dirty = true;
+      if (current) {
+        // Scene time only runs while things may move; scenes may still report a change (a mesh that arrived).
+        const animate = animateRef.current;
+        if (animate) stage.time += delta;
+        if (current.tick(stage.time, animate ? delta : 0)) stage.dirty = true;
       }
       if (stage.flight) {
         const t = Math.min(1, (now - stage.flight.start) / FLY_MS);
