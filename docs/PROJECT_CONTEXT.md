@@ -138,7 +138,8 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, sidebar bernomor, menu layar penuh di mobile, dashboard dengan penanda Week. Halaman selain dashboard baru memakai gaya dasarnya; restyle penuh di Fase 4.
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
 - ✅ Fase 2 (Kosakata MVP) selesai dan sudah di `main`; fungsi `vocab-embed` aktif di remote dengan Voyage asli (7/7 kasus klasifikasi benar).
-- 🔄 Fase 3 (Peta Otak) di branch `feat/fase-3-peta-otak`: selesai dan teruji di stack lokal dengan 300 istilah (79 test pgTAP, 159 test Vitest). Migrasi `vocab_map` dan `vocab-embed` v2 sudah di remote; menunggu QA dan merge (PR #5).
+- ✅ Fase 3 (Peta Otak 2D) selesai dan sudah di `main`; migrasi `vocab_map` dan `vocab-embed` v2 di remote.
+- 🔄 Peta Otak 3D (`/vocab/map/3d`) sedang dikerjakan sebagai tampilan kedua.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.
