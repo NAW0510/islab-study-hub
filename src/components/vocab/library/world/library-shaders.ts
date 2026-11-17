@@ -34,6 +34,7 @@ uniform float uPixelRatio;
 uniform vec4 uLanterns[12];
 uniform vec3 uLanternDay;
 uniform vec3 uLanternNight;
+uniform float uDetail;
 `;
 
 export const LIBRARY_FUNCTIONS = /* glsl */ `
@@ -67,10 +68,11 @@ vec3 windowScatter() {
 
 float fogAmount(float depth, float worldY, float reach) {
   float h = clamp((worldY / uUnit + 9.0) / 28.0, 0.0, 1.0);
-  float density = uFogDensity * mix(1.4, 0.7, h);
-  float beyond = max(depth - uFogStart, 0.0) / reach;
+  // On a term's page the library sinks into a much thicker fog, so its text always sits on something close to the page colour.
+  float density = uFogDensity * mix(1.4, 0.7, h) * (1.0 + 1.8 * uDetail);
+  float beyond = max(depth - uFogStart * (1.0 - 0.5 * uDetail), 0.0) / reach;
   float f = 1.0 - exp(-pow(beyond * density, 1.55));
-  return max(f, mix(0.22, 0.08, uDark));
+  return max(f, mix(mix(0.22, 0.08, uDark), mix(0.62, 0.5, uDark), uDetail));
 }
 
 vec3 applyFog(vec3 c, float depth, float worldY, float reach) {

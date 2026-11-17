@@ -75,6 +75,7 @@ export class LibraryLayer implements WorldLayer {
     uLanternDay: { value: new THREE.Vector3(...LIBRARY_PALETTE.light.lantern) },
     uLanternNight: { value: new THREE.Vector3(...LIBRARY_PALETTE.dark.lantern) },
     uTime: { value: 0 },
+    uDetail: { value: 0 },
   };
 
   private group: THREE.Group | null = null;
@@ -388,6 +389,7 @@ export class LibraryLayer implements WorldLayer {
     u.uTime.value = frame.time;
     u.uPixelRatio.value = frame.pixelRatio;
     u.uDark.value = frame.dark;
+    u.uDetail.value = frame.detail;
     u.uTheme.value = frame.theme;
     u.uThemeColor.value.set(frame.themeColor.r, frame.themeColor.g, frame.themeColor.b);
 

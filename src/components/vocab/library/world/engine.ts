@@ -4,7 +4,7 @@ import { foldLine } from "@/lib/vocab/library/fold";
 import { QualityGovernor, qualityLadder, type QualityLevel } from "@/lib/vocab/library/quality";
 import { CardsLayer } from "./cards";
 import { CompositePass } from "./composite";
-import { colorReader, fogOf, hexToRgb, type Rgb, type Scheme } from "./palette";
+import { colorReader, fogOf, hexToRgb, type ColorReader, type Rgb, type Scheme } from "./palette";
 
 /**
  * The Perpustakaan world: one fixed three.js canvas behind the page, from
@@ -35,6 +35,8 @@ export type LibraryWorld = {
   setTheme(colour: string | null): void;
   /** Plays a shelf ↔ field transition; `swap` runs under full cover. Resolves when it has settled. */
   transition(kind: "open" | "close", colour: string, swap: () => void): Promise<void>;
+  /** "detail" on a term's page: no lens, a quieter camera and thicker fog, so its text reads over the library. */
+  setRoute(route: "list" | "detail"): void;
   dispose(): void;
 };
 
@@ -64,6 +66,8 @@ export type LayerFrame = {
   themeColor: THREE.Color;
   /** Sideways pan of the scene during a transition, CSS px. */
   pan: number;
+  /** 0 a list … 1 a term's page, gliding. */
+  detail: number;
 };
 
 type Options = {
@@ -72,7 +76,7 @@ type Options = {
   river: HTMLElement;
   onFallback: (reason: string) => void;
   /** Extra layers (the library, particles, the cursor); built after the scene exists. */
-  layers?: (scene: THREE.Scene, camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement) => WorldLayer[];
+  layers?: (scene: THREE.Scene, camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement, reader: () => ColorReader) => WorldLayer[];
 };
 
 type Run = {
@@ -113,6 +117,8 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
   let dark = scheme === "dark" ? 1 : 0;
   let theme = 0;
   let themeTarget = 0;
+  let detail = 0;
+  let detailTarget = 0;
   const themeColor = new THREE.Color(0.5, 0.5, 0.5);
   const themeColorTarget = themeColor.clone();
   const fog = new THREE.Color(...fogOf(dark, 0, [0.5, 0.5, 0.5]));
@@ -128,7 +134,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
   };
   const cards = new CardsLayer(scene, river, reader, fonts);
   cards.setScheme(scheme);
-  const extra = layers?.(scene, camera, canvas) ?? [];
+  const extra = layers?.(scene, camera, canvas, () => reader) ?? [];
   for (const layer of extra) layer.setScheme?.(scheme);
 
   const ladder = qualityLadder(window.devicePixelRatio || 1);
@@ -226,6 +232,9 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
       run?.resolve();
       run = { kind, colour: readColour(colour), start: clock, swap, swapped: false, inStart: 0, resolve };
     });
+  const setRoute = (route: "list" | "detail") => {
+    detailTarget = route === "detail" ? 1 : 0;
+  };
   const setTheme = (colour: string | null) => {
     themeTarget = colour ? 1 : 0;
     if (!colour) return;
@@ -276,8 +285,10 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
     // Camera: lean toward the mouse, wander slowly.
     const follow = 1 - Math.exp(-dt / CAMERA.FOLLOW);
     const wander = Math.sin((clock / CAMERA.WANDER_PERIOD) * Math.PI * 2);
-    yaw += ((pointerActive ? pointer.x * CAMERA.YAW : 0) + wander * CAMERA.WANDER - yaw) * follow;
-    pitch += ((pointerActive ? pointer.y * CAMERA.PITCH : 0) + Math.cos((clock / CAMERA.WANDER_PERIOD) * Math.PI * 1.3) * CAMERA.WANDER * 0.6 - pitch) * follow;
+    detail += (detailTarget - detail) * (1 - Math.exp(-dt / 0.5));
+    const calm = 1 - 0.65 * detail; // a term's page keeps the camera quieter
+    yaw += ((pointerActive ? pointer.x * CAMERA.YAW * calm : 0) + wander * CAMERA.WANDER - yaw) * follow;
+    pitch += ((pointerActive ? pointer.y * CAMERA.PITCH * calm : 0) + Math.cos((clock / CAMERA.WANDER_PERIOD) * Math.PI * 1.3) * CAMERA.WANDER * 0.6 - pitch) * follow;
     const ry = (yaw * Math.PI) / 180;
     const rx = (pitch * Math.PI) / 180;
     camera.position.set(Math.sin(ry) * Math.cos(rx), Math.sin(rx), Math.cos(ry) * Math.cos(rx)).multiplyScalar(CAMERA.DISTANCE);
@@ -353,15 +364,18 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
       theme,
       themeColor,
       pan,
+      detail,
     };
     for (const layer of extra) layer.update(layerFrame);
 
     // Lens: settles from a stronger warp on a first visit; the smear follows the scroll.
+    // A term's page keeps the grain only.
     const settle = intro * Math.max(0, 1 - clock / LENS.SETTLE);
+    const lens = 1 - detail;
     const u = composite.material.uniforms;
-    u.uBarrel.value = LENS.BARREL * (1 + (LENS.INTRO_WARP - 1) * settle * settle);
-    u.uDispersion.value = (LENS.SPLIT / 1440 / 0.33) * (1 + 2 * settle);
-    u.uBlur.value = busy ? 0 : Math.max(-LENS.BLUR_MAX, Math.min(LENS.BLUR_MAX, scrollSpeed * LENS.BLUR_PER_SPEED));
+    u.uBarrel.value = LENS.BARREL * (1 + (LENS.INTRO_WARP - 1) * settle * settle) * lens;
+    u.uDispersion.value = (LENS.SPLIT / 1440 / 0.33) * (1 + 2 * settle) * lens;
+    u.uBlur.value = busy ? 0 : Math.max(-LENS.BLUR_MAX, Math.min(LENS.BLUR_MAX, scrollSpeed * LENS.BLUR_PER_SPEED)) * lens;
     u.uGrain.value = LENS.GRAIN * (0.7 + 0.3 * dark);
     u.uVignette.value = LENS.VIGNETTE * (0.5 + 0.5 * dark);
     u.uTime.value = clock;
@@ -376,7 +390,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
 
   // Dev and verification probe.
   const probe = {
-    stats: () => ({ mode: "gl", fps: Math.round(1000 / Math.max(1, lastMs)), level: governor.level, scheme, theme: Number(theme.toFixed(2)), transition: run ? run.kind : null, ...cards.stats }),
+    stats: () => ({ mode: "gl", fps: Math.round(1000 / Math.max(1, lastMs)), level: governor.level, scheme, theme: Number(theme.toFixed(2)), detail: Number(detail.toFixed(2)), transition: run ? run.kind : null, ...cards.stats }),
   };
   (window as unknown as { __libraryWorld?: typeof probe }).__libraryWorld = probe;
 
@@ -384,6 +398,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
     rescan: () => cards.scan(),
     setTheme,
     transition,
+    setRoute,
     dispose() {
       cancelAnimationFrame(frameId);
       run?.resolve();

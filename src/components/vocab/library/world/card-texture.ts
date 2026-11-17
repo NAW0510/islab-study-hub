@@ -70,25 +70,14 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number, maxLin
   return lines.slice(0, maxLines);
 }
 
-export function drawFront(data: CardFaceData, colors: UiColors, fonts: CardFonts, width: number, height: number, scale: number) {
-  const [canvas, ctx] = canvasOf(width * scale, height * scale);
-  ctx.scale(scale, scale);
-  roundedRect(ctx, width, height, RADIUS);
-  ctx.save();
-  ctx.clip();
-
-  // Strip background, then the cover over its top 5:2.
-  ctx.fillStyle = colors.surface;
-  ctx.fillRect(0, 0, width, height);
-  const coverH = Math.min(height, width * 0.4);
-  ctx.fillStyle = colors.paper;
-  ctx.fillRect(0, 0, width, coverH);
-  const tile = Math.max(width / COVER_COLS, coverH / COVER_ROWS); // "slice": fill, crop the overflow
+/** The Bauhaus tiles of a cover over [0, width] × [0, height], filling it like the SVG's "slice". */
+function drawTiles(ctx: CanvasRenderingContext2D, data: Pick<CardFaceData, "id" | "main" | "deep">, width: number, height: number) {
+  const tile = Math.max(width / COVER_COLS, height / COVER_ROWS);
   const offsetX = (width - tile * COVER_COLS) / 2;
-  const offsetY = (coverH - tile * COVER_ROWS) / 2;
+  const offsetY = (height - tile * COVER_ROWS) / 2;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, width, coverH);
+  ctx.rect(0, 0, width, height);
   ctx.clip();
   for (const t of coverPattern(data.id)) {
     ctx.save();
@@ -102,6 +91,36 @@ export function drawFront(data: CardFaceData, colors: UiColors, fonts: CardFonts
     ctx.restore();
   }
   ctx.restore();
+}
+
+/** A term page's big cover alone: paper and tiles, rounded like a card. */
+export function drawCover(data: Pick<CardFaceData, "id" | "main" | "deep">, paper: string, width: number, height: number, scale: number) {
+  const [canvas, ctx] = canvasOf(width * scale, height * scale);
+  ctx.scale(scale, scale);
+  roundedRect(ctx, width, height, 18);
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = paper;
+  ctx.fillRect(0, 0, width, height);
+  drawTiles(ctx, data, width, height);
+  ctx.restore();
+  return canvas;
+}
+
+export function drawFront(data: CardFaceData, colors: UiColors, fonts: CardFonts, width: number, height: number, scale: number) {
+  const [canvas, ctx] = canvasOf(width * scale, height * scale);
+  ctx.scale(scale, scale);
+  roundedRect(ctx, width, height, RADIUS);
+  ctx.save();
+  ctx.clip();
+
+  // Strip background, then the cover over its top 5:2.
+  ctx.fillStyle = colors.surface;
+  ctx.fillRect(0, 0, width, height);
+  const coverH = Math.min(height, width * 0.4);
+  ctx.fillStyle = colors.paper;
+  ctx.fillRect(0, 0, width, coverH);
+  drawTiles(ctx, data, width, coverH);
 
   // Strip: the term, its field and Week, the arrow.
   const pad = 16;

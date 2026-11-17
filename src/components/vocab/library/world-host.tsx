@@ -17,14 +17,14 @@ import type { LibraryWorld } from "./world/engine";
  * The engine (three.js and the scene) is a dynamic import started when the
  * browser is idle after the page has shown, so it never weighs on the route's
  * first load or on its largest paint. Returns the running world (or null),
- * for the page's transitions and its field theme; `themeRef` holds the theme
- * the world should start with.
+ * for the page's transitions and its field theme; `startRef` holds the theme
+ * and the route the world should start with.
  */
 export function useLibraryWorld(
   pageRef: RefObject<HTMLElement | null>,
   headRef: RefObject<HTMLElement | null>,
   riverRef: RefObject<HTMLElement | null>,
-  themeRef: RefObject<string | null>,
+  startRef: RefObject<{ theme: string | null; route: "list" | "detail" }>,
 ): RefObject<LibraryWorld | null> {
   const worldRef = useRef<LibraryWorld | null>(null);
 
@@ -57,7 +57,8 @@ export function useLibraryWorld(
         .then((created) => {
           if (cancelled) return created.dispose();
           worldRef.current = created;
-          created.setTheme(themeRef.current);
+          created.setTheme(startRef.current.theme);
+          created.setRoute(startRef.current.route);
           page.dataset.libraryWorld = "gl";
         })
         .catch(() => {
@@ -77,7 +78,7 @@ export function useLibraryWorld(
       worldRef.current = null;
       delete page.dataset.libraryWorld;
     };
-  }, [pageRef, headRef, riverRef, themeRef]);
+  }, [pageRef, headRef, riverRef, startRef]);
 
   return worldRef;
 }
