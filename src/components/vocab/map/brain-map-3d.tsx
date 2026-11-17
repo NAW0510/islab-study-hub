@@ -8,12 +8,15 @@ import {
   BufferGeometry,
   CanvasTexture,
   Color,
+  DoubleSide,
   EdgesGeometry,
   Float32BufferAttribute,
   Group,
   Line,
   LineBasicMaterial,
   LineSegments,
+  Mesh,
+  MeshBasicMaterial,
   NormalBlending,
   PerspectiveCamera,
   Points,
@@ -25,6 +28,7 @@ import {
   type Texture,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
 import { Info, Loader2, Maximize, Moon, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
 import type { NearestTerm } from "@/lib/actions/vocab";
 import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-template";
@@ -33,8 +37,8 @@ import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
 import { placeLabels } from "@/lib/vocab/labels";
 import type { Point3 } from "@/lib/vocab/layout/run-layout-3d";
-import { fieldCentres, pickNearest, visible3d, type Projected } from "@/lib/vocab/map3d-model";
-import { fieldOf, firstSentence, mapStats, MIN_TERMS_FOR_MAP, type MapPoint } from "@/lib/vocab/map-model";
+import { groups3d, paddedCloud3d, pickNearest, visible3d, withoutOutliers3d, type Projected } from "@/lib/vocab/map3d-model";
+import { fieldOf, firstSentence, mapStats, MIN_TERMS_FOR_MAP, type BoundaryLevel, type MapPoint } from "@/lib/vocab/map-model";
 import { asDomainColor } from "@/lib/vocab/seed-domains";
 import { EmptyState } from "../../ui";
 import { useToast } from "../../toast";
@@ -51,8 +55,11 @@ const TOUCH_HIT_RADIUS = 24;
 /** Width of the detail panel on wide screens (`md:w-80`) and the share of the canvas its bottom sheet covers on phones. */
 const PANEL_WIDTH = 320;
 const SHEET_SHARE = 0.62;
-const DOT_SIZE = 0.075;
-const MARK_SIZE = 0.17;
+const DOT_SIZE = 0.11;
+const MARK_SIZE = 0.21;
+/** Region fill opacity per canvas theme, and when its field is highlighted from the legend. */
+const REGION_OPACITY: Record<Theme, number> = { dark: 0.16, light: 0.17 };
+const REGION_HIGHLIGHT = 0.34;
 const FLY_MS = 450;
 const START_POSITION = new Vector3(2.3, 1.5, 2.7);
 const NO_COORDS: ReadonlyMap<string, Point3> = new Map();
@@ -130,6 +137,7 @@ type Stage = {
   dots: Points;
   marks: Points;
   links: Group;
+  regions: Group;
   textures: Record<Theme, Texture>;
   dirty: boolean;
   width: number;
@@ -157,6 +165,8 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const [neighbours, setNeighbours] = useState<{ id: string; list: NearestTerm[] } | null>(null);
   const [query, setQuery] = useState("");
   const [showInfo, setShowInfo] = useState(false);
+  const [level, setLevel] = useState<BoundaryLevel>("bidang");
+  const [hoverField, setHoverField] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [hostSize, setHostSize] = useState({ w: 0, h: 0 });
 
@@ -171,6 +181,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     [points, coords, programStart, week, hiddenFields, domainIdx],
   );
   const pointById = useMemo(() => new Map(points.map((p) => [p.id, p])), [points]);
+  const groups = useMemo(() => groups3d(visible, coords, level, domainIdx), [visible, coords, level, domainIdx]);
   const stats = useMemo(() => mapStats(visible, { programStart, currentWeek, domains: domainIdx }), [visible, programStart, currentWeek, domainIdx]);
   const searchHit = normalizeSearch(query.trim());
 
@@ -205,9 +216,14 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     (dots.material as PointsMaterial).size = DOT_SIZE;
     (marks.material as PointsMaterial).size = MARK_SIZE;
     const links = new Group();
-    scene.add(frame, grid, links, dots, marks);
+    const regions = new Group();
+    // Transparent objects are drawn in this order (not by creation order): regions (1) under lines (2)
+    // under points (3, 4). Set on the objects themselves: a Group's renderOrder would outrank its children's.
+    dots.renderOrder = 3;
+    marks.renderOrder = 4;
+    scene.add(frame, grid, regions, links, dots, marks);
 
-    const stage: Stage = { renderer, camera, controls, frame, grid, dots, marks, links, textures, dirty: true, width: 0, height: 0, flight: null };
+    const stage: Stage = { renderer, camera, controls, frame, grid, dots, marks, links, regions, textures, dirty: true, width: 0, height: 0, flight: null };
     stageRef.current = stage;
 
     const resize = () => {
@@ -256,7 +272,8 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         object.geometry.dispose();
         (object.material as PointsMaterial).dispose();
       }
-      disposeLinks(links);
+      disposeGroup(links);
+      disposeGroup(regions);
       textures.dark.dispose();
       textures.light.dispose();
       renderer.dispose();
@@ -346,11 +363,38 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     stage.dirty = true;
   }, [selectedId, hover?.id, coords, pointById, domainIdx, theme, resolve, effectiveAutoRotate]);
 
+  // Regions: a translucent hull around each field's (or branch's) terms, like the 2D map.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    disposeGroup(stage.regions);
+    for (const g of groups) {
+      const cloud = paddedCloud3d(withoutOutliers3d(g.members)).map((p) => new Vector3(p[0], p[1], p[2]));
+      let geometry: ConvexGeometry;
+      try {
+        geometry = new ConvexGeometry(cloud);
+      } catch {
+        continue; // a degenerate cloud cannot be wrapped; its points are still drawn
+      }
+      const material = new MeshBasicMaterial({
+        color: resolve(colorVar(g.field)),
+        transparent: true,
+        opacity: hoverField === g.field.id ? REGION_HIGHLIGHT : REGION_OPACITY[theme],
+        depthWrite: false,
+        side: DoubleSide,
+      });
+      const mesh = new Mesh(geometry, material);
+      mesh.renderOrder = 1;
+      stage.regions.add(mesh);
+    }
+    stage.dirty = true;
+  }, [groups, hoverField, theme, resolve]);
+
   // Lines from the selected term to its nearest neighbours (scores from the real embeddings).
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    disposeLinks(stage.links);
+    disposeGroup(stage.links);
     const from = selectedId ? coords.get(selectedId) : undefined;
     if (from && neighbours?.id === selectedId) {
       const ink = resolve("var(--text)");
@@ -361,7 +405,9 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         const s = Math.max(0, Math.min(1, n.similarity));
         const geometry = new BufferGeometry();
         geometry.setAttribute("position", new Float32BufferAttribute([...from, ...to], 3));
-        stage.links.add(new Line(geometry, new LineBasicMaterial({ color: ink, transparent: true, opacity: 0.15 + 0.6 * s })));
+        const line = new Line(geometry, new LineBasicMaterial({ color: ink, transparent: true, opacity: 0.15 + 0.6 * s }));
+        line.renderOrder = 2;
+        stage.links.add(line);
       }
     }
     stage.dirty = true;
@@ -376,9 +422,9 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
 
   // Labels: field names at their centres, plus selected, hovered, searched and newest terms.
   useEffect(() => {
-    const specs: LabelSpec[] = fieldCentres(visible, coords, domainIdx).map(({ field, centre, count }) => ({
-      id: `field:${field.id}`,
-      text: `${field.name} ${count}`,
+    const specs: LabelSpec[] = groups.map(({ group, centre, members }) => ({
+      id: `group:${group.id}`,
+      text: `${group.name} ${members.length}`,
       at: centre,
       priority: 950,
       field: true,
@@ -399,7 +445,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     labelsRef.current = specs;
     const stage = stageRef.current;
     if (stage) stage.dirty = true;
-  }, [visible, coords, domainIdx, pointById, searchHit, hover, selectedId]);
+  }, [groups, visible, coords, pointById, searchHit, hover, selectedId]);
 
   // ── Week playback (same as the 2D map) ──────────────────────────────────
   useEffect(() => {
@@ -525,7 +571,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     // Mirror the label specs into state on the next frame, so React renders their elements.
     const frame = requestAnimationFrame(() => setLabelList(labelsRef.current));
     return () => cancelAnimationFrame(frame);
-  }, [visible, coords, searchHit, hover, selectedId]);
+  }, [groups, visible, coords, searchHit, hover, selectedId]);
 
   // ── States without a space ──────────────────────────────────────────────
   if (points.length < MIN_TERMS_FOR_MAP) {
@@ -595,6 +641,14 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
             ))}
           </datalist>
         </form>
+        <label className="flex items-center gap-2 text-sm text-muted">
+          Batas
+          <select value={level} onChange={(e) => setLevel(e.target.value as BoundaryLevel)} className="input w-auto" aria-label="Tingkat batas wilayah">
+            <option value="bidang">Bidang</option>
+            <option value="cabang">Cabang</option>
+            <option value="none">Tanpa batas</option>
+          </select>
+        </label>
         <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tema kanvas 3D">
           {(
             [
@@ -648,6 +702,8 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
                       type="button"
                       aria-pressed={!off}
                       onClick={() => toggleField(f.id)}
+                      onPointerEnter={() => setHoverField(f.id)}
+                      onPointerLeave={() => setHoverField(null)}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-sm whitespace-nowrap hover:bg-surface-2",
                         off && "opacity-40",
@@ -813,12 +869,12 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function disposeLinks(links: Group) {
-  for (const child of [...links.children]) {
-    const line = child as Line;
-    line.geometry.dispose();
-    (line.material as LineBasicMaterial).dispose();
-    links.remove(line);
+function disposeGroup(group: Group) {
+  for (const child of [...group.children]) {
+    const object = child as Line | Mesh;
+    object.geometry.dispose();
+    (object.material as LineBasicMaterial | MeshBasicMaterial).dispose();
+    group.remove(object);
   }
 }
 
