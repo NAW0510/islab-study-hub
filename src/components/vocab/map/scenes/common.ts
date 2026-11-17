@@ -21,8 +21,7 @@ import type { Layout3dData } from "@/lib/vocab/map3d-model";
 import type { BoundaryLevel, MapPoint } from "@/lib/vocab/map-model";
 import { asDomainColor } from "@/lib/vocab/seed-domains";
 
-/** The three looks of the 3D brain map. */
-export type View3d = "space" | "brain" | "cube";
+/** Canvas theme. The looks themselves are listed in registry.ts. */
 export type Theme = "dark" | "light";
 
 /** Everything a scene is built from; it is rebuilt when any of it changes. */

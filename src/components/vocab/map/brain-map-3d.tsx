@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Color, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { Box, Brain, Info, Loader2, Maximize, Moon, Orbit, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
+import { Info, Loader2, Maximize, Moon, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
 import type { NearestTerm } from "@/lib/actions/vocab";
 import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-template";
 import type { VocabDomain } from "@/lib/types";
@@ -16,10 +16,8 @@ import { fieldOf, firstSentence, mapStats, MIN_TERMS_FOR_MAP, type BoundaryLevel
 import { EmptyState } from "../../ui";
 import { useToast } from "../../toast";
 import { MapDetailPanel } from "./map-detail-panel";
-import { BrainScene } from "./scenes/brain";
-import { colorVar, type SceneInput, type Theme, type View3d, type ViewScene } from "./scenes/common";
-import { CubeScene } from "./scenes/cube";
-import { SpaceScene } from "./scenes/space";
+import { colorVar, type SceneInput, type Theme, type ViewScene } from "./scenes/common";
+import { defaultView, VIEW_KEYS, viewDefinition, VIEWS_3D, type View3d } from "./scenes/registry";
 import { useLayout3d } from "./use-layout-3d";
 
 type Props = { points: MapPoint[]; domains: VocabDomain[]; programStart: string };
@@ -33,23 +31,6 @@ const TOUCH_HIT_RADIUS = 24;
 const PANEL_WIDTH = 320;
 const SHEET_SHARE = 0.62;
 const FLY_MS = 450;
-const AUTO_ROTATE_SPEED: Record<View3d, number> = { space: 0.25, brain: 0.6, cube: 0.7 };
-
-const VIEWS: { key: View3d; label: string; Icon: typeof Orbit }[] = [
-  { key: "space", label: "Luar angkasa", Icon: Orbit },
-  { key: "brain", label: "Otak", Icon: Brain },
-  { key: "cube", label: "Kubus", Icon: Box },
-];
-
-const INFO: Record<View3d, string> = {
-  space:
-    "Tiap bidang adalah galaksi dengan lubang hitam di pusatnya, dan tiap cabang sebuah matahari. Planet adalah istilah inti di cabangnya; bulan mengorbit planet yang paling mirip maknanya; batuan adalah istilah yang hubungannya longgar atau belum punya domain. Saat “Putar otomatis” aktif, semuanya bergerak di orbitnya.",
-  brain:
-    "Tiap bidang menempati lobus otaknya sendiri (nama lima bidang terbesar tampil samar; bidang lain muncul saat kamu menyorot atau memilih salah satu istilahnya), dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya.",
-  cube:
-    "Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP menjaga struktur lokal, bukan jarak global.",
-};
-
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 
@@ -93,11 +74,6 @@ type Stage = {
   time: number;
 };
 
-function makeScene(view: View3d): ViewScene {
-  if (view === "space") return new SpaceScene();
-  if (view === "brain") return new BrainScene();
-  return new CubeScene();
-}
 
 export default function BrainMap3D({ points, domains, programStart }: Props) {
   const toast = useToast();
@@ -114,8 +90,9 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const downRef = useRef<{ x: number; y: number } | null>(null);
 
   const [webgl] = useState(hasWebGL);
-  const [view, setView] = useState<View3d>(() => remembered(VIEW_KEY, ["space", "brain", "cube"], prefersDark() ? "space" : "brain"));
-  const [cubeTheme, setCubeTheme] = useState<Theme>(() => remembered(THEME_KEY, ["dark", "light"], prefersDark() ? "dark" : "light"));
+  const [view, setView] = useState<View3d>(() => remembered(VIEW_KEY, VIEW_KEYS, defaultView(prefersDark())));
+  // The Gelap/Terang choice, for views whose theme is "choice".
+  const [chosenTheme, setChosenTheme] = useState<Theme>(() => remembered(THEME_KEY, ["dark", "light"], prefersDark() ? "dark" : "light"));
   const [autoRotate, setAutoRotate] = useState(() => !reducedMotion());
   const [hiddenFields, setHiddenFields] = useState<Set<string>>(() => new Set());
   const [hover, setHover] = useState<{ id: string; px: number; py: number } | null>(null);
@@ -129,7 +106,8 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const [hostSize, setHostSize] = useState({ w: 0, h: 0 });
   const [labelList, setLabelList] = useState<LabelSpec[]>([]);
 
-  const theme: Theme = view === "space" ? "dark" : view === "brain" ? "light" : cubeTheme;
+  const definition = useMemo(() => viewDefinition(view), [view]);
+  const theme: Theme = definition.theme === "choice" ? chosenTheme : definition.theme;
   const domainIdx = useMemo(() => domainIndex(domains), [domains]);
   const { week: currentWeek } = currentWeekInfo(programStart, todayISO());
   const [week, setWeek] = useState(currentWeek);
@@ -278,7 +256,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         stage.scene.remove(current.scene.root);
         current.scene.dispose();
       }
-      current = { view, scene: makeScene(view) };
+      current = { view, scene: viewDefinition(view).create() };
       sceneRef.current = current;
       stage.scene.add(current.scene.root);
       current.scene.build(sceneInput);
@@ -292,7 +270,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     } else {
       current.scene.build(sceneInput);
     }
-    stage.controls.autoRotateSpeed = AUTO_ROTATE_SPEED[view];
+    stage.controls.autoRotateSpeed = viewDefinition(view).autoRotateSpeed;
     stage.dirty = true;
 
     // A search result that was hidden a moment ago can be flown to now.
@@ -332,9 +310,10 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   useEffect(() => {
     const stage = stageRef.current;
     const moving = autoRotate && !reducedMotion();
-    animateRef.current = moving && view === "space";
+    const { moving: ownMotion = false } = viewDefinition(view);
+    animateRef.current = moving && ownMotion;
     if (stage) stage.controls.autoRotate = moving && !selectedId && !hover;
-    followRef.current = view === "space" ? selectedId : null;
+    followRef.current = ownMotion ? selectedId : null;
   }, [autoRotate, selectedId, hover, view]);
 
   // The detail panel covers part of the canvas: shift the view so the middle of what is left is the middle of the picture.
@@ -408,7 +387,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     remember(VIEW_KEY, next);
   };
   const chooseTheme = (next: Theme) => {
-    setCubeTheme(next);
+    setChosenTheme(next);
     remember(THEME_KEY, next);
   };
 
@@ -533,15 +512,14 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       return next;
     });
   const hoverPoint = hover ? pointById.get(hover.id) : undefined;
-  const role = hover && view === "space" ? data?.roles.get(hover.id) : undefined;
-  const roleText = role ? { planet: "Planet: istilah inti di cabangnya", moon: `Bulan dari ${pointById.get(role.kind === "moon" ? role.parent : "")?.term ?? "planet"}`, rock: "Batuan: hubungannya longgar" }[role.kind] : null;
+  const roleText = hover && data && definition.describe ? definition.describe(hover.id, data, pointById) : null;
 
   return (
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tampilan 3D">
-          {VIEWS.map(({ key, label, Icon }) => (
+          {VIEWS_3D.map(({ key, label, Icon }) => (
             <button
               key={key}
               type="button"
@@ -573,8 +551,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
             ))}
           </datalist>
         </form>
-        {view === "cube" && (
-          <>
+        {definition.boundaries && (
             <label className="flex items-center gap-2 text-sm text-muted">
               Batas
               <select value={level} onChange={(e) => setLevel(e.target.value as BoundaryLevel)} className="input w-auto" aria-label="Tingkat batas wilayah">
@@ -583,7 +560,9 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
                 <option value="none">Tanpa batas</option>
               </select>
             </label>
-            <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tema kubus">
+        )}
+        {definition.theme === "choice" && (
+            <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tema kanvas">
               {(
                 [
                   { key: "dark", label: "Gelap", Icon: Moon },
@@ -593,18 +572,17 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
                 <button
                   key={key}
                   type="button"
-                  aria-pressed={cubeTheme === key}
+                  aria-pressed={chosenTheme === key}
                   onClick={() => chooseTheme(key)}
                   className={cn(
                     "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-xs font-medium transition-colors",
-                    cubeTheme === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
+                    chosenTheme === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
                   )}
                 >
                   <Icon className="size-3.5" /> {label}
                 </button>
               ))}
             </div>
-          </>
         )}
         <button
           type="button"
@@ -621,24 +599,24 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       {showInfo && (
         <div className="card space-y-2 px-4 py-3 text-sm text-muted">
           <p>
-            {INFO[view]} Seret untuk memutar, gulir atau cubit untuk zoom, klik kanan atau dua jari untuk menggeser. Susunan 3D dihitung dan disimpan
+            {definition.info} Seret untuk memutar, gulir atau cubit untuk zoom, klik kanan atau dua jari untuk menggeser. Susunan 3D dihitung dan disimpan
             di browser ini.
           </p>
-          {view === "brain" && (
+          {definition.credit && (
             <p className="text-xs">
-              Bentuk otak:{" "}
-              <a className="underline underline-offset-2 hover:text-text" href="https://sketchfab.com/3d-models/brain-cadd2bde67404c43b2359a6a3281d84a" target="_blank" rel="noreferrer">
-                “Brain”
+              {definition.credit.lead}{" "}
+              <a className="underline underline-offset-2 hover:text-text" href={definition.credit.titleUrl} target="_blank" rel="noreferrer">
+                {definition.credit.title}
               </a>{" "}
               karya{" "}
-              <a className="underline underline-offset-2 hover:text-text" href="https://sketchfab.com/dgallichan" target="_blank" rel="noreferrer">
-                dgallichan
+              <a className="underline underline-offset-2 hover:text-text" href={definition.credit.authorUrl} target="_blank" rel="noreferrer">
+                {definition.credit.author}
               </a>
               , lisensi{" "}
-              <a className="underline underline-offset-2 hover:text-text" href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">
-                CC BY 4.0
+              <a className="underline underline-offset-2 hover:text-text" href={definition.credit.licenseUrl} target="_blank" rel="noreferrer">
+                {definition.credit.license}
               </a>
-              ; disederhanakan menjadi titik-titik di permukaan luarnya.
+              ; {definition.credit.note}
             </p>
           )}
         </div>
@@ -680,18 +658,16 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
           </dl>
         </div>
 
-        {/* Canvas: its own theme (space is always dark, the brain always light, the cube either) */}
+        {/* Canvas: its own theme and background, from the view's definition in scenes/registry.ts */}
         <div
           ref={hostRef}
           className={cn(
             "theme-scope card relative order-2 h-[min(70dvh,44rem)] min-h-96 touch-none overflow-hidden text-text select-none",
             theme === "dark" ? "scheme-dark" : "scheme-light",
-            view === "space"
-              ? "bg-[radial-gradient(ellipse_at_center,var(--surface),var(--bg)_70%)]"
-              : "bg-[radial-gradient(ellipse_at_center,var(--surface-2),var(--bg))]",
+            definition.background,
           )}
           role="img"
-          aria-label={`Peta Otak 3D, tampilan ${VIEWS.find((v) => v.key === view)?.label}: ${visible.length} istilah. Daftar lengkapnya ada di tab Daftar.`}
+          aria-label={`Peta Otak 3D, tampilan ${definition.label}: ${visible.length} istilah. Daftar lengkapnya ada di tab Daftar.`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
