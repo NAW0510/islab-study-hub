@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Lock } from "lucide-react";
-import { BrandMark } from "@/components/shell/parts";
+import { BrandMark } from "@/components/shell/brand-mark";
 import { APP_NAME } from "@/lib/constants";
 import { LoginForm } from "./login-form";
 

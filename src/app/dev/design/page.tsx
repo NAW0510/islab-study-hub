@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowRight, NotebookPen, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { RollText } from "@/components/roll-text";
 import { NAV_ITEMS, navNumber } from "@/components/shell/nav-items";
+import { TermMarquee, TermMarqueePause } from "@/components/vocab/term-marquee";
 import { requireUser } from "@/lib/auth";
 import { CHIP_TONE_WEIGHT, contrast, DOMAIN_TOKENS, mix, parseTokens, type Scheme, type TokenMap } from "@/lib/design/contrast";
 import { getProfile } from "@/lib/queries";
@@ -340,6 +341,61 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
                 </a>
               ))}
             </nav>
+          </div>
+        </div>
+      </Block>
+
+      <Block
+        title="Pola Kosakata"
+        note="Kontrol segmen, kartu bolak-balik (depan dan belakang), dan strip istilah terbaru. Strip berhenti saat disorot, difokus, atau dijeda."
+      >
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="segmented" role="group" aria-label={`Contoh segmen, ${scheme}`}>
+              <button type="button" className="segmented-item" aria-pressed="true">
+                Daftar
+              </button>
+              <button type="button" className="segmented-item" aria-pressed="false">
+                Kartu
+              </button>
+            </div>
+            <div className="segmented segmented-sm" role="group" aria-label={`Contoh segmen kecil, ${scheme}`}>
+              <button type="button" className="segmented-item" aria-pressed="true">
+                Tulis
+              </button>
+              <button type="button" className="segmented-item" aria-pressed="false">
+                Pratinjau
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="card flex h-44 flex-col p-4">
+              <span className="eyebrow">W7</span>
+              <span className="mt-auto font-display text-2xl font-semibold tracking-tight">tensor</span>
+              <span className="mt-3 flex">
+                <span className="chip chip-tone tone-domain-1">Deep Learning › Machine Learning</span>
+              </span>
+            </div>
+            <div className="card flex h-44 flex-col p-4">
+              <span className="eyebrow">Definisi</span>
+              <span className="mt-3 line-clamp-4 text-sm leading-6">
+                Struktur data multidimensi: skalar, vektor, dan matriks adalah tensor berorde 0, 1, dan 2.
+              </span>
+            </div>
+          </div>
+
+          <div className="marquee-host">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="eyebrow">Istilah terbaru</span>
+              <TermMarqueePause />
+            </div>
+            <TermMarquee
+              terms={["tensor", "backpropagation", "overfitting", "regularisasi", "softmax", "bootstrap"].map((term) => ({
+                id: `contoh-${term}`,
+                term,
+              }))}
+            />
           </div>
         </div>
       </Block>

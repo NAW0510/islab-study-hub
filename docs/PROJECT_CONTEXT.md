@@ -84,6 +84,14 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Tabel `vocab_domains` (maks dua tingkat, soft delete) dan `vocab_terms` (soft delete, kolom peta untuk Fase 3), RLS owner-only, RPC batch security invoker.
 - UI: tambah cepat, tempel banyak (satu batch embedding), banner tinjau, saran domain sekali klik, drawer detail dengan istilah terdekat, kelola domain (gabung/hapus/klasifikasi ulang).
 - Sub-tab bersama: Daftar · Peta Otak · Domain.
+- Tampilan **Daftar | Kartu** (`?view=kartu`): kartu bolak-balik, depan istilah + domain, belakang ringkasan definisi.
+- Tautan langsung: `/vocab?term=<id>` membuka detail istilah, `/vocab?topic=<id>` menyaring istilah satu topik.
+
+### Integrasi Kosakata (Fase 4, spec §9)
+- **Dashboard**: kartu "Istilah" (total + baru minggu ini) dan strip marquee 20 istilah terbaru (CSS saja; berhenti saat hover/fokus/Jeda; diam dengan reduced motion).
+- **Laporan Mingguan**: isi otomatis menambahkan "Istilah baru minggu ini (n): …" ke *What did you learn or discover?* dari istilah dengan `learned_on` di periode Week. Pertanyaan template dan ekspor tidak berubah.
+- **Catatan**: chip "Istilah terkait" (istilah dengan `note_id` catatan itu).
+- **Silabus**: "n istilah" di baris topik.
 
 ### Peta Otak (`/vocab/map`, sejak Fase 3)
 - Tiap istilah satu titik berwarna bidangnya; wilayah per bidang atau cabang (padded hull, pencilan tidak ikut membentuk wilayah); label yang saling menghindar.
@@ -136,7 +144,7 @@ src/components/                               komponen UI
 
 Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 
-## 7. Kondisi saat ini (per 17 November 2026, Week 8 program, Fase 3 berjalan)
+## 7. Kondisi saat ini (per 17 November 2026, Week 8 program, Fase 4 berjalan)
 
 - ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi.
 - ✅ Semua tabel (termasuk `profiles` dan `weekly_reports`) sudah ada di Supabase. Laporan Mingguan bisa dipakai.
@@ -144,11 +152,12 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Supabase CLI (devDependency) terhubung ke project. Skema dikelola sebagai migrasi di `supabase/migrations/` dan riwayatnya sinkron dengan remote.
 - ✅ Tipe TypeScript hasil generate ada di `src/lib/supabase/database.types.ts` (`npm run db:types`). Kode lama masih memakai tipe manual di `src/lib/types.ts`.
 - ✅ Unit test dengan Vitest (`npm test`), termasuk uji kontras warna.
-- ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, sidebar bernomor, menu layar penuh di mobile, dashboard dengan penanda Week. Halaman selain dashboard baru memakai gaya dasarnya; restyle penuh di Fase 4.
+- ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, sidebar bernomor, menu layar penuh di mobile, dashboard dengan penanda Week. Fase 4 menyelesaikan restyle halaman lain (login, `/r/[token]`, dialog, kontrol segmen).
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
 - ✅ Fase 2 (Kosakata MVP) selesai dan sudah di `main`; fungsi `vocab-embed` aktif di remote dengan Voyage asli (7/7 kasus klasifikasi benar).
 - ✅ Fase 3 (Peta Otak 2D) selesai dan sudah di `main`; migrasi `vocab_map` dan `vocab-embed` v2 di remote.
-- 🔄 Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) di branch `feat/peta-otak-3d`, menunggu QA dan merge.
+- ✅ Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) sudah di `main`.
+- 🔄 Fase 4 (integrasi Kosakata, tampilan Kartu, sisa redesign) di branch `feat/fase-4-integrasi`, menunggu QA dan merge.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.

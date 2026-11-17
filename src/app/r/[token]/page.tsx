@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ReportDocument } from "@/components/report-document";
 import { ExportButtons } from "@/components/report-toolbar";
-import { BrandMark } from "@/components/shell/parts";
+import { BrandMark } from "@/components/shell/brand-mark";
 import { APP_NAME } from "@/lib/constants";
 import { reportTitle } from "@/lib/report-template";
 import { getSharedReport } from "@/lib/shared-report";
