@@ -187,5 +187,40 @@ export const LAYOUT_3D_CONFIG = {
   REGION_PAD: 0.1,
   /** Jumlah arah di permukaan tiap bola bantu; 26 cukup bulat setelah dibungkus. */
   REGION_DIRECTIONS: 26,
+
+  // ── Luar angkasa: peran istilah (dihitung per cabang dari embedding) ───
+  /**
+   * Bagian istilah paling sentral di cabangnya (rata-rata kemiripan dengan
+   * istilah lain di cabang itu paling tinggi) yang menjadi planet; minimal 1.
+   * 25% memberi sekitar tiga bulan per planet: cukup ramai tanpa menutupi.
+   */
+  PLANET_SHARE: 0.25,
+  /**
+   * Bagian bulan dengan kemiripan terlemah ke planetnya yang menjadi batuan
+   * (istilah yang hubungannya longgar). Hanya di cabang dengan minimal
+   * ROCK_MIN_GROUP istilah; cabang kecil tidak punya batuan. Berbasis
+   * peringkat, bukan ambang kosinus, karena kosinus Voyage antartopik yang
+   * tidak berhubungan pun sekitar 0,45.
+   */
+  ROCK_SHARE: 0.2,
+  ROCK_MIN_GROUP: 5,
+
+  // ── Luar angkasa: ukuran dan gerak (satuan ruang; kubus kosinus = 2) ───
+  /** Pusat galaksi = pusat bidangnya di ruang UMAP × nilai ini, lalu direnggangkan. */
+  GALAXY_SPREAD: 4,
+  /** Jari-jari galaksi = BASE + PER_SQRT × √(jumlah istilah bidang). */
+  GALAXY_RADIUS_BASE: 0.7,
+  GALAXY_RADIUS_PER_SQRT: 0.12,
+  /** Jarak minimum antargalaksi, sebagai kelipatan jumlah kedua jari-jarinya. */
+  GALAXY_GAP: 1.25,
+  /** Kemiringan maksimum cakram galaksi (derajat), supaya tiap galaksi berbeda sudut. */
+  GALAXY_MAX_TILT: 35,
+  /** Jari-jari event horizon, sebagai bagian dari jari-jari galaksinya. */
+  BLACK_HOLE_SHARE: 0.07,
+  /**
+   * Kecepatan sudut dasar (radian per detik). Benda yang lebih jauh dari
+   * pusatnya bergerak lebih lambat (hukum Kepler: ω ∝ r^-1,5).
+   */
+  ORBIT_SPEED: 0.35,
 } as const;
 
