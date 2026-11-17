@@ -9,7 +9,7 @@ import { DOCUMENTS_BUCKET, RESOURCE_TYPE_LABELS, RESOURCE_TYPES, STATUS_META, ST
 import { callAction } from "@/lib/call-action";
 import { createClient } from "@/lib/supabase/client";
 import type { ActionResult, Resource, ResourceType, SubjectRef, TopicRef } from "@/lib/types";
-import { cn, getYouTubeId, guessResourceType } from "@/lib/utils";
+import { getYouTubeId, guessResourceType } from "@/lib/utils";
 import { FormError } from "./action-form";
 import { SubjectTopicSelect } from "./subject-topic-select";
 
@@ -107,7 +107,7 @@ export function ResourceForm({
 
       <div>
         <span className="label">Sumber</span>
-        <div className="mb-3 inline-flex rounded-lg bg-surface-2 p-0.5 text-sm font-medium">
+        <div className="segmented mb-3" role="group" aria-label="Jenis sumber">
           {(
             [
               ["link", "Link", Link2],
@@ -119,10 +119,7 @@ export function ResourceForm({
               type="button"
               aria-pressed={mode === value}
               onClick={() => setMode(value)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition",
-                mode === value ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text",
-              )}
+              className="segmented-item"
             >
               <Icon className="size-4" />
               {label}
@@ -151,7 +148,7 @@ export function ResourceForm({
                 alt="Thumbnail video"
                 width={240}
                 height={135}
-                className="mt-3 rounded-lg border border-border"
+                className="mt-3 rounded-control border border-border"
               />
             )}
           </div>

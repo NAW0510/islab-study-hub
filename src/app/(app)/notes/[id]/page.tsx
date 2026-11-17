@@ -66,7 +66,7 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
       </div>
 
       <header className="mb-8 border-b border-border pb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{note.title}</h1>
+        <h1 className="display text-[clamp(1.75rem,1.3rem+2vw,2.5rem)] text-balance">{note.title}</h1>
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
           <span className="inline-flex items-center gap-1.5">
             <CalendarDays className="size-4" />

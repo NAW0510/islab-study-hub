@@ -93,4 +93,8 @@ describe.each(SCHEMES)("design tokens, %s mode", (scheme) => {
     }
     expect(contrast(pick(tokens, "--domain-none", scheme), pick(tokens, "--surface", scheme))).toBeGreaterThanOrEqual(AA_MARK);
   });
+
+  it("keeps the tick on a finished topic visible", () => {
+    expect(contrast(pick(tokens, "--on-signal", scheme), pick(tokens, "--signal-good", scheme))).toBeGreaterThanOrEqual(AA_MARK);
+  });
 });

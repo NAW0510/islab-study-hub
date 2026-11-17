@@ -39,6 +39,10 @@
   --danger: light-dark(#b42318, #f97066);
   --danger-fg: light-dark(#ffffff, #2b0b08);
   --danger-soft: light-dark(#fdecea, #3a1a17);
+  /* Ink on a solid signal colour, e.g. the tick of a finished topic */
+  --on-signal: light-dark(#ffffff, #14171c);
+  /* Dims the page behind dialogs and drawers */
+  --scrim: light-dark(rgb(15 18 22 / 0.4), rgb(0 0 0 / 0.6));
 
   /*
    * Categorical palette for subjects and (later) vocabulary domains. The order
@@ -139,6 +143,8 @@
   --color-signal-good: var(--signal-good);
   --color-signal-warn: var(--signal-warn);
   --color-signal-bad: var(--signal-bad);
+  --color-on-signal: var(--on-signal);
+  --color-scrim: var(--scrim);
   --color-domain-1: var(--domain-1);
   --color-domain-2: var(--domain-2);
   --color-domain-3: var(--domain-3);
@@ -258,6 +264,15 @@ html:has(dialog.mobile-menu[open]) {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
   }
 
+  /* Modal <dialog>: a panel on a dimmed page. Set the width where it is used. */
+  .dialog {
+    @apply m-auto max-h-[calc(100dvh-2rem)] rounded-panel border border-border bg-surface p-5 text-text shadow-xl;
+  }
+  .dialog::backdrop {
+    background: var(--scrim);
+    backdrop-filter: blur(2px);
+  }
+
   /* Small uppercase label; an optional marker and rule go in front of it. */
   .eyebrow {
     @apply inline-flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;
@@ -330,8 +345,9 @@ html:has(dialog.mobile-menu[open]) {
   }
 
   /*
-   * Segmented control: a pill of two to four choices. Items are links with
-   * aria-current="page" or buttons with aria-pressed="true" for the active one.
+   * Segmented control: a pill of two to four choices. The active item is a
+   * link with aria-current="page", or a button with aria-pressed="true" (or
+   * aria-selected="true" for tabs).
    */
   .segmented {
     @apply inline-flex shrink-0 rounded-btn border border-border-strong bg-surface p-0.5;
@@ -340,7 +356,7 @@ html:has(dialog.mobile-menu[open]) {
     @apply inline-flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-btn px-4 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:text-text;
     transition-duration: var(--dur-fast);
   }
-  .segmented-item:is([aria-current="page"], [aria-pressed="true"]) {
+  .segmented-item:is([aria-current="page"], [aria-pressed="true"], [aria-selected="true"]) {
     @apply bg-primary text-primary-fg hover:text-primary-fg;
   }
   .segmented-item:focus-visible {

@@ -114,7 +114,7 @@ export function NoteForm({
             <label className="label mb-0" htmlFor="content">
               Isi catatan
             </label>
-            <div className="flex rounded-lg bg-surface-2 p-0.5 text-xs font-medium" role="tablist">
+            <div className="segmented segmented-sm" role="tablist" aria-label="Mode editor">
               {(["write", "preview"] as const).map((t) => (
                 <button
                   key={t}
@@ -122,10 +122,7 @@ export function NoteForm({
                   role="tab"
                   aria-selected={tab === t}
                   onClick={() => setTab(t)}
-                  className={cn(
-                    "rounded-md px-3 py-1 transition",
-                    tab === t ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text",
-                  )}
+                  className="segmented-item"
                 >
                   {t === "write" ? "Tulis" : "Pratinjau"}
                 </button>

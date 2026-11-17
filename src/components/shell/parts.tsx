@@ -3,12 +3,24 @@ import { GraduationCap, LogOut } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
+/** The app's mark: an ink tile with a cap. Shared by the shell, the login page and shared reports. */
+export function BrandMark({ size = "md", className }: { size?: "sm" | "md" | "lg"; className?: string }) {
+  const box = { sm: "size-7", md: "size-8", lg: "size-12" }[size];
+  const icon = { sm: "size-4", md: "size-4.5", lg: "size-6" }[size];
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("flex shrink-0 items-center justify-center rounded-control bg-primary text-primary-fg", box, className)}
+    >
+      <GraduationCap className={icon} />
+    </span>
+  );
+}
+
 export function Brand() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
-      <span className="flex size-8 items-center justify-center rounded-control bg-primary text-primary-fg">
-        <GraduationCap className="size-4.5" />
-      </span>
+      <BrandMark />
       <span className="leading-tight">
         <span className="block font-display text-sm font-semibold tracking-tight">{APP_NAME}</span>
         <span className="block text-xs text-muted">ML &amp; Data Science</span>

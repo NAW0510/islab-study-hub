@@ -8,7 +8,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
       <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-full bg-danger-soft text-danger">
         <AlertTriangle className="size-5" />
       </div>
-      <h2 className="font-semibold">Terjadi kesalahan</h2>
+      <h2 className="font-display text-lg font-semibold tracking-tight">Terjadi kesalahan</h2>
       <p className="mt-2 text-sm break-words text-muted">
         {error.message || "Halaman gagal dimuat. Coba lagi sebentar."}
       </p>

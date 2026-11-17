@@ -104,7 +104,7 @@ export function SubjectFormPanel({ subject, defaultOpen = false }: { subject?: S
     <>
       {trigger}
       <div
-        className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-16 backdrop-blur-[2px]"
+        className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-scrim px-4 py-16 backdrop-blur-[2px]"
         onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
         onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
       >
@@ -112,9 +112,9 @@ export function SubjectFormPanel({ subject, defaultOpen = false }: { subject?: S
           role="dialog"
           aria-modal="true"
           aria-labelledby="subject-dialog-title"
-          className="card w-full max-w-lg p-5 shadow-xl sm:p-6"
+          className="w-full max-w-lg rounded-panel border border-border bg-surface p-5 text-text shadow-xl sm:p-6"
         >
-          <h2 id="subject-dialog-title" className="mb-4 text-lg font-semibold">
+          <h2 id="subject-dialog-title" className="mb-4 font-display text-lg font-semibold tracking-tight">
             {subject ? "Edit subjek" : "Subjek baru"}
           </h2>
           <SubjectForm

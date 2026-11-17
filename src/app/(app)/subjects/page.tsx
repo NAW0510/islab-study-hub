@@ -60,7 +60,7 @@ export default async function SubjectsPage({
               >
                 <div className="flex items-center gap-2.5">
                   <span className={cn("size-2.5 shrink-0 rounded-full", color.dot)} />
-                  <h2 className="truncate font-semibold group-hover:text-accent">{subject.title}</h2>
+                  <h2 className="truncate font-display font-semibold tracking-tight group-hover:text-accent">{subject.title}</h2>
                 </div>
                 {subject.description && (
                   <p className="mt-2 line-clamp-2 text-sm text-muted">{subject.description}</p>

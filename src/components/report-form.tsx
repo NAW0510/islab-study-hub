@@ -135,7 +135,7 @@ export function ReportForm({
       <section>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Learning Progress</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight">Learning Progress</h2>
             <p className="text-sm text-muted">Format &ldquo;Tabel Weekly Progress&rdquo; dari guidebook.</p>
           </div>
           <button type="button" className="btn btn-secondary btn-sm" disabled={filling} onClick={autofill}>
@@ -143,7 +143,7 @@ export function ReportForm({
             Isi otomatis dari aktivitas minggu ini
           </button>
         </div>
-        {fillMessage && <p className="mb-4 rounded-lg bg-accent-soft px-3 py-2 text-sm text-accent">{fillMessage}</p>}
+        {fillMessage && <p className="mb-4 rounded-control bg-accent-soft px-3 py-2 text-sm text-accent">{fillMessage}</p>}
         <div className="space-y-5">
           {LEARNING_SECTIONS.map((s, i) => (
             <Field key={s.key} number={i + 1} section={s} defaultValue={report?.[s.key]} />
