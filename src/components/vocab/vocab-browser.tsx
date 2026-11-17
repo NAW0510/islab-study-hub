@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { BookA, Loader2, RefreshCw, Search, Settings2, X } from "lucide-react";
+import { BookA, Loader2, RefreshCw, Search, X } from "lucide-react";
 import { deleteTerm, restoreTerm, retryPending, type SaveTermResult } from "@/lib/actions/vocab";
 import { callAction } from "@/lib/call-action";
 import { currentWeekInfo, weekNumberFor } from "@/lib/report-template";
@@ -16,6 +15,7 @@ import { useToast } from "../toast";
 import { BulkAdd } from "./bulk-add";
 import { DetailDrawer } from "./detail-drawer";
 import { QuickAdd } from "./quick-add";
+import { VocabTabs } from "./vocab-tabs";
 import { TermRowStatus } from "./term-row-status";
 
 type Filters = { q?: string; domain?: string; status?: string; sort?: string };
@@ -143,15 +143,9 @@ export function VocabBrowser({
       <PageHeader
         title="Kosakata"
         description={`${terms.length} istilah · ${activeDomains} cabang ilmu terpakai · ${newThisWeek} baru minggu ini`}
-        actions={
-          <>
-            <BulkAdd existing={[...existing.keys()]} onSaved={refresh} />
-            <Link href="/vocab/domains" className="btn btn-secondary">
-              <Settings2 className="size-4" /> Kelola domain
-            </Link>
-          </>
-        }
+        actions={<BulkAdd existing={[...existing.keys()]} onSaved={refresh} />}
       />
+      <VocabTabs active="list" />
 
       <div className="mb-6">
         <QuickAdd domains={domains} subjects={subjects} topics={topics} existing={existing} onSaved={onSaved} />

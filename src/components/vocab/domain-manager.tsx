@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { ArrowLeft, GitMerge, Loader2, Pencil, Plus, Sparkles } from "lucide-react";
+import { GitMerge, Loader2, Pencil, Plus, Sparkles } from "lucide-react";
 import { createDomain, deleteDomain, mergeDomains, reclassifyAuto, updateDomain } from "@/lib/actions/vocab";
 import { callAction } from "@/lib/call-action";
 import type { ActionResult, VocabDomain } from "@/lib/types";
@@ -14,6 +13,7 @@ import { DeleteButton } from "../action-buttons";
 import { PageHeader } from "../ui";
 import { useToast } from "../toast";
 import { DomainChip } from "./domain-chip";
+import { VocabTabs } from "./vocab-tabs";
 
 /** Manage fields and branches: edit, merge, delete, reclassify (spec §3.5). */
 export function DomainManager({ domains, termCounts }: { domains: VocabDomain[]; termCounts: Record<string, number> }) {
@@ -50,11 +50,6 @@ export function DomainManager({ domains, termCounts }: { domains: VocabDomain[];
   return (
     <>
       <PageHeader
-        eyebrow={
-          <Link href="/vocab" className="inline-flex items-center gap-1 hover:text-text">
-            <ArrowLeft className="size-3.5" /> Kosakata
-          </Link>
-        }
         title="Kelola domain"
         description="Deskripsi domain dipakai untuk klasifikasi: sistem membandingkan istilah baru dengan teks “nama: deskripsi + contoh istilah”. Maksimal dua tingkat (bidang › cabang)."
         actions={
@@ -75,6 +70,7 @@ export function DomainManager({ domains, termCounts }: { domains: VocabDomain[];
           </>
         }
       />
+      <VocabTabs active="domains" />
 
       {fields.length === 0 ? (
         <p className="card px-4 py-8 text-center text-sm text-muted">Belum ada domain.</p>
