@@ -222,5 +222,25 @@ export const LAYOUT_3D_CONFIG = {
    * pusatnya bergerak lebih lambat (hukum Kepler: ω ∝ r^-1,5).
    */
   ORBIT_SPEED: 0.35,
+
+  // ── Otak ──────────────────────────────────────────────────────────────
+  /**
+   * Hasil riset (docs: rencana Peta Otak 3D): dengan titik disebar merata di
+   * permukaan otak, garis tepi siluetnya tertutup 84% pada 200 istilah, 90%
+   * pada 250, dan 94% pada 300. Mulai sekitar 250 istilah, bentuk otak
+   * terbaca dari istilah saja; di bawahnya kerangka "neuron tidur" yang
+   * memberi bentuk.
+   */
+  BRAIN_FULL_TERMS: 250,
+  /**
+   * Jumlah slot neuron di permukaan otak: max(MIN, PER_TERM × istilah).
+   * 1.500 titik cukup rapat untuk menampakkan lipatan (jarak antartitik
+   * sekitar 0,07, lebih kecil dari lebar alur lipatan sekitar 0,18).
+   */
+  BRAIN_MIN_SLOTS: 1500,
+  BRAIN_SLOTS_PER_TERM: 2,
+  /** Kepekatan kerangka neuron tidur: dari MAX (sedikit istilah) turun ke MIN saat istilah ≥ BRAIN_FULL_TERMS. */
+  BRAIN_SCAFFOLD_MAX: 0.55,
+  BRAIN_SCAFFOLD_MIN: 0.2,
 } as const;
 
