@@ -3,13 +3,14 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { key: "list", href: "/vocab", label: "Daftar" },
+  { key: "library", href: "/vocab/perpustakaan", label: "Perpustakaan" },
   { key: "map", href: "/vocab/map", label: "Peta Otak" },
   { key: "domains", href: "/vocab/domains", label: "Domain" },
 ] as const;
 
 export type VocabTab = (typeof TABS)[number]["key"];
 
-/** Sub-navigation shared by the three Kosakata pages. */
+/** Sub-navigation shared by the Kosakata pages. */
 export function VocabTabs({ active }: { active: VocabTab }) {
   return (
     <nav aria-label="Bagian Kosakata" className="mb-6 border-b border-border">

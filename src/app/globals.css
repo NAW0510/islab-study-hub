@@ -43,6 +43,9 @@
   --on-signal: light-dark(#ffffff, #14171c);
   /* Dims the page behind dialogs and drawers */
   --scrim: light-dark(rgb(15 18 22 / 0.4), rgb(0 0 0 / 0.6));
+  /* Paper of the Perpustakaan's sheets: it stays light at night, like paper under a lamp */
+  --paper: light-dark(#fbfaf6, #eceae3);
+  --paper-ink: #14171c;
 
   /*
    * Categorical palette for subjects and (later) vocabulary domains. The order
@@ -467,6 +470,301 @@ html:has(dialog.mobile-menu[open]) {
     .marquee-group[aria-hidden="true"],
     .marquee-toggle {
       display: none;
+    }
+  }
+
+  /*
+   * Kosakata › Perpustakaan (components/vocab/library/). The DOM page is
+   * complete on its own; with the WebGL world running (data-library-world="gl"
+   * on the page) the world draws the sheets and the DOM faces turn
+   * transparent, keeping links, focus and hit areas.
+   */
+  .library-head {
+    position: sticky;
+    top: var(--library-top, 0px);
+    z-index: 10;
+    margin: 0 -1rem 2rem;
+    padding: 0.75rem 1rem 1.25rem;
+    background: color-mix(in srgb, var(--bg) 84%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .library-river {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 48rem) {
+    .library-river {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .library-item {
+    position: relative;
+  }
+  .library-flip {
+    perspective: 1400px;
+  }
+  .library-sheet {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-card);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .library-sheet:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+  }
+  .library-item[data-flipped] .library-sheet {
+    transform: rotateY(180deg);
+  }
+  .library-front,
+  .library-back {
+    overflow: hidden;
+    border-radius: var(--r-card);
+    backface-visibility: hidden;
+  }
+  .library-front {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .library-back {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 1.5rem;
+    background: var(--primary);
+    color: var(--primary-fg);
+    transform: rotateY(180deg);
+  }
+  .library-back .eyebrow {
+    color: inherit;
+    opacity: 0.75;
+  }
+  .library-definition {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    -webkit-line-clamp: 7;
+    -webkit-box-orient: vertical;
+  }
+  .library-cover {
+    position: relative;
+    display: block;
+    aspect-ratio: 5 / 2;
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .library-cover-art {
+    --cover-deep: color-mix(in srgb, var(--cover-main) 58%, var(--paper-ink));
+    display: block;
+    width: 100%;
+    height: 100%;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .library-sweep {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--paper) 70%, transparent) 50%, transparent 65%);
+    transform: translateX(-120%);
+  }
+  .library-strip {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.15rem;
+    padding: 0.85rem 1rem 1rem;
+  }
+  .library-title {
+    overflow: hidden;
+    font-family: var(--display-font);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .library-meta {
+    overflow: hidden;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .library-arrow {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--muted);
+  }
+  .library-rule {
+    position: absolute;
+    right: 1rem;
+    bottom: 0;
+    left: 1rem;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .library-open {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    color: var(--paper-ink);
+  }
+  .library-open:hover {
+    background: var(--paper);
+    color: var(--paper-ink);
+  }
+  .library-item[data-flipped] .library-open {
+    opacity: 0;
+    pointer-events: none;
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .library-sheet:is(:hover, :focus-visible) .library-cover-art {
+      transform: scale(1.05);
+    }
+    .library-sheet:is(:hover, :focus-visible) .library-sweep {
+      transform: translateX(120%);
+      transition: transform 900ms var(--ease-std);
+    }
+    .library-sheet:is(:hover, :focus-visible) .library-rule {
+      transform: scaleX(1);
+    }
+    .library-sheet:is(:hover, :focus-visible) .library-arrow {
+      animation: library-arrow 520ms var(--ease-std);
+    }
+  }
+  @keyframes library-arrow {
+    45% {
+      opacity: 0;
+      transform: translate(6px, 6px);
+    }
+    46% {
+      opacity: 0;
+      transform: translate(-6px, -6px);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .library-end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 6rem;
+    padding-bottom: 2rem;
+    text-align: center;
+  }
+  /* With the world: the canvas sits behind, the DOM faces turn transparent once drawn. */
+  .library-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    display: block;
+    pointer-events: none;
+  }
+  .library-page[data-library-world="gl"] > :not(.library-canvas, .library-head) {
+    position: relative;
+    z-index: 1;
+  }
+  .library-page[data-library-world="gl"] .library-head {
+    background: transparent;
+    backdrop-filter: none;
+  }
+  .library-page[data-library-world="gl"] .library-head :is(h1, [role="search"] + p) {
+    text-shadow: 0 0 18px var(--bg), 0 0 4px var(--bg);
+  }
+  .library-page[data-library-world="gl"] .library-sheet {
+    transition: none;
+  }
+  .library-page[data-library-world="gl"] .library-item[data-flipped] .library-sheet {
+    transform: none;
+  }
+  .library-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    width: 34px;
+    height: 34px;
+    margin: -17px 0 0 -17px;
+    border: 1.5px solid color-mix(in srgb, var(--text) 65%, transparent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity var(--dur-base) var(--ease-std),
+      background-color var(--dur-base) var(--ease-std),
+      border-color var(--dur-base) var(--ease-std);
+    will-change: transform;
+  }
+  .library-cursor[data-mode="card"] {
+    border-color: color-mix(in srgb, var(--paper) 85%, transparent);
+    background: color-mix(in srgb, var(--paper) 16%, transparent);
+  }
+  .library-item[data-folded] .library-open {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .library-item[data-world-drawn] :is(.library-front, .library-back) {
+    opacity: 0;
+  }
+  .library-filter {
+    position: fixed;
+    inset: auto;
+    top: 12rem;
+    left: 50%;
+    width: min(22rem, calc(100vw - 2rem));
+    max-height: min(60dvh, 28rem);
+    margin: 0;
+    overflow-y: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 24px 60px -20px color-mix(in srgb, var(--text) 30%, transparent);
+    translate: -50% 0;
+  }
+  .library-filter::backdrop {
+    background: transparent;
+  }
+  @media (max-width: 40rem) {
+    .library-filter {
+      top: auto;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      border-radius: var(--r-panel) var(--r-panel) 0 0;
+      translate: none;
     }
   }
 
