@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { fitToBox, unitNormalize, type Point } from "./normalize";
+import { boxFit, fitToBox, unitNormalize, type Point } from "./normalize";
 import { pca2d } from "./pca";
 import { mulberry32 } from "./prng";
 import { alignLayout, applySimilarity, fitSimilarity } from "./procrustes";
-import { runLayout } from "./run-layout";
+import { runLayout, umapLayout, type PreviousLayout } from "./run-layout";
 
 const DIMS = 64;
 
@@ -81,6 +81,13 @@ describe("unitNormalize / fitToBox", () => {
       [1, -0.2],
       [1, 0.2],
     ]);
+  });
+
+  it("reports the factor it scaled by", () => {
+    const { points, scale } = boxFit([[0, 0], [10, 0]], 0);
+    expect(points).toEqual([[-1, 0], [1, 0]]);
+    expect(scale).toBeCloseTo(0.2, 12);
+    expect(boxFit([]).scale).toBe(1);
   });
 
   it("handles a single point and no points", () => {
@@ -234,7 +241,8 @@ describe("runLayout", () => {
     const a = runLayout({ vectors, seed: 123 });
     const b = runLayout({ vectors, seed: 123 });
     const c = runLayout({ vectors, seed: 124 });
-    expect(a.params).toMatchObject({ method: "umap", n: 30, nNeighbors: 15, minDist: 0.15, supervised: false });
+    expect(a.params).toMatchObject({ method: "umap", n: 30, nNeighbors: 15, minDist: 0.15, supervised: false, init: "pca" });
+    expect(a.params.unitsPerBox).toBeGreaterThan(0);
     expect(a.coords).toEqual(b.coords);
     expect(a.coords).not.toEqual(c.coords);
     for (const [x, y] of a.coords) expect(Math.abs(x) <= 1 && Math.abs(y) <= 1).toBe(true);
@@ -267,5 +275,77 @@ describe("runLayout", () => {
     const ms = performance.now() - started;
     expect(coords).toHaveLength(300);
     expect(ms).toBeLessThan(5000);
+  });
+});
+
+/** Median distance from a point to its nearest neighbour: how much of the box the points use. */
+function medianNearest(coords: Point[]) {
+  const nearest = coords.map((p, i) => Math.min(...coords.map((q, j) => (i === j ? Infinity : dist(p, q))))).sort((a, b) => a - b);
+  return nearest[Math.floor(nearest.length / 2)];
+}
+
+/** Root-mean-square distance between a new layout and the old one over the ids they share, after aligning. */
+function drift(next: Map<string, Point>, previous: Map<string, Point>) {
+  const { coords } = alignLayout(next, previous);
+  let sum = 0;
+  for (const [id, p] of previous) sum += dist(coords.get(id) as Point, p) ** 2;
+  return Math.sqrt(sum / previous.size);
+}
+
+describe("runLayout: a map that fills its box and stays recognisable", () => {
+  // Six unrelated clusters of 25. Every sixth term is "new": it arrives after the first layout.
+  const { vectors, labels } = clustered(6, 25, 21);
+  const isOld = vectors.map((_, i) => i % 6 !== 5);
+  const oldVectors = vectors.filter((_, i) => isOld[i]);
+  const oldIds = vectors.map((_, i) => String(i)).filter((_, i) => isOld[i]);
+  const first = runLayout({ vectors: oldVectors, seed: 5 });
+  const firstMap = new Map(oldIds.map((id, k) => [id, first.coords[k]]));
+  const asMap = (coords: Point[]) => new Map(coords.map((p, i) => [String(i), p]));
+  const previous = {
+    positions: vectors.map((_, i) => firstMap.get(String(i)) ?? null),
+    fromLayout: isOld,
+    params: first.params,
+  };
+
+  it("keeps unrelated clusters from drifting apart and shrinking to specks", () => {
+    const tuning = { nNeighbors: 15, minDist: 0.15, spread: 1, anchor: 0 };
+    const data = unitNormalize(oldVectors);
+    const plain = fitToBox(umapLayout(data, { seed: 5, tuning: { ...tuning, gravity: 0 } }));
+    expect(medianNearest(first.coords)).toBeGreaterThan(1.5 * medianNearest(plain));
+    expect(cohesion(first.coords, labels.filter((_, i) => isOld[i]))).toBeLessThan(0.5);
+  });
+
+  it("starts a relayout from the current map, so every term stays close to where it was", () => {
+    const warm = runLayout({ vectors, seed: 5, previous });
+    const cold = runLayout({ vectors, seed: 5 });
+    expect(warm.params.init).toBe("previous");
+    expect(cold.params.init).toBe("pca");
+    // Measured: 0.14 from the current map, 0.66 from scratch (the box is 2 wide).
+    const warmDrift = drift(asMap(warm.coords), firstMap);
+    expect(warmDrift).toBeLessThan(0.2);
+    expect(warmDrift).toBeLessThan(0.5 * drift(asMap(cold.coords), firstMap));
+
+    // The new terms settle inside their own cluster.
+    let own = 0;
+    let total = 0;
+    warm.coords.forEach((p, i) => {
+      if (isOld[i]) return;
+      const nearest = warm.coords.map((q, j) => [dist(p, q), j] as const).filter(([, j]) => isOld[j]).sort((a, b) => a[0] - b[0])[0][1];
+      total++;
+      if (labels[nearest] === labels[i]) own++;
+    });
+    expect(own / total).toBeGreaterThan(0.9);
+  });
+
+  it("starts from scratch when the old map is no guide", () => {
+    const run = (over: Partial<PreviousLayout>) => runLayout({ vectors, seed: 5, previous: { ...previous, ...over } }).params.init;
+    // Mostly kNN estimates: fewer than half of the terms were placed by a layout.
+    expect(run({ fromLayout: isOld.map((old, i) => old && i % 3 === 0) })).toBe("pca");
+    // The old map was not made by UMAP, or its scale is unknown.
+    expect(run({ params: { method: "pca", seed: 5, n: 10 } })).toBe("pca");
+    expect(run({ params: { ...first.params, unitsPerBox: undefined } })).toBe("pca");
+    expect(run({ params: null })).toBe("pca");
+    // A different kind of layout was asked for ("Rapikan per bidang" switched on).
+    expect(runLayout({ vectors, seed: 5, labels, previous }).params.init).toBe("pca");
   });
 });
