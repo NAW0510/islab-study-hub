@@ -343,7 +343,13 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
     const { bx, by, k } = locate(event);
     const hit = tree.find(bx, by, (event.pointerType === "touch" ? HIT_RADIUS * 1.6 : HIT_RADIUS) / k);
     dragRef.current = hit ? { id: hit.id, node: null, startX: event.clientX, startY: event.clientY, moved: false } : null;
-    if (hit) event.currentTarget.setPointerCapture(event.pointerId);
+    if (!hit) return;
+    try {
+      // Keeps the drag going when the finger leaves the map; not essential, so a refusal is ignored.
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // The pointer is already gone (e.g. released before this handler ran).
+    }
   }
 
   function onPointerMove(event: React.PointerEvent<SVGSVGElement>) {
