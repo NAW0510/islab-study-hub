@@ -17,7 +17,7 @@
 
 | Bagian | Teknologi |
 |---|---|
-| Framework | **Next.js 16.3** (App Router, Server Components, Server Actions), React 19.2, TypeScript 5 |
+| Framework | **Next.js 16.4** (App Router, Server Components, Server Actions), React 19.2, TypeScript 5 |
 | Styling | Tailwind CSS v4 dengan token desain sendiri (lihat `docs/DESIGN_SYSTEM.md`), font Plus Jakarta Sans + Geist, ikon `lucide-react`, mode terang/gelap mengikuti sistem |
 | Backend | **Supabase**: Postgres + Auth (email/password) + Storage, semua dijaga **Row Level Security** |
 | Markdown | `react-markdown` + `remark-gfm` + `remark-math` + `rehype-katex` (rumus LaTeX) |
@@ -152,7 +152,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.
-- ⚠️ `next` 16.4.1 masih ditandai punya kerentanan yang diketahui (pengingat upgrade bawaan Next saat `next build`), perlu upgrade terpisah.
+- ✅ `npm audit --omit=dev` bersih: `next` dan `eslint-config-next` 16.4.5 (menambal GHSA-mfr8-8qww-v76h dan advisory lain di rilis itu). Dependensi dev masih punya temuan audit.
 - ⚠️ Belum ada soft delete (`deleted_at`). Ini dibutuhkan kalau nanti ada sinkronisasi offline ke mobile.
 
 ## 8. Rencana/ide yang sudah pernah terpikir
