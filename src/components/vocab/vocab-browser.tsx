@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useTransition } from "react";
-import { BookA, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { BookA, LayoutGrid, List, Loader2, RefreshCw, Search, X } from "lucide-react";
 import { deleteTerm, restoreTerm, retryPending, type SaveTermResult } from "@/lib/actions/vocab";
 import { callAction } from "@/lib/call-action";
 import { currentWeekInfo, weekNumberFor } from "@/lib/report-template";
@@ -17,13 +17,23 @@ import { DetailDrawer } from "./detail-drawer";
 import { QuickAdd } from "./quick-add";
 import { VocabTabs } from "./vocab-tabs";
 import { TermRowStatus } from "./term-row-status";
+import { VocabCard } from "./vocab-card";
 
 /**
  * Everything in the query string: search and filters, plus `term` (the term
  * open in the drawer, so other pages can link straight to it) and `topic`
- * (terms of one syllabus topic, linked from the syllabus).
+ * (terms of one syllabus topic, linked from the syllabus), and `view`
+ * ("kartu" for flip cards; the list otherwise).
  */
-type Filters = { q?: string; domain?: string; status?: string; topic?: string; sort?: string; term?: string };
+type Filters = {
+  q?: string;
+  domain?: string;
+  status?: string;
+  topic?: string;
+  sort?: string;
+  term?: string;
+  view?: string;
+};
 
 export function VocabBrowser({
   terms,
@@ -146,6 +156,7 @@ export function VocabBrowser({
   }
 
   const selected = selectedId ? (terms.find((t) => t.id === selectedId) ?? null) : null;
+  const cards = f.view === "kartu";
 
   return (
     <>
@@ -200,6 +211,24 @@ export function VocabBrowser({
           <option value="baru">Terbaru dulu</option>
           <option value="abjad">Abjad</option>
         </select>
+        <div className="segmented" role="group" aria-label="Tampilan">
+          <button
+            type="button"
+            className="segmented-item"
+            aria-pressed={!cards}
+            onClick={() => update({ view: undefined })}
+          >
+            <List className="size-4" /> Daftar
+          </button>
+          <button
+            type="button"
+            className="segmented-item"
+            aria-pressed={cards}
+            onClick={() => update({ view: "kartu" })}
+          >
+            <LayoutGrid className="size-4" /> Kartu
+          </button>
+        </div>
       </div>
 
       <div className="no-scrollbar mb-6 flex gap-1.5 overflow-x-auto" role="group" aria-label="Filter domain">
@@ -240,6 +269,18 @@ export function VocabBrowser({
               : "Coba kata kunci lain atau hapus filter."
           }
         />
+      ) : cards ? (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Kartu istilah">
+          {terms_.map((t) => (
+            <VocabCard
+              key={t.id}
+              term={t}
+              domains={domainIdx}
+              programStart={programStart}
+              onOpen={() => setSelectedId(t.id)}
+            />
+          ))}
+        </ul>
       ) : (
         <ul className="card divide-y divide-border">
           {terms_.map((t) => (

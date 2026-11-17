@@ -330,6 +330,72 @@ html:has(dialog.mobile-menu[open]) {
   }
 
   /*
+   * Segmented control: a pill of two to four choices. Items are links with
+   * aria-current="page" or buttons with aria-pressed="true" for the active one.
+   */
+  .segmented {
+    @apply inline-flex shrink-0 rounded-btn border border-border-strong bg-surface p-0.5;
+  }
+  .segmented-item {
+    @apply inline-flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-btn px-4 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:text-text;
+    transition-duration: var(--dur-fast);
+  }
+  .segmented-item:is([aria-current="page"], [aria-pressed="true"]) {
+    @apply bg-primary text-primary-fg hover:text-primary-fg;
+  }
+  .segmented-item:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .segmented-sm .segmented-item {
+    @apply h-7 min-w-0 px-3 text-xs;
+  }
+  @media (pointer: coarse) {
+    .segmented-item,
+    .segmented-sm .segmented-item {
+      min-height: 2.75rem;
+    }
+  }
+
+  /*
+   * Flip card (components/vocab/vocab-card.tsx): two faces back to back in a
+   * button that turns 180° on Y. Transform only; with reduced motion the
+   * side changes at once.
+   */
+  .flip-card {
+    perspective: 1200px;
+  }
+  .flip-card-inner {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .flip-card[data-flipped] .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+  .flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    transition: border-color var(--dur-fast) var(--ease-std);
+  }
+  .flip-card-inner:hover .flip-face {
+    border-color: var(--border-strong);
+  }
+  .flip-card-inner:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .flip-back {
+    transform: rotateY(180deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flip-card-inner {
+      transition: none;
+    }
+  }
+
+  /*
    * Marquee strip (components/vocab/term-marquee.tsx). Two identical groups,
    * each at least as wide as the strip, slide left by their own width, so the
    * loop has no seam however few items there are. Transform only. It stops on
