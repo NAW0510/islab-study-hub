@@ -169,6 +169,24 @@ Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`]
 
 **Menambah visualisasi 3D**: tulis kelas yang mengimplementasikan `ViewScene` (`scenes/common.ts`), lalu tambahkan satu entri di `scenes/registry.ts`. Entri itu berisi label, ikon, tema (tetap atau `"choice"`), kontrol Batas, gerak sendiri, kecepatan putar, latar, teks info, kredit, dan baris tooltip. Cangkangnya tidak perlu diubah. Scene menerima tata letak dari worker (posisi kubus, peran, tetangga, slot otak), semua istilah dan yang tampil, domain, dan fungsi warna token.
 
+### Pola Perpustakaan (`src/components/vocab/library/`)
+
+Kosakata › Perpustakaan: tiap istilah selembar kertas di sungai, dan perpustakaan WebGL di belakangnya. Konsepnya terinspirasi halaman Articles [MGM Laboratory](https://labmgm.org/articles) (yang meniru unseen.co); kodenya ditulis sendiri.
+
+| Unsur | Aturan |
+|---|---|
+| Sumber kebenaran | Halaman DOM lengkap tanpa WebGL: kepala lengket (judul, cari, Filter), sungai kartu, ujung daftar. Tombol kartu tetap pemilik fokus, area klik, dan nama aksesibel |
+| Mode | `data-library-world` di halaman: `pending` → `gl` atau `dom`. `dom` untuk reduced motion, `?noworld`, tanpa WebGL2, renderer perangkat lunak, konteks hilang, atau di bawah 8 fps (`src/lib/vocab/library/world-mode.ts`, `quality.ts`) |
+| Sampul | `coverPattern(id)`: grid ubin Bauhaus 10 × 4 dari id istilah (deterministik, Fisher–Yates), warna bidang + nada gelapnya di atas `--paper`. DOM menggambarnya sebagai SVG, dunia sebagai tekstur dari path yang sama |
+| Kertas | `--paper` tetap terang di malam hari, seperti kertas di bawah lampu; `--paper-ink` untuk nada gelap sampul dan ikon di atas kertas |
+| Lembar | Kamera 2000 px di depan bidang kartu (1 unit = 1 px CSS). Gelombang ±24 px, lipatan di bawah kepala sampai 2400 px ke belakang, kabut kedalaman, balik 180° ke definisi. Matematika lipatan punya kembaran JS di `fold.ts` |
+| Hemat GPU | Hanya kartu dalam 1 layar di atas sampai 2,1 di bawah yang punya mesh dan tekstur (maks 28); tekstur digambar dua per frame, yang terdekat dulu |
+| Lensa | Distorsi barel, pecahan warna yang tumbuh dengan r³ (tajam di tengah tempat teks dibaca), motion blur vertikal dari kecepatan scroll bawaan, grain, vinyet, denyut saat klik |
+| Kursor | Cincin DOM yang tertinggal dan meregang (hanya mouse; kursor asli tetap), jejak partikel, kawanan kertas setelah diam 400 ms |
+| Perpustakaan | Prosedural: rak tiga lantai, buku instanced dengan warna bidang yang diredam, lengkung runcing, jendela besar dan sinarnya, lentera, kabut berlapis. Siang kabut mutiara, malam biru tinta, mengikuti `prefers-color-scheme` |
+| Warna | Warna UI dibaca dari token lewat elemen probe. Warna benda di dunia (kabut, batu, cahaya) konstanta di `world/palette.ts` |
+| Penyetelan | Semua angka di `src/lib/vocab/library/config.ts`, dengan alasannya. `?worldtier=medium|low` mengunci tingkat kualitas, `?noworld` mematikan dunia |
+
 ## Yang sengaja tidak ikut berubah
 
 `.report-paper` (dokumen laporan mingguan dan halaman berbagi `/r/[token]`) dikunci ke warna, radius, dan font sebelum redesign, supaya tampilan layar, PDF, dan Word tetap sama. Jangan mengarahkan token di blok itu ke token global.

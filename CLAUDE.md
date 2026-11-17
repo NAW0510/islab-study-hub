@@ -10,7 +10,8 @@
 - Fase 3 (Peta Otak 2D) selesai dan sudah di `main` (PR #5): migrasi `vocab_map` dan `vocab-embed` v2 (penempatan kNN) di remote, QA di data asli oke.
 - Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) selesai dan sudah di `main` (PR #6). Visualisasi 3D baru = satu `ViewScene` + satu entri di `src/components/vocab/map/scenes/registry.ts`.
 - Next.js dan `eslint-config-next` di 16.4.5 (PR #4).
-- Fase 4 (integrasi §9, tampilan Kartu, restyle halaman sisa) selesai di branch `feat/fase-4-integrasi`; menunggu QA dan merge. Tautan langsung Kosakata: `/vocab?term=<id>` (buka detail), `/vocab?topic=<id>`, `/vocab?view=kartu`.
+- Fase 4 (integrasi §9, tampilan Kartu, restyle halaman sisa) selesai di branch `feat/fase-4-integrasi` (PR #8); menunggu QA dan merge. Tautan langsung Kosakata: `/vocab?term=<id>` (buka detail), `/vocab?topic=<id>`, `/vocab?view=kartu`.
+- Prototipe Perpustakaan (`/vocab/perpustakaan`, dunia WebGL ala Articles MGM) Tahap A di branch `feat/perpustakaan-kosakata` (dari Fase 4); PR dibuka setelah PR #8 masuk `main`. Pola dan penyetelan: docs/DESIGN_SYSTEM.md › Pola Perpustakaan.
 - Bentuk otak dari model "Brain" karya dgallichan (CC BY 4.0); kredit wajib tetap tampil di app dan README.
 - Data uji peta lokal: `node scripts/seed-local-vocab.mjs --reset` (akun dev lokal saja).
 

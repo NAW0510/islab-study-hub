@@ -87,6 +87,11 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Tampilan **Daftar | Kartu** (`?view=kartu`): kartu bolak-balik, depan istilah + domain, belakang ringkasan definisi.
 - Tautan langsung: `/vocab?term=<id>` membuka detail istilah, `/vocab?topic=<id>` menyaring istilah satu topik.
 
+### Perpustakaan (`/vocab/perpustakaan`, prototipe Tahap A)
+- Halaman DOM lengkap (kepala lengket dengan cari + Filter bidang, sungai kartu bersampul pola Bauhaus per istilah, balik ke definisi, ujung daftar) yang selalu jadi sumber kebenaran.
+- Dunia WebGL di belakangnya bila perangkat mampu: lembar kartu yang bergelombang dan terlipat di bawah kepala, lensa (barel, pecahan warna di pojok, motion blur scroll, grain), kursor + kawanan kertas, perpustakaan prosedural siang/malam. Dimuat belakangan (import dinamis), dengan tata kelola kualitas dan cadangan ke DOM.
+- Kode: `src/components/vocab/library/` dan `src/lib/vocab/library/` (angka di `config.ts`). Belum: halaman detail di dalam dunia + "Istilah berikutnya" (Tahap B), gelombang ganti tema (Tahap C).
+
 ### Integrasi Kosakata (Fase 4, spec §9)
 - **Dashboard**: kartu "Istilah" (total + baru minggu ini) dan strip marquee 20 istilah terbaru (CSS saja; berhenti saat hover/fokus/Jeda; diam dengan reduced motion).
 - **Laporan Mingguan**: isi otomatis menambahkan "Istilah baru minggu ini (n): …" ke *What did you learn or discover?* dari istilah dengan `learned_on` di periode Week. Pertanyaan template dan ekspor tidak berubah.
