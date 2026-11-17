@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point3 } from "./layout/run-layout-3d";
 import { brainPoints } from "./brain-points";
-import { allocateLobes, brainLayout, BRAIN_REGIONS, placeOnSlots, regionOf, scaffoldOpacity, scaffoldSlots } from "./brain-model";
+import { allocateLobes, brainLayout, BRAIN_REGIONS, neuronCapacity, placeOnSlots, regionOf, scaffoldOpacity, scaffoldSlots } from "./brain-model";
 
 const dist = (a: Point3, b: Point3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
@@ -59,6 +59,38 @@ describe("scaffoldSlots", () => {
   });
 });
 
+describe("neuronCapacity", () => {
+  it("starts at 1,500 and adds 500 each time the terms pass it", () => {
+    expect(neuronCapacity(0)).toBe(1500);
+    expect(neuronCapacity(1500)).toBe(1500);
+    expect(neuronCapacity(1501)).toBe(2000);
+    expect(neuronCapacity(2000)).toBe(2000);
+    expect(neuronCapacity(2001)).toBe(2500);
+    expect(neuronCapacity(7342)).toBe(7500);
+  });
+});
+
+describe("neurons beyond the baked points", () => {
+  const baked = brainPoints();
+  const slots = scaffoldSlots(6500).map((s) => s.at);
+  const extra = slots.slice(baked.length);
+
+  it("keeps the baked points and adds new ones, deterministically", () => {
+    expect(slots).toHaveLength(6500);
+    expect(slots.slice(0, baked.length)).toEqual(baked);
+    expect(scaffoldSlots(6500).map((s) => s.at)).toEqual(slots);
+  });
+
+  it("puts new neurons on the surface, in the gaps, never on top of each other", () => {
+    const nearestBaked = (p: Point3) => Math.min(...baked.map((q) => dist(p, q)));
+    // Within the spacing of the baked points: on the surface between them, not floating off it.
+    for (const p of extra.filter((_, i) => i % 25 === 0)) expect(nearestBaked(p)).toBeLessThan(0.06);
+    const sample = slots.filter((_, i) => i % 13 === 0);
+    const nearest = sample.map((p) => Math.min(...slots.map((q) => (q === p ? Infinity : dist(p, q))))).sort((a, b) => a - b);
+    expect(nearest[0]).toBeGreaterThan(0.35 * nearest[Math.floor(nearest.length / 2)]);
+  });
+});
+
 describe("allocateLobes", () => {
   it("gives each field at least one lobe, more to bigger fields, all lobes used", () => {
     const { units, parts } = allocateLobes([
@@ -99,6 +131,17 @@ describe("placeOnSlots / brainLayout", () => {
     expect(within).toBeLessThan(across);
   });
 
+  it("finds a neuron for every term even when a field outgrows its lobes", () => {
+    const terms = [
+      ...Array.from({ length: 1400 }, (_, i) => ({ id: `a${i}`, fieldId: "a", at: [Math.sin(i), Math.cos(i * 1.3), Math.sin(i * 0.7)] as Point3 })),
+      ...Array.from({ length: 100 }, (_, i) => ({ id: `b${i}`, fieldId: "b", at: [Math.cos(i), Math.sin(i * 1.1), 0.5] as Point3 })),
+    ];
+    const layout = brainLayout(terms);
+    expect(layout.slots).toHaveLength(1500);
+    expect(layout.termSlot.size).toBe(1500);
+    expect(new Set(layout.termSlot.values()).size).toBe(1500);
+  });
+
   it("lights each term in its own field's lobes, and fades the scaffold as terms grow", () => {
     const terms = [
       ...Array.from({ length: 6 }, (_, i) => ({ id: `ml${i}`, fieldId: "ml", at: [0.5, 0, i * 0.05] as Point3 })),
@@ -109,7 +152,7 @@ describe("placeOnSlots / brainLayout", () => {
     expect(layout.termSlot.size).toBe(terms.length);
     expect(new Set(layout.termSlot.values()).size).toBe(terms.length);
     for (const t of terms.filter((x) => x.fieldId)) expect(layout.slotField[layout.termSlot.get(t.id) as number]).toBe(t.fieldId);
-    expect(layout.slots.length).toBeGreaterThanOrEqual(2000);
+    expect(layout.slots.length).toBe(1500);
 
     expect(scaffoldOpacity(5)).toBeGreaterThan(scaffoldOpacity(200));
     expect(scaffoldOpacity(350)).toBe(scaffoldOpacity(1000));

@@ -1,9 +1,13 @@
 import { BufferGeometry, Color, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Points, PointsMaterial, Vector3 } from "three";
 import { scaffoldOpacity } from "@/lib/vocab/brain-model";
+import { LAYOUT_3D_CONFIG } from "@/lib/vocab/layout/config";
 import { termGroups } from "@/lib/vocab/map3d-model";
 import { colorVar, discTexture, disposeTree, HighlightLayer, setPoints, type GroupLabel, type Highlight, type SceneInput, type ViewScene } from "./common";
 
+/** Dot sizes at the starting capacity (BRAIN_BASE_NEURONS); they shrink as the brain gets more neurons. */
 const SIZE = { scaffold: 0.03, lit: 0.085, mark: 0.17 } as const;
+/** The smallest the dots get, as a share of SIZE, however many neurons there are. */
+const MIN_DOT_SCALE = 0.45;
 /** How much of its field's colour a sleeping neuron in that field's lobe takes; more on legend hover. */
 const LOBE_TINT = 0.32;
 const LOBE_TINT_STRONG = 0.75;
@@ -64,6 +68,12 @@ export class BrainScene implements ViewScene {
     }
     this.ids = [...this.positions.keys()];
     setPoints(this.lit, litAt, litColours);
+
+    // More neurons on the same surface means less room around each: dots shrink with the spacing (∝ 1/√N).
+    const scale = Math.max(MIN_DOT_SCALE, Math.min(1, Math.sqrt(LAYOUT_3D_CONFIG.BRAIN_BASE_NEURONS / Math.max(1, brain.slots.length))));
+    (this.scaffold.material as PointsMaterial).size = SIZE.scaffold * scale;
+    (this.lit.material as PointsMaterial).size = SIZE.lit * scale;
+    this.marks.resize(SIZE.mark * scale);
 
     // Sleeping neurons: every other slot, fainter as the terms alone start to draw the brain.
     const sleeping: Vector3[] = [];
