@@ -110,6 +110,16 @@
   --dur-base: 220ms;
   --dur-slow: 420ms;
   --ease-std: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /*
+   * Transitions at the important moments (docs/DESIGN_SYSTEM.md › Gerak dan
+   * transisi): what leaves goes fast, what arrives a little slower, what
+   * moves slowest; the theme wave is the one long gesture.
+   */
+  --vt-exit: 120ms;
+  --vt-enter: 200ms;
+  --vt-move: 280ms;
+  --vt-wave: 450ms;
 }
 
 /*
@@ -255,11 +265,93 @@ html:has(dialog.mobile-menu[open]) {
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * View transitions (React <ViewTransition>, see components/motion.tsx), so
+ * that nobody feels them:
+ *   - they never block: the overlay lets clicks and typing through to the
+ *     live page, and a new navigation simply cuts the running one;
+ *   - they never delay: the page itself changes at once (the root snapshot
+ *     does not animate), only the named parts move over it, briefly;
+ *   - something always stays: the shell is part of the still root.
+ * Without browser support, or with reduced motion, things just change.
+ */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}
+/* A section's page: the old one fades fast, the new one rises a little. */
+::view-transition-old(.vt-page-out) {
+  animation: vt-fade-out var(--vt-exit) var(--ease-std) both;
+}
+::view-transition-new(.vt-page-in) {
+  animation: vt-rise-in var(--vt-enter) var(--ease-std) both;
+}
+/* A loading skeleton dissolves over the content that replaces it. */
+::view-transition-old(.vt-skeleton-out) {
+  animation: vt-fade-out var(--vt-exit) var(--ease-std) both;
+}
+/* The same thing in a new place (an active-page marker, a title): it travels. */
+::view-transition-group(.vt-morph) {
+  animation-duration: var(--vt-move);
+  animation-timing-function: var(--ease-std);
+}
+/* Same place, other content (a list switching views): a quick crossfade. */
+::view-transition-old(.vt-swap) {
+  animation: vt-fade-out var(--vt-exit) var(--ease-std) both;
+}
+::view-transition-new(.vt-swap) {
+  animation: vt-fade-in var(--vt-enter) var(--ease-std) both;
+}
+/*
+ * The theme wave (components/shell/theme-toggle.tsx): the old page stays
+ * underneath while the new one opens as a circle from the button.
+ */
+:root[data-vt="theme"]::view-transition-old(root) {
+  display: block;
+  animation: none;
+}
+:root[data-vt="theme"]::view-transition-new(root) {
+  animation: vt-wave var(--vt-wave) cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes vt-wave {
+  from {
+    clip-path: circle(0 at var(--wave-x, 50%) var(--wave-y, 50%));
+  }
+  to {
+    clip-path: circle(var(--wave-r, 150vmax) at var(--wave-x, 50%) var(--wave-y, 50%));
   }
 }
 
@@ -325,6 +417,40 @@ html:has(dialog.mobile-menu[open]) {
   .dialog::backdrop {
     background: var(--scrim);
     backdrop-filter: blur(2px);
+  }
+  /*
+   * Dialogs open from where they are (a hair below, a hair smaller) and
+   * close faster than they open; the backdrop fades with them.
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    .dialog,
+    .dialog::backdrop {
+      transition:
+        opacity var(--vt-exit) var(--ease-std),
+        transform var(--vt-exit) var(--ease-std),
+        overlay var(--vt-exit) allow-discrete,
+        display var(--vt-exit) allow-discrete;
+    }
+    .dialog[open],
+    .dialog[open]::backdrop {
+      transition-duration: 160ms;
+    }
+    .dialog:not([open]),
+    .dialog:not([open])::backdrop {
+      opacity: 0;
+    }
+    .dialog:not([open]) {
+      transform: translateY(6px) scale(0.98);
+    }
+    @starting-style {
+      .dialog[open],
+      .dialog[open]::backdrop {
+        opacity: 0;
+      }
+      .dialog[open] {
+        transform: translateY(6px) scale(0.98);
+      }
+    }
   }
 
   /* Small uppercase label; an optional marker and rule go in front of it. */
