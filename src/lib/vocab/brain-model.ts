@@ -1,38 +1,20 @@
 import { LAYOUT_3D_CONFIG } from "./layout/config";
-import { mulberry32 } from "./layout/prng";
 import type { Point3 } from "./layout/run-layout-3d";
+import { brainPoints } from "./brain-points";
 
 /**
- * The "Otak" view of the 3D brain map, as pure functions. A procedural brain
- * (two hemispheres with the longitudinal fissure, temporal lobes, cerebellum,
- * brainstem; folds as a pattern on the surface) is covered with evenly spread
- * neuron slots. Each field gets one or more lobes; each term lights up one
- * slot in its field's lobes, near the terms most like it.
+ * The "Otak" view of the 3D brain map, as pure functions. The brain's shape
+ * comes from a real 3D model ("Brain" by dgallichan, CC BY 4.0): points on
+ * its outer surface, spread evenly and baked into brain-points.ts. Each field
+ * gets one or more lobes; each term lights up one point (a neuron) in its
+ * field's lobes, near the terms most like it.
  *
- * Axes: x = front (+) / back (−), y = up, z = left (−) / right (+).
+ * Axes: x = front (+) / back (−), y = up, z = left (−) / right (+). The brain
+ * is 2 units long (1 unit ≈ 91 mm).
  */
 
 type V3 = Point3;
 const dist = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-
-const PARTS: { c: V3; r: V3 }[] = [
-  ...[-1, 1].flatMap((s) => [
-    { c: [0, 0.08, s * 0.4] as V3, r: [0.95, 0.6, 0.36] as V3 }, // cerebral hemisphere
-    { c: [0.12, -0.28, s * 0.42] as V3, r: [0.48, 0.27, 0.3] as V3 }, // temporal lobe
-  ]),
-  { c: [-0.6, -0.45, 0], r: [0.33, 0.2, 0.58] }, // cerebellum
-  { c: [-0.28, -0.7, 0], r: [0.13, 0.3, 0.13] }, // brainstem
-];
-
-/** Negative inside the brain, zero on its surface (in "ellipsoid radii", roughly distance). */
-export function brainField(p: V3): number {
-  let best = Infinity;
-  for (const { c, r } of PARTS) {
-    const v = Math.hypot((p[0] - c[0]) / r[0], (p[1] - c[1]) / r[1], (p[2] - c[2]) / r[2]) - 1;
-    if (v < best) best = v;
-  }
-  return best;
-}
 
 /**
  * Lobes, in an order where neighbours in the list are neighbours on the brain
@@ -50,57 +32,28 @@ export const BRAIN_REGIONS = [
   "Frontal kanan",
 ] as const;
 
-/** Index in BRAIN_REGIONS of the lobe a surface point belongs to. */
+/**
+ * Index in BRAIN_REGIONS of the lobe a surface point belongs to, with
+ * boundaries read off the model (the brainstem counts with the cerebellum).
+ */
 export function regionOf(p: V3): number {
   const [x, y, z] = p;
-  if (y < -0.25 && x < -0.25) return 4; // cerebellum (and brainstem)
+  if ((x < -0.4 && y < -0.18) || y < -0.5) return 4; // cerebellum (back, below the occipital lobe) and brainstem
   const left = z < 0;
-  if (y < -0.12 && x > -0.45) return left ? 3 : 5;
-  if (x > 0.25) return left ? 0 : 8;
-  if (x < -0.45) return left ? 2 : 6;
-  return left ? 1 : 7;
+  if (y < -0.12 && x > -0.4 && Math.abs(z) > 0.3) return left ? 3 : 5; // temporal: low on the side, under the Sylvian fissure
+  if (x > 0.15) return left ? 0 : 8; // frontal
+  if (x < -0.55) return left ? 2 : 6; // occipital
+  return left ? 1 : 7; // parietal
 }
 
 /**
- * Fold pattern on the surface, 0…1: meandering ridges (gyri) on the cerebrum,
- * fine parallel folds on the cerebellum. Slots are only placed where it is
- * above a threshold, so the grooves (sulci) between ridges stay empty.
+ * The first `n` neuron slots. The baked points are in farthest-point order,
+ * so any prefix is spread evenly over the brain's outer surface.
  */
-export function foldPattern(p: V3): number {
-  const [x, y, z] = p;
-  if (regionOf(p) === 4) return 0.5 + 0.5 * Math.sin(38 * y + 3 * Math.sin(5 * z));
-  const meander = 13 * (0.8 * x + 0.35 * Math.sin(3.1 * y + 1.7 * z) + 0.45 * y * z) + 2.3 * Math.sin(2.2 * x - 1.3 * z) + 1.4 * Math.sin(4.1 * y);
-  return 0.5 + 0.5 * Math.sin(meander);
-}
-
-/**
- * `n` neuron slots spread evenly over the folded surface (farthest point
- * sampling from many candidates near the surface). Deterministic for a seed.
- */
-export function scaffoldSlots(n: number, seed = 11): { at: V3; region: number }[] {
-  if (n <= 0) return [];
-  const random = mulberry32(seed);
-  const want = Math.max(4 * n, 6000);
-  const candidates: V3[] = [];
-  for (let tries = 0; candidates.length < want && tries < want * 400; tries++) {
-    const p: V3 = [random() * 2.2 - 1.1, random() * 1.8 - 1.0, random() * 1.8 - 0.9];
-    if (Math.abs(brainField(p)) < 0.025 && foldPattern(p) > 0.38) candidates.push(p);
-  }
-
-  // Farthest point sampling: each new slot is the candidate farthest from all slots so far.
-  const chosen: V3[] = [candidates[0]];
-  const nearest = candidates.map((c) => dist(c, candidates[0]));
-  while (chosen.length < Math.min(n, candidates.length)) {
-    let best = 0;
-    for (let i = 1; i < candidates.length; i++) if (nearest[i] > nearest[best]) best = i;
-    const q = candidates[best];
-    chosen.push(q);
-    for (let i = 0; i < candidates.length; i++) {
-      const d = dist(candidates[i], q);
-      if (d < nearest[i]) nearest[i] = d;
-    }
-  }
-  return chosen.map((at) => ({ at, region: regionOf(at) }));
+export function scaffoldSlots(n: number): { at: V3; region: number }[] {
+  return brainPoints()
+    .slice(0, Math.max(0, n))
+    .map((at) => ({ at, region: regionOf(at) }));
 }
 
 /**
@@ -190,9 +143,9 @@ export type BrainLayout = {
  * term lights up. Terms without a domain share the lobes nobody else uses
  * (or, when every lobe is taken, the largest field's).
  */
-export function brainLayout(terms: readonly { id: string; fieldId: string | null; at: V3 }[], seed = 11): BrainLayout {
+export function brainLayout(terms: readonly { id: string; fieldId: string | null; at: V3 }[]): BrainLayout {
   const C = LAYOUT_3D_CONFIG;
-  const slots = scaffoldSlots(Math.max(C.BRAIN_MIN_SLOTS, C.BRAIN_SLOTS_PER_TERM * terms.length), seed);
+  const slots = scaffoldSlots(Math.max(C.BRAIN_MIN_SLOTS, C.BRAIN_SLOTS_PER_TERM * terms.length));
   const counts = new Map<string, number>();
   for (const t of terms) if (t.fieldId) counts.set(t.fieldId, (counts.get(t.fieldId) ?? 0) + 1);
   const { units, parts } = allocateLobes([...counts].map(([fieldId, count]) => ({ fieldId, count })));

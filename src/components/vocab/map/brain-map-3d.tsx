@@ -45,7 +45,7 @@ const INFO: Record<View3d, string> = {
   space:
     "Tiap bidang adalah galaksi dengan lubang hitam di pusatnya, dan tiap cabang sebuah matahari. Planet adalah istilah inti di cabangnya; bulan mengorbit planet yang paling mirip maknanya; batuan adalah istilah yang hubungannya longgar atau belum punya domain. Saat “Putar otomatis” aktif, semuanya bergerak di orbitnya.",
   brain:
-    "Tiap bidang menempati lobus otaknya sendiri, dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 250, setelah itu istilahmu sendiri yang membentuknya.",
+    "Tiap bidang menempati lobus otaknya sendiri, dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya.",
   cube:
     "Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP menjaga struktur lokal, bukan jarak global.",
 };
@@ -619,10 +619,29 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         </button>
       </div>
       {showInfo && (
-        <p className="card px-4 py-3 text-sm text-muted">
-          {INFO[view]} Seret untuk memutar, gulir atau cubit untuk zoom, klik kanan atau dua jari untuk menggeser. Susunan 3D dihitung dan disimpan di
-          browser ini.
-        </p>
+        <div className="card space-y-2 px-4 py-3 text-sm text-muted">
+          <p>
+            {INFO[view]} Seret untuk memutar, gulir atau cubit untuk zoom, klik kanan atau dua jari untuk menggeser. Susunan 3D dihitung dan disimpan
+            di browser ini.
+          </p>
+          {view === "brain" && (
+            <p className="text-xs">
+              Bentuk otak:{" "}
+              <a className="underline underline-offset-2 hover:text-text" href="https://sketchfab.com/3d-models/brain-cadd2bde67404c43b2359a6a3281d84a" target="_blank" rel="noreferrer">
+                “Brain”
+              </a>{" "}
+              karya{" "}
+              <a className="underline underline-offset-2 hover:text-text" href="https://sketchfab.com/dgallichan" target="_blank" rel="noreferrer">
+                dgallichan
+              </a>
+              , lisensi{" "}
+              <a className="underline underline-offset-2 hover:text-text" href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">
+                CC BY 4.0
+              </a>
+              ; disederhanakan menjadi titik-titik di permukaan luarnya.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="grid gap-3 lg:grid-cols-[13rem_1fr]">

@@ -224,20 +224,24 @@ export const LAYOUT_3D_CONFIG = {
   ORBIT_SPEED: 0.35,
 
   // ── Otak ──────────────────────────────────────────────────────────────
+  // Bentuk otak diambil dari model 3D "Brain" karya dgallichan (CC BY 4.0):
+  // permukaan luarnya disampel menjadi titik (scripts/bake-brain-points.mjs).
+  // Angka di bawah diukur dengan script itu: titik tersebar merata, lalu
+  // dihitung berapa bagian garis tepi siluet (samping, atas, depan) yang
+  // tertutup titik.
   /**
-   * Hasil riset (docs: rencana Peta Otak 3D): dengan titik disebar merata di
-   * permukaan otak, garis tepi siluetnya tertutup 84% pada 200 istilah, 90%
-   * pada 250, dan 94% pada 300. Mulai sekitar 250 istilah, bentuk otak
-   * terbaca dari istilah saja; di bawahnya kerangka "neuron tidur" yang
-   * memberi bentuk.
+   * Istilah (titik besar): 300 → 88%, 350 → 91%, 400 → 93% garis tepi.
+   * Mulai sekitar 350 istilah bentuk otak terbaca dari istilah saja; di
+   * bawahnya kerangka "neuron tidur" yang memberi bentuk.
    */
-  BRAIN_FULL_TERMS: 250,
+  BRAIN_FULL_TERMS: 350,
   /**
-   * Jumlah slot neuron di permukaan otak: max(MIN, PER_TERM × istilah).
-   * 1.500 titik cukup rapat untuk menampakkan lipatan (jarak antartitik
-   * sekitar 0,07, lebih kecil dari lebar alur lipatan sekitar 0,18).
+   * Neuron tidur (titik kecil): 2.000 titik → jarak antartetangga 6,7 mm
+   * (0,074 satuan, sekitar 2,5× diameter titik, jadi tidak berdempet) dan
+   * garis tepi tertutup 95%. 1.500 → 7,8 mm / 91%; 2.500 → 6,0 mm / 97%.
    */
-  BRAIN_MIN_SLOTS: 1500,
+  BRAIN_MIN_SLOTS: 2000,
+  /** Slot bertambah bila istilah banyak: max(MIN, PER_TERM × istilah), paling banyak sejumlah titik yang dipanggang (5.000). */
   BRAIN_SLOTS_PER_TERM: 2,
   /** Kepekatan kerangka neuron tidur: dari MAX (sedikit istilah) turun ke MIN saat istilah ≥ BRAIN_FULL_TERMS. */
   BRAIN_SCAFFOLD_MAX: 0.55,
