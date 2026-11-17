@@ -143,3 +143,38 @@ export type LayoutParams = {
   unitsPerBox?: number;
   model?: string;
 };
+
+/**
+ * Peta Otak 3D (`/vocab/map/3d`): angka yang khusus untuk ruang tiga dimensi.
+ * Selebihnya (jumlah tetangga UMAP, MIN_DIST, SPREAD, ambang PCA/UMAP,
+ * jumlah tetangga untuk titik awal) sama dengan peta 2D dan dibaca dari
+ * LAYOUT_CONFIG di atas, supaya kedua peta menceritakan kedekatan yang sama.
+ *
+ * Koordinat 3D tidak disimpan di database: dihitung di browser dan disimpan
+ * di cache browser. Ruang dimuat ke kubus [-1, 1]³.
+ */
+export const LAYOUT_3D_CONFIG = {
+  /**
+   * Seed tetap. Dengan data yang sama, ruang 3D selalu sama persis tanpa
+   * perlu menyimpan apa pun; tidak ada tombol "susun ulang" di 3D.
+   */
+  SEED: 3,
+  /**
+   * Setengah lebar kubus titik awal PCA = nilai ini × ∛N. Di 3D kerapatan
+   * mengikuti volume, jadi skalanya akar pangkat tiga (di 2D akar kuadrat);
+   * dengan 0,25 jarak awal antartitik kira-kira sama dengan peta 2D.
+   */
+  INIT_EXTENT_PER_CBRT_N: 0.25,
+  /**
+   * Gravitasi lemah ke tengah, sama alasannya dengan UMAP_GRAVITY di 2D:
+   * kelompok tanpa tetangga bersama tidak hanyut menjauh dan mengerut.
+   */
+  GRAVITY: 0.1,
+  /**
+   * Saat data berubah, ruang baru berangkat dari ruang 3D sebelumnya (dari
+   * cache) dan tiap istilah lama ditarik ke posisi lamanya, seperti
+   * RELAYOUT_ANCHOR di 2D, supaya gambar yang sudah kamu kenal tidak teracak.
+   */
+  ANCHOR: 0.25,
+} as const;
+
