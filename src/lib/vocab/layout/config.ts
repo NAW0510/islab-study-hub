@@ -120,6 +120,16 @@ export const LAYOUT_CONFIG = {
    * 1,5 adalah aturan baku diagram kotak-garis.
    */
   OUTLIER_IQR: 1.5,
+  /**
+   * Istilah multi-domain di Peta 2D ("irisan"). Istilah yang juga milik
+   * domain lain ikut dibungkus wilayah domain itu kalau jaraknya ke anggota
+   * terdekat domain itu paling jauh OVERLAP_REACH × HULL_PAD, jadi kedua
+   * wilayah benar-benar bertumpuk di sana. Kalau lebih jauh, wilayahnya
+   * tidak dimelarkan (itu akan menutupi domain lain); ia menjulurkan
+   * "tentakel" sempit (selebar BRIDGE_PAD_SHARE × HULL_PAD) ke istilah itu.
+   */
+  OVERLAP_REACH: 2.5,
+  BRIDGE_PAD_SHARE: 0.55,
 
   // ── Gerak ─────────────────────────────────────────────────────────────
   /** Lama animasi perpindahan titik setelah susun ulang (ms). Nol bila reduced motion. */
@@ -222,6 +232,15 @@ export const LAYOUT_3D_CONFIG = {
    * pusatnya bergerak lebih lambat (hukum Kepler: ω ∝ r^-1,5).
    */
   ORBIT_SPEED: 0.35,
+  /**
+   * Istilah multi-domain di Luar angkasa ("irisan"): planet jembatan yang
+   * menempuh lintasan kelopak mengelilingi matahari tiap domainnya (angka 8
+   * untuk dua domain). Kecepatannya dalam putaran per detik, sebagai bagian
+   * dari ORBIT_SPEED: lambat, supaya lintasannya terbaca. Kelopak di sekitar
+   * tiap matahari selebar BRIDGE_PETAL × jaraknya ke titik tengah.
+   */
+  BRIDGE_SPEED_SHARE: 0.06,
+  BRIDGE_PETAL: 0.45,
 
   // ── Otak ──────────────────────────────────────────────────────────────
   // Bentuk otak diambil dari model 3D "Brain" karya dgallichan (CC BY 4.0):

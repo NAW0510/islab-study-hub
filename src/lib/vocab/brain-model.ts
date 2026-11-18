@@ -276,6 +276,57 @@ export function brainLayout(terms: readonly { id: string; fieldId: string | null
   return { slots: slots.map((s) => s.at), slotRegion: slots.map((s) => s.region), slotField, termSlot };
 }
 
+/**
+ * Neurons on the border between lobes for the terms that belong to several
+ * fields (one term, many domains): for each such term, the free slot of one
+ * of its fields that is nearest the middle of those fields' lobes. Computed
+ * from a finished layout, so a cached layout needs no recomputation. Terms
+ * whose domains share one field keep their own slot (their lobe is shared
+ * already). Returns only the terms that move.
+ */
+export function borderSlots(
+  layout: Pick<BrainLayout, "slots" | "slotField" | "termSlot">,
+  terms: readonly { id: string; fieldIds: readonly string[] }[],
+): Map<string, number> {
+  const centre = new Map<string, { at: V3; n: number }>();
+  layout.slots.forEach((slot, i) => {
+    const field = layout.slotField[i];
+    if (!field) return;
+    const entry = centre.get(field) ?? { at: [0, 0, 0] as V3, n: 0 };
+    for (let a = 0; a < 3; a++) entry.at[a] += slot[a];
+    entry.n++;
+    centre.set(field, entry);
+  });
+  const used = new Set(layout.termSlot.values());
+  const out = new Map<string, number>();
+  for (const term of [...terms].sort((a, b) => a.id.localeCompare(b.id))) {
+    const fields = [...new Set(term.fieldIds)].filter((f) => centre.has(f));
+    if (fields.length < 2) continue;
+    const middle: V3 = [0, 0, 0];
+    for (const f of fields) {
+      const { at, n } = centre.get(f) as { at: V3; n: number };
+      for (let a = 0; a < 3; a++) middle[a] += at[a] / n / fields.length;
+    }
+    let best = -1;
+    let bestD = Infinity;
+    layout.slots.forEach((slot, i) => {
+      const field = layout.slotField[i];
+      if (!field || !fields.includes(field) || used.has(i)) return;
+      const d = dist(slot, middle);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    });
+    if (best < 0) continue;
+    const own = layout.termSlot.get(term.id);
+    if (own !== undefined) used.delete(own);
+    used.add(best);
+    out.set(term.id, best);
+  }
+  return out;
+}
+
 /** How visible the sleeping-neuron scaffold is: strong with few terms, faint once the terms alone draw the brain. */
 export function scaffoldOpacity(terms: number): number {
   const C = LAYOUT_3D_CONFIG;

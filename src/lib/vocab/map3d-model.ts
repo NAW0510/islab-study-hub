@@ -3,7 +3,7 @@ import type { VocabDomain } from "../types";
 import { LAYOUT_3D_CONFIG, LAYOUT_CONFIG } from "./layout/config";
 import type { Point3 } from "./layout/run-layout-3d";
 import type { BrainLayout } from "./brain-model";
-import { fieldOf, groupOf, type BoundaryLevel, type MapPoint } from "./map-model";
+import { fieldOf, groupsOf, type BoundaryLevel, type MapPoint } from "./map-model";
 import type { Role } from "./space-model";
 
 /** Pure helpers behind the 3D brain map: the browser cache, what is shown, and picking. */
@@ -203,6 +203,13 @@ export type Group3d = {
   /** Its top-level field, whose colour the region takes. */
   field: VocabDomain;
   members: Point3[];
+  /**
+   * Terms of the group's that sit elsewhere (one term, many domains) but
+   * close enough to be wrapped too, so the regions overlap there: never
+   * trimmed as outliers. Farther ones are not wrapped (a hull stretched
+   * across the cube would cover other groups).
+   */
+  guests: Point3[];
   /** Mean position of the members, where the label goes. */
   centre: Point3;
 };
@@ -214,19 +221,23 @@ export function groups3d(
   level: BoundaryLevel,
   domains: ReadonlyMap<string, VocabDomain>,
 ): Group3d[] {
-  const groups = new Map<string, { group: VocabDomain; members: Point3[] }>();
+  const groups = new Map<string, { group: VocabDomain; members: Point3[]; visitors: Point3[] }>();
   for (const p of points) {
-    const group = groupOf(p, level, domains);
     const at = coords.get(p.id);
-    if (!group || !at) continue;
-    const entry = groups.get(group.id) ?? { group, members: [] };
-    entry.members.push(at);
-    groups.set(group.id, entry);
+    if (!at) continue;
+    groupsOf(p, level, domains).forEach((group, i) => {
+      const entry = groups.get(group.id) ?? { group, members: [], visitors: [] };
+      (i === 0 ? entry.members : entry.visitors).push(at);
+      groups.set(group.id, entry);
+    });
   }
-  return [...groups.values()].map(({ group, members }) => {
+  const reach = LAYOUT_3D_CONFIG.REGION_PAD * LAYOUT_CONFIG.OVERLAP_REACH;
+  return [...groups.values()].flatMap(({ group, members, visitors }) => {
+    if (members.length === 0) return [];
     const centre: Point3 = [0, 0, 0];
     for (const m of members) for (let a = 0; a < 3; a++) centre[a] += m[a] / members.length;
-    return { group, field: fieldOf(group.id, domains) ?? group, members, centre };
+    const guests = visitors.filter((v) => Math.min(...members.map((m) => distance3(m, v))) <= reach);
+    return [{ group, field: fieldOf(group.id, domains) ?? group, members, guests, centre }];
   });
 }
 

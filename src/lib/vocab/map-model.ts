@@ -43,6 +43,33 @@ export function groupOf(point: Pick<MapPoint, "domain_id">, level: BoundaryLevel
   return level === "bidang" ? fieldOf(point.domain_id, domains) : (domains.get(point.domain_id) ?? null);
 }
 
+/**
+ * Every group a point belongs to at the given level: its primary domain's
+ * first, then its extra domains' (one term, many domains), without repeats.
+ */
+export function groupsOf(
+  point: Pick<MapPoint, "domain_id" | "extra_domain_ids">,
+  level: BoundaryLevel,
+  domains: ReadonlyMap<string, VocabDomain>,
+): VocabDomain[] {
+  const groups: VocabDomain[] = [];
+  for (const id of [point.domain_id, ...extrasOf(point)]) {
+    const group = groupOf({ domain_id: id }, level, domains);
+    if (group && !groups.some((g) => g.id === group.id)) groups.push(group);
+  }
+  return groups;
+}
+
+/** The names of a point's extra domains ("Juga di: …"), as paths like "Katolik › Agama". */
+export function extraDomainNames(point: Pick<MapPoint, "extra_domain_ids">, domains: ReadonlyMap<string, VocabDomain>): string[] {
+  return extrasOf(point).flatMap((id) => {
+    const d = domains.get(id);
+    if (!d) return [];
+    const parent = d.parent_id ? domains.get(d.parent_id) : undefined;
+    return [parent ? `${d.name} › ${parent.name}` : d.name];
+  });
+}
+
 /** Points with a position, learned up to the end of `week`, whose field is not hidden. */
 export function visiblePoints<T extends MapPoint>(
   points: readonly T[],

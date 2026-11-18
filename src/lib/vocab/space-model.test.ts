@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "./layout/prng";
 import { unitNormalize } from "./layout/normalize";
 import type { Point3 } from "./layout/run-layout-3d";
-import { assignRoles, bodyPositions, orbitOffset, separate, spaceLayout, topNeighbours, type SpaceTerm } from "./space-model";
+import { assignRoles, bodyPositions, closedSpline, orbitOffset, routeControls, separate, spaceLayout, topNeighbours, type SpaceTerm } from "./space-model";
 
 /** Unit vectors in `groups` clusters; inside a cluster, the first vector is the most central. */
 function clusters(sizes: number[], seed = 1) {
@@ -127,5 +127,59 @@ describe("spaceLayout", () => {
 
   it("is deterministic", () => {
     expect(spaceLayout(terms, roles)).toEqual(layout);
+  });
+});
+
+describe("a term in many domains: a bridge between suns", () => {
+  const { vectors, group } = clusters([1, 4, 12], 3);
+  const terms: SpaceTerm[] = group.map((g, i) => ({
+    id: `t${i}`,
+    fieldId: g === "g2" ? "fieldB" : "fieldA",
+    branchKey: g,
+    at: [g === "g2" ? 0.6 : -0.6, 0, 0] as Point3,
+  }));
+  // t1 (branch g1 of field A) also belongs to g0 (same field) and to g2 (field B): across galaxies.
+  terms[1] = { ...terms[1], extras: [{ fieldId: "fieldA", branchKey: "g0" }, { fieldId: "fieldB", branchKey: "g2" }] };
+  // t2 (g1) also belongs to a branch nobody else has: its host is field B's black hole.
+  terms[2] = { ...terms[2], extras: [{ fieldId: "fieldB", branchKey: "lonely" }] };
+  const roles = assignRoles(
+    terms.map((t) => ({ id: t.id, group: t.branchKey })),
+    vectors,
+  );
+  const layout = spaceLayout(terms, roles);
+  const bridge = layout.bodies.find((b) => b.key === "t1") as NonNullable<(typeof layout.bodies)[number]>;
+
+  it("loops around the sun of every domain, across galaxies too", () => {
+    expect(bridge.hosts).toEqual(["sun:g1", "sun:g0", "sun:g2"]);
+    expect(bridge).toMatchObject({ kind: "planet", parent: null, orbit: null });
+    expect(layout.bodies.find((b) => b.key === "t2")?.hosts).toEqual(["sun:g1", "hole:fieldB"]);
+  });
+
+  it("starts in the middle of its hosts and moves along its route", () => {
+    const at0 = bodyPositions(layout, 0);
+    const hosts = (bridge.hosts as string[]).map((h) => at0.get(h) as Point3);
+    const middle = [0, 1, 2].map((a) => hosts.reduce((s, h) => s + h[a], 0) / hosts.length);
+    const p = at0.get("t1") as Point3;
+    for (let a = 0; a < 3; a++) expect(p[a]).toBeCloseTo(middle[a], 9);
+    expect(bodyPositions(layout, 30).get("t1")).not.toEqual(p);
+    expect(at0.size).toBe(layout.bodies.length);
+  });
+
+  it("each petal goes around its host", () => {
+    const hosts: Point3[] = [
+      [-1, 0, 0],
+      [1, 0, 0],
+    ];
+    const controls = routeControls(hosts, [0, 1, 0]);
+    const route = Array.from({ length: 200 }, (_, i) => closedSpline(controls, i / 200));
+    for (const host of hosts) {
+      // The route passes on both sides of each host.
+      const near = route.filter((p) => Math.abs(p[0] - host[0]) < 0.5);
+      expect(Math.max(...near.map((p) => p[2]))).toBeGreaterThan(0.1);
+      expect(Math.min(...near.map((p) => p[2]))).toBeLessThan(-0.1);
+    }
+    const start = closedSpline(controls, 0);
+    const end = closedSpline(controls, 1);
+    for (let a = 0; a < 3; a++) expect(end[a]).toBeCloseTo(start[a], 9);
   });
 });

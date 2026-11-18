@@ -115,14 +115,24 @@ export type BodyKind = "blackhole" | "cluster" | "sun" | "planet" | "moon" | "ro
 /** A circular orbit in the plane spanned by `u` and `w` (orthonormal), around the parent's position. */
 export type Orbit = { radius: number; phase: number; speed: number; u: V3; w: V3; lift: V3 };
 
+/**
+ * The route of a term in many domains (one term, many domains): it travels a
+ * closed loop with one petal around each of its hosts (a figure of eight for
+ * two), at `speed` loops per second from `phase` (0 = the middle point).
+ */
+export type Route = { phase: number; speed: number; normal: V3 };
+
 export type Body = {
   key: string;
   kind: BodyKind;
-  /** Key of the body it orbits; null for a fixed body (black hole, rogue-rock cluster). */
+  /** Key of the body it orbits; null for a fixed body (black hole, rogue-rock cluster) or a bridge. */
   parent: string | null;
   /** Fixed position (black holes, clusters) or orbit around the parent. */
   at: V3 | null;
   orbit: Orbit | null;
+  /** A bridge: the suns (or black holes) of every domain of the term, which its route loops around. */
+  hosts?: string[];
+  route?: Route;
   /** Visual radius, in scene units. */
   size: number;
   /** Field the body belongs to (colour); null for terms without a domain. */
@@ -145,6 +155,8 @@ export type SpaceTerm = {
   branchKey: string | null;
   /** Position in the 3D (cube) layout, used to place galaxies where their fields are. */
   at: Point3;
+  /** The term's extra domains (one term, many domains): their field and branch key. */
+  extras?: { fieldId: string; branchKey: string }[];
 };
 
 function basisFor(normal: V3): { u: V3; w: V3 } {
@@ -333,6 +345,33 @@ export function spaceLayout(terms: readonly SpaceTerm[], roles: ReadonlyMap<stri
     });
   });
 
+  // Terms in many domains become bridges: their route loops around the sun of
+  // each of their domains (or its galaxy's black hole when that branch has no
+  // sun of its own), across galaxies too.
+  const keys = new Set(bodies.map((b) => b.key));
+  const normalOf = new Map(galaxies.map((g) => [g.fieldId, g.normal]));
+  for (const t of terms) {
+    if (!t.extras?.length || !t.branchKey || !t.fieldId) continue;
+    const body = bodies.find((b) => b.key === t.id);
+    if (!body) continue;
+    const hosts: string[] = [];
+    const fields: string[] = [];
+    for (const d of [{ fieldId: t.fieldId, branchKey: t.branchKey }, ...t.extras]) {
+      const host = keys.has(`sun:${d.branchKey}`) ? `sun:${d.branchKey}` : keys.has(`hole:${d.fieldId}`) ? `hole:${d.fieldId}` : null;
+      if (host && !hosts.includes(host)) {
+        hosts.push(host);
+        fields.push(d.fieldId);
+      }
+    }
+    if (hosts.length < 2) continue;
+    const normal = norm(fields.reduce((s, f) => add(s, normalOf.get(f) ?? [0, 1, 0]), [0, 0, 0] as V3));
+    body.kind = "planet";
+    body.parent = null;
+    body.orbit = null;
+    body.hosts = hosts;
+    body.route = { phase: 0, speed: C.ORBIT_SPEED * C.BRIDGE_SPEED_SHARE, normal: len(normal) > 0 ? normal : [0, 1, 0] };
+  }
+
   const radius = Math.max(1, ...galaxies.map((g) => len(g.centre) + g.radius * 1.1));
   return { galaxies, bodies, radius };
 }
@@ -343,12 +382,68 @@ export function orbitOffset(orbit: Orbit, t: number): V3 {
   return add(add(scale(orbit.u, orbit.radius * Math.cos(a)), scale(orbit.w, orbit.radius * Math.sin(a))), orbit.lift);
 }
 
-/** Positions of every body at time `t`. Parents come before their children in `bodies`. */
+/**
+ * The control points of a bridge's route: from the middle of its hosts, one
+ * petal out around each host (two sides and a tip beyond it) and back to the
+ * middle. With two hosts this is a figure of eight; with more, a flower.
+ */
+export function routeControls(hosts: readonly V3[], normal: V3): V3[] {
+  const middle = scale(hosts.reduce((s, h) => add(s, h), [0, 0, 0] as V3), 1 / Math.max(1, hosts.length));
+  const controls: V3[] = [];
+  for (const host of hosts) {
+    const out = sub(host, middle);
+    const reach = len(out);
+    const e = reach > 1e-6 ? scale(out, 1 / reach) : ([1, 0, 0] as V3);
+    let side = cross(normal, e);
+    if (len(side) < 1e-6) side = cross([0, 1, 0], e);
+    side = norm(side);
+    const petal = Math.max(0.12, reach * LAYOUT_3D_CONFIG.BRIDGE_PETAL);
+    controls.push(middle, add(add(host, scale(e, -petal * 0.35)), scale(side, petal)), add(host, scale(e, petal)), add(add(host, scale(e, -petal * 0.35)), scale(side, -petal)));
+  }
+  return controls;
+}
+
+/** A point on the closed Catmull-Rom curve through `controls`, at `s` ∈ [0, 1) of the way round. */
+export function closedSpline(controls: readonly V3[], s: number): V3 {
+  const n = controls.length;
+  const x = (((s % 1) + 1) % 1) * n;
+  const i = Math.floor(x);
+  const f = x - i;
+  const p0 = controls[(i - 1 + n) % n];
+  const p1 = controls[i % n];
+  const p2 = controls[(i + 1) % n];
+  const p3 = controls[(i + 2) % n];
+  const f2 = f * f;
+  const f3 = f2 * f;
+  return [0, 1, 2].map(
+    (a) => 0.5 * (2 * p1[a] + (-p0[a] + p2[a]) * f + (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * f2 + (-p0[a] + 3 * p1[a] - 3 * p2[a] + p3[a]) * f3),
+  ) as V3;
+}
+
+/** Where a bridge is on its route at time `t`, from its hosts' current positions. */
+export function routePoint(hosts: readonly V3[], route: Route, t: number): V3 {
+  return closedSpline(routeControls(hosts, route.normal), route.phase + route.speed * t);
+}
+
+/** Positions of every body at time `t` (a body comes after what it circles, or waits a pass for it). */
 export function bodyPositions(layout: SpaceLayout, t: number): Map<string, V3> {
   const out = new Map<string, V3>();
-  for (const body of layout.bodies) {
-    if (body.at) out.set(body.key, body.at);
-    else if (body.orbit && body.parent) out.set(body.key, add(out.get(body.parent) ?? [0, 0, 0], orbitOffset(body.orbit, t)));
+  let waiting = layout.bodies;
+  for (let pass = 0; pass < 4 && waiting.length > 0; pass++) {
+    const later: Body[] = [];
+    for (const body of waiting) {
+      if (body.at) out.set(body.key, body.at);
+      else if (body.hosts && body.route) {
+        const hosts = body.hosts.map((h) => out.get(h));
+        if (hosts.every((h): h is V3 => Boolean(h))) out.set(body.key, routePoint(hosts, body.route, t));
+        else later.push(body);
+      } else if (body.orbit && body.parent) {
+        const parent = out.get(body.parent);
+        if (parent) out.set(body.key, add(parent, orbitOffset(body.orbit, t)));
+        else later.push(body);
+      }
+    }
+    waiting = later;
   }
   return out;
 }

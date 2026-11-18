@@ -13,14 +13,16 @@ import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-templat
 import type { VocabDomain } from "@/lib/types";
 import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
-import { regionFor } from "@/lib/vocab/hull";
+import { bridgeFor, placeGuests, regionFor } from "@/lib/vocab/hull";
 import { placeLabels, type LabelBox } from "@/lib/vocab/labels";
 import { LAYOUT_CONFIG, type LayoutParams } from "@/lib/vocab/layout/config";
 import type { Point } from "@/lib/vocab/layout/normalize";
 import {
+  extraDomainNames,
+  extrasOf,
   fieldOf,
   firstSentence,
-  groupOf,
+  groupsOf,
   layoutAdvice,
   mapStats,
   visiblePoints,
@@ -41,7 +43,8 @@ type Props = {
 };
 
 type View = { k: number; x: number; y: number };
-type Dot = { id: string; bx: number; by: number; color: string; faded: boolean };
+/** A term on the map; `rings` are the colours of its extra domains (one term, many domains). */
+type Dot = { id: string; bx: number; by: number; color: string; faded: boolean; rings: string[] };
 type SimNode = { id: string; x: number; y: number; hx: number; hy: number; fx?: number | null; fy?: number | null };
 
 const HIT_RADIUS = 14;
@@ -55,10 +58,49 @@ const colorVar = (domain: VocabDomain | null) => `var(--${asDomainColor(domain?.
 const dotPath = (x: number, y: number) => `M${x.toFixed(2)},${y.toFixed(2)}h0`;
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/**
+ * Width of ring `k` (0 = innermost) around a term in many domains: a thin
+ * band of the extra domain's colour, with a hair of paper between the bands,
+ * so the rings read even when the colours are the same.
+ */
+const ringWidth = (k: number) => DOT_SIZE + 5 + 5 * k;
+
 /** Points are drawn once; zooming only changes the parent group's transform. */
-const DotsLayer = memo(function DotsLayer({ dots, register }: { dots: Dot[]; register: (id: string, el: SVGPathElement | null) => void }) {
+const DotsLayer = memo(function DotsLayer({
+  dots,
+  register,
+}: {
+  dots: Dot[];
+  register: (id: string, el: SVGPathElement | null, ring?: number) => void;
+}) {
   return (
     <g strokeLinecap="round" strokeWidth={DOT_SIZE} fill="none">
+      {/* Rings under every dot: outermost first, each a coloured band over a paper gap. */}
+      {dots.flatMap((d) =>
+        d.rings
+          .map((color, k) => ({ color, k }))
+          .reverse()
+          .flatMap(({ color, k }) => [
+            <path
+              key={`${d.id}:r${k}`}
+              ref={(el) => register(d.id, el, 2 * k)}
+              d={dotPath(d.bx, d.by)}
+              stroke={color}
+              strokeWidth={ringWidth(k)}
+              vectorEffect="non-scaling-stroke"
+              className="animate-dot-in"
+            />,
+            <path
+              key={`${d.id}:g${k}`}
+              ref={(el) => register(d.id, el, 2 * k + 1)}
+              d={dotPath(d.bx, d.by)}
+              stroke="var(--surface)"
+              strokeWidth={ringWidth(k) - 3}
+              vectorEffect="non-scaling-stroke"
+              className="animate-dot-in"
+            />,
+          ]),
+      )}
       {dots.map((d) => (
         <path
           key={d.id}
@@ -84,6 +126,8 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   const viewRef = useRef<View>({ k: 1, x: 0, y: 0 });
   const frameRef = useRef(0);
   const dotRefs = useRef(new Map<string, SVGPathElement>());
+  /** Rings of the terms in many domains, moved together with their dot. */
+  const ringRefs = useRef(new Map<string, Map<number, SVGPathElement>>());
   const simRef = useRef<Simulation<SimNode, undefined> | null>(null);
   const dragRef = useRef<{ id: string; node: SimNode | null; startX: number; startY: number; moved: boolean } | null>(null);
   const hoverRef = useRef<string | null>(null);
@@ -141,7 +185,8 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
     () =>
       visible.map((p) => {
         const [bx, by] = toBase([p.map_x as number, p.map_y as number]);
-        return { id: p.id, bx, by, color: colorVar(fieldOf(p.domain_id, domainIdx)), faded: p.domain_source === "pending" };
+        const rings = extrasOf(p).flatMap((id) => (domainIdx.has(id) ? [colorVar(fieldOf(id, domainIdx))] : []));
+        return { id: p.id, bx, by, color: colorVar(fieldOf(p.domain_id, domainIdx)), faded: p.domain_source === "pending", rings };
       }),
     [visible, toBase, domainIdx],
   );
@@ -156,20 +201,27 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
     [dots],
   );
 
+  // Regions: a term is a member of its primary domain's region and a guest of
+  // its extra domains' (one term, many domains). A guest close enough is taken
+  // inside the outline, so the regions truly overlap there; a far one gets a
+  // tendril from the region instead of stretching it (lib/vocab/hull.ts).
   const regions = useMemo(() => {
     if (level === "none" || size.w === 0) return [];
-    const groups = new Map<string, { domain: VocabDomain; points: Point[] }>();
+    const groups = new Map<string, { domain: VocabDomain; members: Point[]; guests: Point[] }>();
     for (const p of visible) {
-      const group = groupOf(p, level, domainIdx);
-      if (!group) continue;
-      const entry = groups.get(group.id) ?? { domain: group, points: [] };
-      entry.points.push([p.map_x as number, p.map_y as number]);
-      groups.set(group.id, entry);
+      const at: Point = [p.map_x as number, p.map_y as number];
+      groupsOf(p, level, domainIdx).forEach((group, i) => {
+        const entry = groups.get(group.id) ?? { domain: group, members: [], guests: [] };
+        (i === 0 ? entry.members : entry.guests).push(at);
+        groups.set(group.id, entry);
+      });
     }
-    return [...groups.values()].flatMap(({ domain, points: pts }) => {
-      const region = regionFor(pts, toBase);
+    return [...groups.values()].flatMap(({ domain, members, guests }) => {
+      const { pinned, bridges } = placeGuests(members, guests);
+      const region = regionFor(members, toBase, pinned);
       const field = fieldOf(domain.id, domainIdx);
-      return region ? [{ id: domain.id, fieldId: field?.id ?? domain.id, name: domain.name, color: colorVar(field), ...region }] : [];
+      const tendrils = bridges.flatMap(([from, to]) => bridgeFor(from, to, toBase) ?? []);
+      return region ? [{ id: domain.id, fieldId: field?.id ?? domain.id, name: domain.name, color: colorVar(field), tendrils, ...region }] : [];
     });
   }, [visible, level, domainIdx, toBase, size.w]);
 
@@ -299,9 +351,23 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   }, [playing, currentWeek]);
 
   // ── Pointer: hover, select, drag a point ────────────────────────────────
-  const register = useCallback((id: string, el: SVGPathElement | null) => {
-    if (el) dotRefs.current.set(id, el);
-    else dotRefs.current.delete(id);
+  const register = useCallback((id: string, el: SVGPathElement | null, ring?: number) => {
+    if (ring === undefined) {
+      if (el) dotRefs.current.set(id, el);
+      else dotRefs.current.delete(id);
+      return;
+    }
+    const rings = ringRefs.current.get(id) ?? new Map<number, SVGPathElement>();
+    if (el) rings.set(ring, el);
+    else rings.delete(ring);
+    if (rings.size > 0) ringRefs.current.set(id, rings);
+    else ringRefs.current.delete(id);
+  }, []);
+  /** Moves a dot and its rings (dragging, relayout). */
+  const moveDot = useCallback((id: string, x: number, y: number) => {
+    const d = dotPath(x, y);
+    dotRefs.current.get(id)?.setAttribute("d", d);
+    ringRefs.current.get(id)?.forEach((el) => el.setAttribute("d", d));
   }, []);
 
   const locate = (event: React.PointerEvent) => {
@@ -334,7 +400,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
       .force("collide", forceCollide<SimNode>((DOT_SIZE * 0.75) / k))
       .alphaTarget(0.3)
       .on("tick", () => {
-        for (const n of nodes) dotRefs.current.get(n.id)?.setAttribute("d", dotPath(n.x, n.y));
+        for (const n of nodes) moveDot(n.id, n.x, n.y);
       });
     if (dragRef.current) dragRef.current.node = node;
   }
@@ -418,7 +484,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
       const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
       for (const d of moving) {
         const [tx, ty] = targets.get(d.id) as Point;
-        dotRefs.current.get(d.id)?.setAttribute("d", dotPath(d.bx + (tx - d.bx) * e, d.by + (ty - d.by) * e));
+        moveDot(d.id, d.bx + (tx - d.bx) * e, d.by + (ty - d.by) * e);
       }
       if (t < 1) requestAnimationFrame(step);
       else finish();
@@ -496,7 +562,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   // ── States without a map ────────────────────────────────────────────────
   if (advice.kind === "empty") {
     return (
-      <EmptyState
+      <EmptyState
         title="Peta butuh beberapa istilah dulu"
         description={`Peta Otak terbentuk dari kedekatan makna antaristilah, jadi butuh minimal 5 istilah. Sekarang baru ada ${advice.total}.`}
         action={
@@ -670,6 +736,23 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
                     vectorEffect="non-scaling-stroke"
                   />
                 ))}
+              {/* Tendrils: a region reaching a term of its own that lives elsewhere. */}
+              {!animating &&
+                regions.flatMap((r) =>
+                  r.tendrils.map((d, i) => (
+                    <path
+                      key={`${r.id}:t${i}`}
+                      d={d}
+                      fill={r.color}
+                      fillOpacity={hoverField === r.fieldId ? 0.18 : 0.07}
+                      stroke={r.color}
+                      strokeOpacity={0.5}
+                      strokeWidth={1}
+                      strokeDasharray="4 3"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )),
+                )}
               {size.w > 0 && <DotsLayer dots={dots} register={register} />}
             </g>
 
@@ -732,6 +815,9 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
             >
               <p className="font-display text-sm font-semibold tracking-tight">{hoverPoint.term}</p>
               <p className="mt-0.5 text-muted">{domainPath(hoverPoint.domain_id, domainIdx) || "Tanpa domain"}</p>
+              {extrasOf(hoverPoint).length > 0 && (
+                <p className="mt-0.5 text-muted">Juga di: {extraDomainNames(hoverPoint, domainIdx).join(" · ")}</p>
+              )}
               <p className="mt-1 text-muted">
                 Dipelajari {formatDate(hoverPoint.learned_on)}, {weekMarker(weekNumberFor(programStart, hoverPoint.learned_on))}
               </p>

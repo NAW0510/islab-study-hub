@@ -77,14 +77,62 @@ export type Region = {
 
 /**
  * Outline for one domain's points. `project` maps map coordinates to screen
- * coordinates (the map's y axis points up, the screen's down).
+ * coordinates (the map's y axis points up, the screen's down). `pinned`
+ * points are always inside (never trimmed as outliers): the terms that also
+ * belong here although their position is elsewhere (one term, many domains).
  */
-export function regionFor(points: readonly Point[], project: (p: Point) => Point = (p) => p): Region | null {
-  const hull = paddedHull(withoutOutliers(points));
+export function regionFor(
+  points: readonly Point[],
+  project: (p: Point) => Point = (p) => p,
+  pinned: readonly Point[] = [],
+): Region | null {
+  const hull = paddedHull([...withoutOutliers(points), ...pinned]);
   if (!hull) return null;
   const projected = hull.map(project);
   const path = smooth(projected);
   if (!path) return null;
   // The closed curve returns to its start without a close command; "Z" joins the stroke cleanly there.
-  return { path: `${path}Z`, center: polygonCentroid(projected), count: points.length };
+  return { path: `${path}Z`, center: polygonCentroid(projected), count: points.length + pinned.length };
+}
+
+/** The member of `points` closest to `from`, with its distance; null for no points. */
+export function nearestPoint(from: Point, points: readonly Point[]): { point: Point; distance: number } | null {
+  let best: { point: Point; distance: number } | null = null;
+  for (const p of points) {
+    const d = distance(from, p);
+    if (!best || d < best.distance) best = { point: p, distance: d };
+  }
+  return best;
+}
+
+/**
+ * A narrow tendril from a region's nearest member to a term that also
+ * belongs to it but sits far away: a padded capsule around the two points.
+ */
+export function bridgeFor(
+  from: Point,
+  to: Point,
+  project: (p: Point) => Point = (p) => p,
+  pad: number = LAYOUT_CONFIG.HULL_PAD * LAYOUT_CONFIG.BRIDGE_PAD_SHARE,
+): string | null {
+  const hull = paddedHull([from, to], pad);
+  if (!hull) return null;
+  const path = smooth(hull.map(project));
+  return path ? `${path}Z` : null;
+}
+
+/**
+ * How a domain's region takes in a guest (a term of the domain that sits
+ * elsewhere): close enough → inside the outline (a true overlap); farther →
+ * a tendril reaches out to it instead of stretching the whole region.
+ */
+export function placeGuests(members: readonly Point[], guests: readonly Point[], reach: number = LAYOUT_CONFIG.HULL_PAD * LAYOUT_CONFIG.OVERLAP_REACH) {
+  const pinned: Point[] = [];
+  const bridges: [Point, Point][] = [];
+  for (const guest of guests) {
+    const near = nearestPoint(guest, members);
+    if (!near || near.distance <= reach) pinned.push(guest);
+    else bridges.push([near.point, guest]);
+  }
+  return { pinned, bridges };
 }

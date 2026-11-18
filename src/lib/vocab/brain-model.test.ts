@@ -1,7 +1,36 @@
 import { describe, expect, it } from "vitest";
 import type { Point3 } from "./layout/run-layout-3d";
 import { brainPoints } from "./brain-points";
-import { allocateLobes, brainLayout, BRAIN_REGIONS, neuronCapacity, placeOnSlots, regionOf, scaffoldOpacity, scaffoldSlots } from "./brain-model";
+import { allocateLobes, borderSlots, brainLayout, BRAIN_REGIONS, neuronCapacity, placeOnSlots, regionOf, scaffoldOpacity, scaffoldSlots } from "./brain-model";
+
+describe("borderSlots (one term, many domains)", () => {
+  // A toy brain: field A's lobe on the left, field B's on the right, a gap of free slots in between.
+  const slots: Point3[] = [-3, -2, -1, 1, 2, 3].map((x) => [x, 0, 0]);
+  const slotField = ["A", "A", "A", "B", "B", "B"];
+  const termSlot = new Map([
+    ["a1", 0],
+    ["b1", 5],
+    ["both", 1],
+  ]);
+
+  it("moves a term of two fields to the free slot nearest their border", () => {
+    const moved = borderSlots({ slots, slotField, termSlot }, [{ id: "both", fieldIds: ["A", "B"] }]);
+    expect([...moved]).toEqual([["both", 2]]);
+  });
+
+  it("leaves terms of one field (or of siblings in one field) where they are", () => {
+    expect(borderSlots({ slots, slotField, termSlot }, [{ id: "a1", fieldIds: ["A", "A"] }]).size).toBe(0);
+  });
+
+  it("never gives two terms the same slot", () => {
+    const moved = borderSlots({ slots, slotField, termSlot }, [
+      { id: "both", fieldIds: ["A", "B"] },
+      { id: "a1", fieldIds: ["A", "B"] },
+    ]);
+    expect(new Set(moved.values()).size).toBe(moved.size);
+    expect([...moved.values()].every((s) => s === 1 || s === 2 || s === 3)).toBe(true);
+  });
+});
 
 const dist = (a: Point3, b: Point3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
