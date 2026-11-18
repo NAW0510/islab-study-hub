@@ -69,6 +69,19 @@ export const LIBRARY_CONFIG = {
     BLUR_PER_SPEED: 0.005,
     BLUR_MAX: 18,
   },
+  entrance: {
+    /**
+     * Arriving from another page, the river waits on the paper while the world
+     * gets ready (engine loaded, programs compiled, the visible sheets drawn),
+     * then the world fades in and its sheets rise. At most this much visible
+     * time, ms: past it the DOM sheets show, and the world crossfades in later.
+     * MGM holds its library cover up to 3.4 s; ours is kept short (the "felt
+     * nothing" rule), helped by loading the engine on intent.
+     */
+    HOLD_MS: 1200,
+    /** Seconds after the first drawn frame that the world calls itself ready even with sheets still undrawn. */
+    READY_MAX: 1,
+  },
   transition: {
     /** Seconds the scene pans away under the field's colour, holds under full cover, then settles in. */
     OUT: 0.7,

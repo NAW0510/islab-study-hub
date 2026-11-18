@@ -336,6 +336,60 @@ html:has(dialog.mobile-menu[open]) {
   animation: vt-fade-in var(--vt-enter) var(--ease-std) both;
 }
 /*
+ * The top bar is a layer of its own: nothing that moves under it (a page
+ * with a full-screen world, a receding world) ever covers it, and it shows
+ * its new state at once, its pill sliding live (navbar.tsx). Travelling
+ * markers and titles pass above it. The theme wave takes it along instead.
+ */
+.navbar {
+  view-transition-name: navbar;
+}
+:root[data-vt="theme"] .navbar {
+  view-transition-name: none;
+}
+::view-transition-group(navbar) {
+  z-index: 1;
+  animation: none;
+}
+::view-transition-old(navbar) {
+  display: none;
+}
+::view-transition-new(navbar) {
+  animation: none;
+}
+::view-transition-group(.vt-morph) {
+  z-index: 2;
+}
+/*
+ * Leaving a world (the Perpustakaan's library, a Peta Otak canvas): it
+ * recedes into the paper while the next page rises in front of it, so it
+ * never just vanishes. Between two views of the same world (2D ↔ 3D, a page
+ * inside the Perpustakaan) the live one simply stays.
+ */
+::view-transition-group(library-world),
+::view-transition-group(map-world) {
+  animation: none;
+}
+::view-transition-old(library-world),
+::view-transition-old(map-world) {
+  display: none;
+}
+::view-transition-old(library-world):only-child,
+::view-transition-old(map-world):only-child {
+  display: block;
+  animation: world-recede 320ms var(--ease-std) both;
+}
+::view-transition-new(library-world),
+::view-transition-new(map-world) {
+  animation: none;
+}
+@keyframes world-recede {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+/*
  * The theme wave (components/shell/theme-toggle.tsx): the old page stays
  * underneath while the new one opens as a circle from the button.
  */
@@ -1004,7 +1058,15 @@ html:has(dialog.mobile-menu[open]) {
     padding-bottom: 2rem;
     text-align: center;
   }
-  /* With the world: the canvas sits behind, the DOM faces turn transparent once drawn. */
+  /*
+   * With the world: the canvas sits behind, the DOM faces turn transparent once
+   * drawn. The entrance (world-host.tsx): while the world gets ready unseen
+   * (pending), the river waits on the paper; then the canvas fades in and its
+   * sheets rise. Past the hold the DOM sheets show (data-library-shown) and a
+   * late world crossfades in over them: its canvas fades in while the drawn
+   * DOM faces fade out. Leaving, the world recedes into the paper under the
+   * next page (view transition "library-world").
+   */
   .library-canvas {
     position: fixed;
     top: 0;
@@ -1012,6 +1074,34 @@ html:has(dialog.mobile-menu[open]) {
     z-index: 0;
     display: block;
     pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.6s var(--ease-std);
+    view-transition-name: library-world;
+  }
+  .library-page[data-library-world="gl"] .library-canvas {
+    opacity: 1;
+  }
+  .library-river {
+    transition: opacity 0.4s var(--ease-std);
+  }
+  /*
+   * Held from the very first paint, not only once the host has decided, so
+   * the DOM sheets never flash up and then make way for the world. Should no
+   * script ever decide, they show anyway after a few seconds.
+   */
+  .library-page:not([data-library-world="dom"], [data-library-world="gl"], [data-library-shown]) :is(.library-river, .library-end) {
+    opacity: 0;
+    animation: library-failsafe 0s 3s forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .library-page :is(.library-river, .library-end) {
+      opacity: 1 !important;
+    }
+  }
+  @keyframes library-failsafe {
+    to {
+      opacity: 1;
+    }
   }
   /* Content above the canvas; the fixed layers (canvas, wash, dome, cursor ring) keep their own place. */
   .library-page[data-library-world="gl"] > :not(.library-canvas, .library-head, .library-wash, .library-dome, .library-cursor) {
@@ -1040,6 +1130,14 @@ html:has(dialog.mobile-menu[open]) {
     transition:
       opacity var(--dur-slow) var(--ease-std),
       transform 600ms var(--ease-std);
+  }
+  /* The head's own paper melts away as the world fades in behind it. */
+  .library-head {
+    transition:
+      opacity var(--dur-slow) var(--ease-std),
+      transform 600ms var(--ease-std),
+      background-color 0.6s var(--ease-std),
+      backdrop-filter 0.6s var(--ease-std);
   }
   .library-page[data-transition$="-out"] :is(.library-head, .library-open, .library-end, .library-detail, .library-page > nav) {
     opacity: 0;
@@ -1117,10 +1215,10 @@ html:has(dialog.mobile-menu[open]) {
     width: 100%;
     height: 100%;
   }
-  .library-detail-cover[data-world-drawn] {
+  .library-page[data-library-world="gl"] .library-detail-cover[data-world-drawn] {
     background: transparent;
   }
-  .library-detail-cover[data-world-drawn] > * {
+  .library-page[data-library-world="gl"] .library-detail-cover[data-world-drawn] > * {
     opacity: 0;
   }
   .library-detail-cover-veil {
@@ -1279,7 +1377,11 @@ html:has(dialog.mobile-menu[open]) {
     opacity: 0;
     pointer-events: none;
   }
-  .library-item[data-world-drawn] :is(.library-front, .library-back) {
+  /* Only a world that arrives after the DOM sheets showed crossfades with them; otherwise the faces just hand over. */
+  .library-page[data-library-late] .library-item :is(.library-front, .library-back) {
+    transition: opacity 0.4s var(--ease-std);
+  }
+  .library-page[data-library-world="gl"] .library-item[data-world-drawn] :is(.library-front, .library-back) {
     opacity: 0;
   }
   .library-filter {
@@ -1414,13 +1516,16 @@ html:has(dialog.mobile-menu[open]) {
   .navbar-sub:has(.navbar-slot > *) {
     display: block;
   }
-  /* When it appears (entering Kosakata), it settles in under the first row instead of popping. */
+  /*
+   * When it appears (entering Kosakata), it settles in under the first row
+   * instead of popping. It leaves at once: lingering, it would hold the next
+   * page down and drop it a moment later.
+   */
   @media (prefers-reduced-motion: no-preference) {
     .navbar-sub {
       transition:
         opacity var(--vt-enter) var(--ease-std),
-        translate var(--vt-enter) var(--ease-std),
-        display var(--vt-enter) allow-discrete;
+        translate var(--vt-enter) var(--ease-std);
     }
     @starting-style {
       .navbar-sub {
@@ -1669,6 +1774,8 @@ html:has(dialog.mobile-menu[open]) {
   border-radius: 0;
   backdrop-filter: none;
   pointer-events: auto;
+  /* Leaving the Peta Otak, the map recedes under the next page (see view transitions above). */
+  view-transition-name: map-world;
 }
 .map-immersive .map-canvas.theme-scope {
   background-color: var(--bg);
