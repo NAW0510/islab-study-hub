@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { VOCAB_CONFIG } from "../../../supabase/functions/_shared/vocab-config.ts";
 import { requireUser } from "../auth";
-import { VOCAB_TERM_COLUMNS } from "../queries";
+import { missingExtraDomains, VOCAB_TERM_COLUMNS } from "../queries";
 import type { ActionResult, VocabTerm } from "../types";
 import { todayISO } from "../utils";
 import { parseBulk } from "../vocab/parse-bulk";
@@ -260,17 +260,12 @@ export async function nearestTerms(id: string): Promise<{ error: string } | { te
 /** Full term plus its nearest neighbours, for the brain map's detail panel (the map itself only loads snippets). */
 export async function termDetail(id: string): Promise<{ error: string } | { term: VocabTerm; neighbours: NearestTerm[] }> {
   const { supabase } = await requireUser();
-  const [termRes, nearRes] = await Promise.all([
-    supabase
-      .from("vocab_terms")
-      .select(VOCAB_TERM_COLUMNS)
-      .eq("id", id)
-      .is("deleted_at", null)
-      .single(),
-    supabase.rpc("match_vocab_terms", { p_term_id: id, p_count: 6 }),
-  ]);
+  const one = (columns: string) => supabase.from("vocab_terms").select(columns).eq("id", id).is("deleted_at", null).single();
+  const [firstTry, nearRes] = await Promise.all([one(VOCAB_TERM_COLUMNS), supabase.rpc("match_vocab_terms", { p_term_id: id, p_count: 6 })]);
+  // Until the extra-domains migration reaches the database, read the term without them.
+  const termRes = missingExtraDomains(firstTry.error) ? await one("*") : firstTry;
   if (termRes.error) return dbError(termRes.error);
-  return { term: termRes.data as VocabTerm, neighbours: (nearRes.data ?? []) as NearestTerm[] };
+  return { term: termRes.data as unknown as VocabTerm, neighbours: (nearRes.data ?? []) as NearestTerm[] };
 }
 
 /** Embeds everything that is still "belum diproses" (after a failure or wrong key). */

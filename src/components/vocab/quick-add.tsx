@@ -16,6 +16,7 @@ export function QuickAdd({
   topics,
   existing,
   onSaved,
+  onOpenExisting,
 }: {
   domains: VocabDomain[];
   subjects: SubjectRef[];
@@ -23,6 +24,8 @@ export function QuickAdd({
   /** Lower-cased terms and aliases already saved, for the duplicate warning. */
   existing: Map<string, VocabTerm>;
   onSaved: (result: Extract<SaveTermResult, { term: VocabTerm }>) => void;
+  /** Opens a term that already exists (to give it another domain instead of a duplicate). */
+  onOpenExisting?: (id: string) => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -96,7 +99,17 @@ export function QuickAdd({
 
       {duplicate && (
         <p className="mt-2 text-sm text-danger">
-          “{duplicate.term}” sudah ada di Kosakata. Untuk homonim, beri kualifikasi: mis. “Kernel (SVM)”.
+          “{duplicate.term}” sudah ada di Kosakata.{" "}
+          {onOpenExisting && (
+            <>
+              Kalau istilah ini juga milik domain lain,{" "}
+              <button type="button" className="font-medium text-accent underline underline-offset-2" onClick={() => onOpenExisting(duplicate.id)}>
+                buka dan tambahkan domainnya
+              </button>
+              .{" "}
+            </>
+          )}
+          Kalau maknanya berbeda (homonim), beri kualifikasi: mis. “Kernel (SVM)”.
         </p>
       )}
       {pending && (

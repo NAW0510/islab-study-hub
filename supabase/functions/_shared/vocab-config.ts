@@ -69,6 +69,21 @@ export const VOCAB_CONFIG = {
   /** Berapa skor teratas yang disimpan di `domain_scores` (untuk saran dan kalibrasi). */
   TOP_SCORES_KEPT: 3,
 
+  // ── Satu istilah, banyak domain ───────────────────────────────────────
+  /**
+   * ASUMSI AWAL, wajib dikalibrasi dari `domain_scores` nyata.
+   * Domain lain disarankan sebagai "Juga cocok di …" kalau skornya lolos
+   * AUTO_MIN_SCORE dan selisihnya dari skor teratas paling banyak sekian.
+   * Istilah seperti "Allah" (Islam, Katolik, Kristen) punya skor yang
+   * hampir sama di beberapa domain; itu bukan keraguan, melainkan tanda
+   * istilahnya memang milik semuanya. Sistem hanya MENYARANKAN; domain
+   * tambahan selalu kamu yang memasang. Naikkan kalau saran terlalu jarang
+   * muncul, turunkan kalau terlalu sering.
+   * Dibaca aplikasi saja (dari skor yang sudah tersimpan), jadi mengubahnya
+   * tidak perlu deploy ulang Edge Function.
+   */
+  MULTI_SUGGEST_MARGIN: 0.05,
+
   // ── Label keyakinan di UI (dari selisih yang sama) ────────────────────
   /** Selisih ≥ ini → "Tinggi". */
   CONFIDENCE_HIGH_MARGIN: 0.08,

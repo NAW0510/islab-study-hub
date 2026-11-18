@@ -24,6 +24,8 @@ export type TermPageData = {
   learnedOn: string;
   week: number;
   path: string;
+  /** The term's extra domains (one term, many domains), with their field's colour. */
+  others: { path: string; color: DomainColor }[];
   color: DomainColor;
   fieldId: string;
   status: "pending" | "unprocessed" | null;
@@ -133,6 +135,11 @@ export function LibraryTerm({
         {term.aliases.length > 0 && <p className="library-detail-aliases">Juga disebut {term.aliases.join(", ")}</p>}
         <div className="library-detail-chips">
           <span className={cn("chip chip-tone", DOMAIN_TONE_CLASS[term.color])}>{term.path}</span>
+          {term.others.map((o) => (
+            <span key={o.path} className={cn("chip chip-tone", DOMAIN_TONE_CLASS[o.color])}>
+              {o.path}
+            </span>
+          ))}
           {term.status === "pending" && <span className="chip chip-tone tone-none">Menunggu domain</span>}
           {term.status === "unprocessed" && <span className="chip chip-tone tone-warn">Belum diproses</span>}
         </div>

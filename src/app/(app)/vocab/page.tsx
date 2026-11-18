@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { DomainOnboarding } from "@/components/vocab/domain-onboarding";
 import { VocabBrowser } from "@/components/vocab/vocab-browser";
 import { requireUser } from "@/lib/auth";
-import { getProfile, getSubjectsAndTopics, VOCAB_TERM_COLUMNS } from "@/lib/queries";
+import { getProfile, getSubjectsAndTopics, loadVocabTerms } from "@/lib/queries";
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
 import type { VocabDomain, VocabTerm } from "@/lib/types";
 
@@ -22,18 +22,13 @@ export default async function VocabPage({
 
   // Everything loads once (no vectors); search and filters run in the browser.
   const [termsRes, domainsRes, profile, { subjects, topics }] = await Promise.all([
-    supabase
-      .from("vocab_terms")
-      .select(VOCAB_TERM_COLUMNS)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1000),
+    loadVocabTerms(supabase),
     supabase.from("vocab_domains").select("*").is("deleted_at", null).order("name"),
     getProfile(supabase),
     getSubjectsAndTopics(supabase),
   ]);
 
-  const terms = (termsRes.data ?? []) as VocabTerm[];
+  const terms = (termsRes.data ?? []) as unknown as VocabTerm[];
   const domains = (domainsRes.data ?? []) as VocabDomain[];
 
   if (terms.length === 0 && domains.length === 0) {

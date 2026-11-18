@@ -9,7 +9,7 @@ import { currentWeekInfo, weekNumberFor } from "@/lib/report-template";
 import type { SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
 import { useUrlFilters } from "@/lib/use-url-filters";
 import { cn, excerpt, normalizeSearch, todayISO } from "@/lib/utils";
-import { domainIndex, suggestionsFor } from "@/lib/vocab/format";
+import { domainIndex, inDomain, suggestionsFor } from "@/lib/vocab/format";
 import { ListItemMotion, ViewSwap } from "../motion";
 import { Shape } from "../shape";
 import { EmptyState, PageHeader } from "../ui";
@@ -93,10 +93,8 @@ export function VocabBrowser({
     const words = searched.split(/\s+/).filter(Boolean);
     let list = terms.filter((t) => {
       if (f.domain === "none" && t.domain_id !== null) return false;
-      if (f.domain && f.domain !== "none") {
-        const d = t.domain_id ? domainIdx.get(t.domain_id) : null;
-        if (!d || (d.id !== f.domain && d.parent_id !== f.domain)) return false;
-      }
+      // A term counts in every domain it has (one term, many domains).
+      if (f.domain && f.domain !== "none" && !inDomain(t, f.domain, domainIdx)) return false;
       if (f.status === "tinjau" && !(t.domain_source === "pending" && t.embedded_at)) return false;
       if (f.status === "belum" && t.embedded_at) return false;
       if (f.topic && t.syllabus_item_id !== f.topic) return false;
@@ -111,11 +109,7 @@ export function VocabBrowser({
   }, [terms, f, domainIdx]);
 
   const fields = domains.filter((d) => !d.parent_id);
-  const countFor = (fieldId: string) =>
-    terms.filter((t) => {
-      const d = t.domain_id ? domainIdx.get(t.domain_id) : null;
-      return d && (d.id === fieldId || d.parent_id === fieldId);
-    }).length;
+  const countFor = (fieldId: string) => terms.filter((t) => inDomain(t, fieldId, domainIdx)).length;
 
   const { week } = currentWeekInfo(programStart, todayISO());
   const newThisWeek = terms.filter((t) => weekNumberFor(programStart, t.learned_on) === week).length;
@@ -172,7 +166,14 @@ export function VocabBrowser({
       <VocabTabs active="list" />
 
       <div className="mb-6">
-        <QuickAdd domains={domains} subjects={subjects} topics={topics} existing={existing} onSaved={onSaved} />
+        <QuickAdd
+          domains={domains}
+          subjects={subjects}
+          topics={topics}
+          existing={existing}
+          onSaved={onSaved}
+          onOpenExisting={setSelectedId}
+        />
       </div>
 
       {(needReview > 0 || unprocessed > 0) && (

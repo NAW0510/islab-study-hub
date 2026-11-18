@@ -126,6 +126,34 @@ export function confidenceFromStored(
   return confidenceFor(best.score, marginOverRival(ranked), config);
 }
 
+/**
+ * "Juga cocok di …": other domains a term seems to belong to as much as its
+ * own (one term, many domains). From the stored scores, best first: a
+ * domain qualifies when its score clears AUTO_MIN_SCORE and sits within
+ * MULTI_SUGGEST_MARGIN of the best score, and it is neither a domain the
+ * term already has nor the field or a branch of one (Agama adds nothing to
+ * Islam). Only ever a suggestion; the user attaches extra domains.
+ */
+export function alsoFits(
+  scores: readonly StoredScore[] | null | undefined,
+  assigned: readonly string[],
+  parentOf: (domainId: string) => string | null | undefined,
+  config: Pick<VocabConfig, "AUTO_MIN_SCORE" | "MULTI_SUGGEST_MARGIN"> = VOCAB_CONFIG,
+): string[] {
+  const ranked = [...(scores ?? [])]
+    .filter((s) => typeof s?.domain_id === "string" && Number.isFinite(s.score))
+    .map((s) => ({ id: s.domain_id, score: round4(s.score) }))
+    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  const best = ranked[0];
+  if (!best || assigned.length === 0) return [];
+
+  const related = (a: string, b: string) => a === b || parentOf(a) === b || parentOf(b) === a;
+  return ranked
+    .filter((d) => d.score >= config.AUTO_MIN_SCORE && round4(best.score - d.score) <= config.MULTI_SUGGEST_MARGIN)
+    .filter((d) => !assigned.some((a) => related(a, d.id)))
+    .map((d) => d.id);
+}
+
 export const CONFIDENCE_LABELS: Record<Confidence, string> = {
   tinggi: "Tinggi",
   sedang: "Sedang",
