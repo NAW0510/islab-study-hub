@@ -471,7 +471,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   // ── States without a space ──────────────────────────────────────────────
   if (points.length < MIN_TERMS_FOR_MAP) {
     return (
-      <EmptyState
+      <EmptyState
         title="Peta butuh beberapa istilah dulu"
         description={`Peta Otak terbentuk dari kedekatan makna antaristilah, jadi butuh minimal 5 istilah. Sekarang baru ada ${points.length}.`}
         action={
@@ -484,7 +484,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   }
   if (!webgl) {
     return (
-      <EmptyState
+      <EmptyState
         title="Browser ini tidak bisa menampilkan 3D"
         description="Tampilan 3D butuh WebGL, yang tidak tersedia atau dimatikan di browser ini. Tampilan 2D tetap bisa dipakai."
         action={
