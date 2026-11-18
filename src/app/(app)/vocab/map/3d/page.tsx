@@ -22,7 +22,7 @@ export default async function VocabMap3DPage() {
 
   return (
     <MapStage>
-      <MapHead description="Tiap istilah satu titik di ruang tiga dimensi. Putar ruangnya untuk melihat kelompok istilah dari sisi lain." />
+      <MapHead />
       {pointsRes.error ? (
         <p className="card px-4 py-3 text-sm text-danger">Peta gagal dimuat: {pointsRes.error.message}</p>
       ) : (

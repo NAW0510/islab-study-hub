@@ -1,4 +1,5 @@
 import { Box, Brain, Orbit, type LucideIcon } from "lucide-react";
+import type { IntroPath } from "@/lib/vocab/map/intro";
 import type { Layout3dData } from "@/lib/vocab/map3d-model";
 import type { MapPoint } from "@/lib/vocab/map-model";
 import { BrainScene } from "./brain";
@@ -38,9 +39,11 @@ export type ViewDefinition = {
   background: string;
   /**
    * The view's intro (lib/vocab/map/intro.ts): how long the full one lasts,
-   * whether it rises out of black, and how much farther the camera starts.
+   * whether it rises out of black, and the camera's way in: how much farther
+   * it starts (dolly), how far round (orbit, radians) and how much higher
+   * (rise, radians). A long, slow zoom while the scene turns.
    */
-  intro: { fullMs: number; veil: "black" | "none"; dolly: number };
+  intro: { fullMs: number; veil: "black" | "none" } & IntroPath;
   /** What the view shows and how to read it (info panel). */
   info: string;
   /** Credit for borrowed material, shown in the info panel. */
@@ -62,7 +65,7 @@ export const VIEWS_3D = [
     autoRotateSpeed: 0.25,
     background: "bg-[radial-gradient(ellipse_at_center,var(--surface),var(--bg)_70%)]",
     // Fade to black, then the galaxies grow slowly out of the dark.
-    intro: { fullMs: 3600, veil: "black", dolly: 2.4 },
+    intro: { fullMs: 6000, veil: "black", dolly: 2.6, orbit: 1.2, rise: 0.5 },
     info: "Tiap bidang adalah galaksi dengan lubang hitam di pusatnya, dan tiap cabang sebuah matahari. Planet adalah istilah inti di cabangnya; bulan mengorbit planet yang paling mirip maknanya; batuan adalah istilah yang hubungannya longgar atau belum punya domain. Nama lima bidang terbesar tampil samar; bidang lain muncul saat kamu menyorot atau memilih salah satu istilahnya. Saat “Putar otomatis” aktif, semuanya bergerak di orbitnya.",
     describe: (id, data, terms) => {
       const role = data.roles.get(id);
@@ -81,7 +84,7 @@ export const VIEWS_3D = [
     autoRotateSpeed: 0.6,
     background: SOFT_BACKGROUND,
     // Spins from small to big and lands with a little overshoot.
-    intro: { fullMs: 2600, veil: "none", dolly: 1.3 },
+    intro: { fullMs: 5200, veil: "none", dolly: 2.4, orbit: 0.9, rise: 0.3 },
     info: "Tiap bidang menempati lobus otaknya sendiri (nama lima bidang terbesar tampil samar; bidang lain muncul saat kamu menyorot atau memilih salah satu istilahnya), dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya. Mulai 1.500 istilah, neuron bertambah 500 setiap kali kapasitasnya terlewati.",
     credit: {
       lead: "Bentuk otak:",
@@ -104,7 +107,7 @@ export const VIEWS_3D = [
     autoRotateSpeed: 0.7,
     background: SOFT_BACKGROUND,
     // The frame grows, then the terms bloom out of the middle to their places.
-    intro: { fullMs: 2400, veil: "none", dolly: 1.6 },
+    intro: { fullMs: 4600, veil: "none", dolly: 2.6, orbit: 1, rise: 0.4 },
     info: "Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP menjaga struktur lokal, bukan jarak global.",
     create: () => new CubeScene(),
   },

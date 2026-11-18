@@ -19,7 +19,7 @@ import {
 } from "three";
 import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
 import { groups3d, paddedCloud3d, withoutOutliers3d } from "@/lib/vocab/map3d-model";
-import { easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
+import { easeOutCubic, easeOutQuart, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { extrasOf, fieldOf, groupsOf } from "@/lib/vocab/map-model";
 import {
   colorVar,
@@ -224,11 +224,13 @@ export class CubeScene implements ViewScene {
    */
   intro(t: number, kind: IntroKind) {
     const full = kind === "full";
-    const frame = easeOutCubic(segment(t, 0, full ? 0.45 : 0.6));
+    // The whole cube turns in as the camera comes round, winding down through the intro.
+    this.root.rotation.y = -(1 - easeOutQuart(t)) * (full ? 1.4 : 0.2);
+    const frame = easeOutCubic(segment(t, 0, full ? 0.4 : 0.6));
     const from = full ? 0.001 : 0.85;
     this.frameLines.scale.setScalar(from + (1 - from) * frame);
     this.grid.scale.setScalar(from + (1 - from) * frame);
-    const bloom = easeOutCubic(segment(t, full ? 0.2 : 0, full ? 0.9 : 1));
+    const bloom = easeOutCubic(segment(t, full ? 0.18 : 0, full ? 0.85 : 1));
     const k = (full ? 0 : 0.8) + (full ? 1 : 0.2) * bloom;
     for (const [points, settled] of [
       [this.dots, this.settled?.dots],
@@ -240,8 +242,8 @@ export class CubeScene implements ViewScene {
       for (let i = 0; i < settled.length; i++) array[i] = settled[i] * k;
       attribute.needsUpdate = true;
     }
-    fadeTree(this.regions, segment(t, full ? 0.7 : 0.4, 1));
-    fadeTree(this.rings, segment(t, full ? 0.6 : 0.3, 1));
+    fadeTree(this.regions, segment(t, full ? 0.65 : 0.4, 1));
+    fadeTree(this.rings, segment(t, full ? 0.55 : 0.3, 1));
   }
 
   dispose() {

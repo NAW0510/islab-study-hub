@@ -25,7 +25,7 @@ import {
 import { mulberry32 } from "@/lib/vocab/layout/prng";
 import { termGroups } from "@/lib/vocab/map3d-model";
 import { extrasOf } from "@/lib/vocab/map-model";
-import { easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
+import { easeOutCubic, easeOutQuart, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { bodyPositions, closedSpline, routeControls, spaceLayout, type Body, type Route, type SpaceLayout } from "@/lib/vocab/space-model";
 import {
   canvasTexture,
@@ -566,12 +566,14 @@ export class SpaceScene implements ViewScene {
    */
   intro(t: number, kind: IntroKind) {
     const full = kind === "full";
-    const grow = easeOutCubic(segment(t, full ? 0.14 : 0, 1));
-    const from = full ? 0.035 : 0.86;
+    // The galaxies grow out of a far point while the camera sweeps in, the whole cluster turning
+    // the way the view turns and winding down through the intro.
+    const grow = easeOutCubic(segment(t, full ? 0.08 : 0, full ? 0.92 : 1));
+    const from = full ? 0.03 : 0.86;
     this.content.scale.setScalar(from + (1 - from) * grow);
-    this.content.rotation.y = (1 - grow) * (full ? 1.7 : 0.25);
-    (this.stars.material as PointsMaterial).opacity = 0.75 * segment(t, 0, full ? 0.45 : 0.3);
-    const light = segment(t, full ? 0.3 : 0, full ? 0.75 : 0.5);
+    this.content.rotation.y = -(1 - easeOutQuart(t)) * (full ? 2.6 : 0.25);
+    (this.stars.material as PointsMaterial).opacity = 0.75 * segment(t, 0, full ? 0.4 : 0.3);
+    const light = segment(t, full ? 0.3 : 0, full ? 0.8 : 0.5);
     for (const kindOf of ["planet", "moon", "rock"] as const) (this.bodies[kindOf].material as PointsMaterial).opacity = light;
   }
 

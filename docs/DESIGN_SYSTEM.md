@@ -189,7 +189,7 @@ Pengecualian dari aturan "hanya transform/opacity": animasi ukuran grup bawaan V
 | `components/motion.tsx` | `SharedTitle`, `ListItemMotion`, `ViewSwap`, `SwapMotion`, `SlidingMarker`: pembungkus `<ViewTransition>` dengan kelas `vt-*` di atas |
 | `navbar`, `nav-link`, `nav-number`, `nav-shape` | Navbar atas (`components/shell/navbar.tsx`), di semua halaman, `sticky`. Baris 1: tanda, enam bagian bernomor (mulai 1024 px; di bawahnya tombol "Menu" ke menu layar penuh), Week, jam (mulai 1280 px), tema, akun. Baris 2 hanya bila ada isinya (lihat Sub-tab). Kaca buram di halaman biasa, hampir bening di Perpustakaan dan Peta Otak; solid bila "reduce transparency". Link aktif (`aria-current="page"`) duduk di atas pil kertas terangkat dengan bentuk bagiannya; setiap link menyimpan ruang untuk bentuknya, dan `html` memakai `scrollbar-gutter: stable`, jadi navbar tidak pernah bergeser antara halaman panjang dan halaman layar penuh |
 | `SlideGroup` (`components/slide-group.tsx`) | Baris pilihan dengan satu pil kertas terangkat (`slide-thumb`) yang meluncur ke pilihan aktif lewat transform, di bawah labelnya. Sebelum terukur, item aktif menggambar pilnya sendiri. Dipakai di link navbar, tab Kosakata, 2D/3D, tampilan 3D, Daftar/Kartu, tab Subjek |
-| `NavSlot` (`components/shell/nav-slot.tsx`) | Portal ke baris kedua navbar untuk sakelar yang memegang state halaman (Daftar/Kartu, tampilan 3D, tab Subjek) |
+| `NavSlot` (`components/shell/nav-slot.tsx`) | Portal ke baris kedua navbar: `place="start"` (bawaan) untuk sakelar yang memegang state halaman di samping tab (Daftar/Kartu, tampilan 3D, tab Subjek); `place="end"` untuk alat halaman di ujung kanan (cari, Batas, Gelap/Terang, Putar otomatis, info Peta Otak) |
 | `AccountMenu` (`components/shell/parts.tsx`) | Inisial akun dalam lingkaran di navbar, membuka popover native berisi email + "Keluar" |
 | `ThemeToggle` (`components/shell/theme-toggle.tsx`) | Tombol terang/gelap dengan gelombang |
 | `bob`, `bob-1…3` | Goyangan pelan bentuk di sapaan dashboard dan login; diam bila gerak dikurangi |
@@ -234,6 +234,7 @@ Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`]
 Sub-tab dan sakelar tampilan tinggal di **baris kedua navbar**, bukan di halaman:
 - `VocabTabs` (Daftar · Perpustakaan · Peta Otak · Domain) di semua halaman Kosakata dan `MapViewSwitch` (2D/3D) di Peta Otak, dari rute (`subNavFor`). Navbar tetap terpasang, jadi pilnya meluncur antarhalaman.
 - Lewat `NavSlot`: Daftar/Kartu (`vocab-browser.tsx`), Luar angkasa/Otak/Kubus (`brain-map-3d.tsx`), dan tab Subjek beserta jumlahnya (`UrlTabs`, `?tab=`). Rute subjek membuka baris itu sejak render server (`slotOnly`), jadi navbar tidak membesar terlambat.
+- Di ujung kanan (`NavSlot place="end"`): alat Peta Otak dari `map-chrome.tsx`, yaitu cari ringkas (melebar saat dipakai), Batas, Gelap/Terang (Kubus), Putar otomatis (pil kertas terangkat saat aktif), dan info. Label kata baru tampil di layar lebar (`ResponsiveLabel`: tampilan 3D mulai 1280 px, Gelap/Terang dan Putar otomatis mulai 1536 px); di bawahnya ikon dengan tooltip dan label untuk pembaca layar. Baris kedua `position: relative`, jadi label tersembunyi pun ikut tergulir di dalamnya.
 - Baris kedua muncul halus saat dibuka dan hilang seketika saat ditutup. Di layar sempit bisa digeser ke samping.
 
 ### Istilah multi-domain
@@ -261,7 +262,7 @@ Satu istilah bisa milik beberapa domain (mis. "Allah" di Islam, Katolik, Kristen
 | Gerak | Pindah ke titik 450 ms, perpindahan setelah susun ulang 600 ms. Tanpa animasi saat `prefers-reduced-motion` |
 | Irisan (multi-domain) | Titik istilah multi-domain ikut membentuk wilayah tiap domainnya dan tidak pernah dibuang sebagai pencilan, jadi wilayah-wilayahnya bertumpuk di titik itu seperti diagram Venn. Titik yang terlalu jauh untuk diraih wilayah lain (`OVERLAP_REACH`) dihubungkan dengan sulur putus-putus `4 3`. Titiknya bercincin warna domain lain (satu cincin per domain). Tooltip dan panel: "Juga di: …" |
 
-### Peta Otak layar penuh (`map-stage.tsx`, `map-head.tsx`, `safe-area.ts`)
+### Peta Otak layar penuh (`map-stage.tsx`, `map-chrome.tsx`, `safe-area.ts`)
 
 Keempat tampilan (2D, Luar angkasa, Otak, Kubus) mengisi kolom utama seperti Perpustakaan.
 
@@ -269,8 +270,8 @@ Keempat tampilan (2D, Luar angkasa, Otak, Kubus) mengisi kolom utama seperti Per
 |---|---|
 | Panggung | `MapStage` (`.map-immersive theme-scope`, `data-map-stage`). Kanvas `.map-canvas` menjadi lapisan `fixed` selayar penuh di bawah kaca navbar; halaman meneruskan pointer ke peta kecuali di panel dan kontrol. Kolomnya selebar isi navbar (`90rem`), jadi kepala sejajar dengan navbar |
 | Navbar | Hampir bening di atas peta (`isImmersive`), dengan halo di belakang teks |
-| Panel | Kepala (`MapHead`: penanda bab, judul yang hurufnya naik, deskripsi mulai `md`, pil Kosakata, sakelar 2D/3D), baris kontrol `.map-ui`, legenda, dan statistik melayang sebagai kaca (`.card` di dalam panggung: tembus 82%, blur 14 px). Slider Week `.map-week` menempel di kiri bawah. Statistik `.map-stats` disembunyikan di bawah 48rem |
-| Pusat gambar | `measureSafeArea` mengukur bagian kanvas yang tertutup kepala dan kontrol (atas, maks 45%), legenda di layar lebar (kiri), dan slider Week (bawah, maks 30%). 2D: skala dan pusat dihitung untuk area bebas itu. 3D: kanvas virtual `setViewOffset` berpusat di area bebas, dan `camera.zoom` membingkai gambar untuk tinggi area bebas; panel detail atau sheet yang terbuka hanya menggeser gambar, tidak mengubah ukurannya |
+| Kanvas bersih | Tanpa kepala yang terlihat: tab "Peta Otak" yang aktif di navbar sudah jadi judulnya (`MapHead` hanya `h1` untuk pembaca layar), dan semua kontrol ada di baris kedua navbar. Legenda (`MapLegend`) daftar ringan tanpa kartu di kiri atas kanvas, dengan halo di belakang teks; kolom di layar lebar, baris yang bisa digeser di HP. Statistik (`MapStatsLine`) satu baris di bar Week `.map-week` di kiri bawah, disembunyikan di bawah 48rem. "Cara membaca" (`MapInfoPanel`) panel kaca di bawah navbar sebelah kanan (`--nav-h`), berisi deskripsi tampilan, cara membaca, dan kredit model otak; Esc atau × menutupnya |
+| Pusat gambar | `measureSafeArea` mengukur bagian kanvas yang tertutup navbar dan, di HP, baris legenda (atas, maks 45%), kolom legenda di layar lebar (kiri), dan bar Week (bawah, maks 30%). 2D: skala dan pusat dihitung untuk area bebas itu. 3D: kanvas virtual `setViewOffset` berpusat di area bebas, dan `camera.zoom` membingkai gambar untuk tinggi area bebas, atau lebarnya di layar potret; panel detail atau sheet yang terbuka hanya menggeser gambar, tidak mengubah ukurannya |
 | Tema | Tampilan 3D menulis `data-map-scheme` di `<html>` selama tampil, jadi seluruh halaman, navbar dan panel kaca ikut, memakai tema scene (Luar angkasa selalu gelap), bukan tema aplikasi; pilihan aplikasi kembali saat scene ditinggalkan |
 
 ### Intro Peta Otak (`src/lib/vocab/map/intro.ts`)
@@ -281,12 +282,12 @@ Mengikuti protokol kedatangan MGM: kunjungan baru mendapat intro penuh, kunjunga
 |---|---|
 | Jenis | `introKind`: `instant` saat reduced motion; `short` (800 ms) bila tampilan itu sudah diputar penuh di sesi ini (`sessionStorage` `islab-peta-intro`) atau saat ganti tampilan 3D; selain itu `full` |
 | Tidak menghalangi | Pointer, gulir, atau tombol apa pun langsung melompat ke akhir. Kontrol tetap bisa dipakai selama intro |
-| Shell 3D | Tirai (`veil`, `bg-paper-ink`) memudar keluar di 4–40% waktu, kamera mendekat dari `dolly` × jarak, label muncul di 78–100%, lalu `data-intro="done"` di kanvas. Durasi penuh, tirai, dan `dolly` per tampilan di `scenes/registry.ts` (`intro`) |
-| Luar angkasa (3,6 s) | Tirai hitam memudar, bintang menyala, gugus galaksi tumbuh dari titik (skala 0,035 → 1) sambil berputar spiral, lalu label |
-| Otak (2,6 s) | Berputar dari kecil ke besar (`easeOutBack`, dua putaran yang mengendur); neuron, halo, sinaps, dan jembatan memudar masuk |
-| Kubus (2,4 s) | Rusuk dan grid tumbuh, titik dan cincin mekar dari pusat ke posisinya, lalu wilayah muncul |
-| 2D (2,2 s) | Peta mendekat halus (`g.map2d-zoom` di luar grup milik d3-zoom), garis wilayah tergambar (`pathLength=1` + `stroke-dasharray`), isinya memudar masuk, titik muncul berurutan per Week, label terakhir |
-| Kepala | Huruf "Peta Otak" naik dari dalam katanya (`.map-letter`), panel meluncur masuk (`map-rise`); keduanya diam saat reduced motion |
+| Shell 3D | Zoom panjang sambil berputar. Kamera datang dari lebih jauh (`dolly` × jarak), lebih tinggi (`rise`), dan memutar dari samping (`orbit`) menurut `introCamera`: mendekat pelan–tetap–pelan, putarannya paling cepat di awal lalu mengendur searah "Putar otomatis", dan mendarat tanpa sisa kecepatan supaya putaran otomatis menyambung mulus. Tirai (`veil`, `bg-paper-ink`) memudar keluar di 3–30% waktu, label muncul di 82–100%, lalu `data-intro="done"` di kanvas. Intro singkat memakai jalur yang sama, lebih dekat (`shortPath`). Durasi, tirai, dan jalur per tampilan di `scenes/registry.ts` (`intro`) |
+| Luar angkasa (6 s; dolly 2,6, orbit 1,2, rise 0,5) | Tirai hitam memudar, bintang menyala, gugus galaksi tumbuh dari titik (skala 0,03 → 1) sambil berputar spiral yang mengendur sepanjang intro, benda langit menyala, lalu label. Dolly dibatasi supaya kamera tetap di dalam cangkang bintang |
+| Otak (5,2 s; dolly 2,4, orbit 0,9, rise 0,3) | Tumbuh dari titik (0,06 → 1) sambil berputar satu setengah putaran yang terus mengendur sampai mendarat; neuron, halo, sinaps, dan jembatan memudar masuk bergiliran |
+| Kubus (4,6 s; dolly 2,6, orbit 1, rise 0,4) | Seluruh kubus berputar masuk dan mengendur, rusuk dan grid tumbuh, titik dan cincin mekar dari pusat ke posisinya, lalu wilayah muncul |
+| 2D (2,7 s) | Peta mendekat pelan dari jauh sambil sedikit berputar (skala 0,78 → 1, −4° → 0°, 2,2 s; `g.map2d-zoom` di luar grup milik d3-zoom), garis wilayah tergambar (`pathLength=1` + `stroke-dasharray`), isinya memudar masuk, titik muncul berurutan per Week, label terakhir |
+| Panel | Legenda dan bar Week meluncur masuk (`map-rise`); diam saat reduced motion |
 | Menambah intro scene | `ViewScene.intro?(t, kind)` menerima kemajuan 0–1; `fadeTree(object, share)` memudarkan satu cabang scene dan mengingat opasitas aslinya |
 
 ### Pola Peta Otak 3D (`src/components/vocab/map/brain-map-3d.tsx` + `scenes/`)

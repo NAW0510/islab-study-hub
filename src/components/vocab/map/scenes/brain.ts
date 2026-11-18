@@ -2,7 +2,7 @@ import { BufferGeometry, Color, Float32BufferAttribute, Group, LineBasicMaterial
 import { borderSlots, scaffoldOpacity } from "@/lib/vocab/brain-model";
 import { LAYOUT_3D_CONFIG } from "@/lib/vocab/layout/config";
 import { termGroups } from "@/lib/vocab/map3d-model";
-import { easeOutBack, easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
+import { easeOutCubic, easeOutQuart, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { extrasOf, groupsOf } from "@/lib/vocab/map-model";
 import {
   colorVar,
@@ -275,14 +275,16 @@ export class BrainScene implements ViewScene {
    */
   intro(t: number, kind: IntroKind) {
     const full = kind === "full";
-    const size = easeOutBack(segment(t, 0, full ? 0.82 : 1));
-    const from = full ? 0.05 : 0.85;
+    // Grows out of a point while the camera comes in, spinning the way the view turns and winding down
+    // through the whole intro (one and a half turns), so it is still turning as it lands.
+    const size = easeOutCubic(segment(t, 0, full ? 0.7 : 1));
+    const from = full ? 0.06 : 0.85;
     this.root.scale.setScalar(from + (1 - from) * size);
-    this.root.rotation.y = (1 - easeOutCubic(segment(t, 0, full ? 0.9 : 1))) * (full ? Math.PI * 4 : 0.5);
-    fadeTree(this.lit, segment(t, full ? 0.3 : 0, full ? 0.7 : 0.6));
-    fadeTree(this.halos, segment(t, full ? 0.5 : 0.2, full ? 0.85 : 0.8));
-    fadeTree(this.synapses, segment(t, full ? 0.6 : 0.3, 1));
-    fadeTree(this.bridges, segment(t, full ? 0.65 : 0.3, 1));
+    this.root.rotation.y = -(1 - easeOutQuart(t)) * (full ? Math.PI * 3 : 0.5);
+    fadeTree(this.lit, segment(t, full ? 0.25 : 0, full ? 0.65 : 0.6));
+    fadeTree(this.halos, segment(t, full ? 0.45 : 0.2, 0.8));
+    fadeTree(this.synapses, segment(t, full ? 0.55 : 0.3, full ? 0.95 : 1));
+    fadeTree(this.bridges, segment(t, full ? 0.6 : 0.3, 1));
   }
 
   frame() {
