@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { PageHeader } from "@/components/ui";
 import { BrainMap3DLoader } from "@/components/vocab/map/brain-map-3d-loader";
-import { MapViewSwitch } from "@/components/vocab/map/map-view-switch";
-import { VocabTabs } from "@/components/vocab/vocab-tabs";
+import { MapHead } from "@/components/vocab/map/map-head";
+import { MapStage } from "@/components/vocab/map/map-stage";
 import { requireUser } from "@/lib/auth";
 import { getProfile } from "@/lib/queries";
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
@@ -22,13 +21,8 @@ export default async function VocabMap3DPage() {
   ]);
 
   return (
-    <>
-      <PageHeader
-        title="Peta Otak"
-        description="Tiap istilah satu titik di ruang tiga dimensi. Putar ruangnya untuk melihat kelompok istilah dari sisi lain."
-        actions={<MapViewSwitch active="3d" />}
-      />
-      <VocabTabs active="map" />
+    <MapStage>
+      <MapHead active="3d" description="Tiap istilah satu titik di ruang tiga dimensi. Putar ruangnya untuk melihat kelompok istilah dari sisi lain." />
       {pointsRes.error ? (
         <p className="card px-4 py-3 text-sm text-danger">Peta gagal dimuat: {pointsRes.error.message}</p>
       ) : (
@@ -38,6 +32,6 @@ export default async function VocabMap3DPage() {
           programStart={profile?.program_start ?? DEFAULT_PROGRAM_START}
         />
       )}
-    </>
+    </MapStage>
   );
 }

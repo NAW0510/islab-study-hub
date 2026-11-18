@@ -14,6 +14,7 @@ import type { VocabDomain } from "@/lib/types";
 import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
 import { bridgeFor, placeGuests, regionFor } from "@/lib/vocab/hull";
+import { INTRO_MS, INTRO_SEEN_KEY, introKind, seenViews, type IntroKind } from "@/lib/vocab/map/intro";
 import { placeLabels, type LabelBox } from "@/lib/vocab/labels";
 import { LAYOUT_CONFIG, type LayoutParams } from "@/lib/vocab/layout/config";
 import type { Point } from "@/lib/vocab/layout/normalize";
@@ -33,6 +34,7 @@ import { asDomainColor } from "@/lib/vocab/seed-domains";
 import { EmptyState } from "../../ui";
 import { useToast } from "../../toast";
 import { MapDetailPanel } from "./map-detail-panel";
+import { measureSafeArea, NO_INSETS, type SafeArea } from "./safe-area";
 import { useRelayout, type PlacedPoint } from "./use-relayout";
 
 type Props = {
@@ -43,8 +45,13 @@ type Props = {
 };
 
 type View = { k: number; x: number; y: number };
-/** A term on the map; `rings` are the colours of its extra domains (one term, many domains). */
-type Dot = { id: string; bx: number; by: number; color: string; faded: boolean; rings: string[] };
+/**
+ * A term on the map; `rings` are the colours of its extra domains (one term,
+ * many domains); `delay` is when it appears in the intro (by its Week).
+ */
+type Dot = { id: string; bx: number; by: number; color: string; faded: boolean; rings: string[]; delay: number };
+/** The 2D map's full intro, in milliseconds (the short one is INTRO_MS.short). */
+const MAP2D_INTRO_FULL_MS = 2200;
 type SimNode = { id: string; x: number; y: number; hx: number; hy: number; fx?: number | null; fy?: number | null };
 
 const HIT_RADIUS = 14;
@@ -89,6 +96,7 @@ const DotsLayer = memo(function DotsLayer({
               strokeWidth={ringWidth(k)}
               vectorEffect="non-scaling-stroke"
               className="animate-dot-in"
+              style={{ animationDelay: `${d.delay}s` }}
             />,
             <path
               key={`${d.id}:g${k}`}
@@ -98,6 +106,7 @@ const DotsLayer = memo(function DotsLayer({
               strokeWidth={ringWidth(k) - 3}
               vectorEffect="non-scaling-stroke"
               className="animate-dot-in"
+              style={{ animationDelay: `${d.delay}s` }}
             />,
           ]),
       )}
@@ -110,6 +119,7 @@ const DotsLayer = memo(function DotsLayer({
           strokeOpacity={d.faded ? 0.55 : 1}
           vectorEffect="non-scaling-stroke"
           className="animate-dot-in"
+          style={{ animationDelay: `${d.delay}s` }}
         />
       ))}
     </g>
@@ -133,7 +143,37 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   const hoverRef = useRef<string | null>(null);
 
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const [safe, setSafe] = useState<SafeArea>(NO_INSETS);
   const [view, setView] = useState<View>({ k: 1, x: 0, y: 0 });
+  /**
+   * The map's intro (lib/vocab/map/intro.ts): full once per browser session,
+   * short after that, none with reduced motion. Any input ends it at once.
+   */
+  const [intro, setIntro] = useState<IntroKind | "done">(() => {
+    let seen = new Set<string>();
+    try {
+      seen = seenViews(sessionStorage.getItem(INTRO_SEEN_KEY));
+      if (!seen.has("2d")) sessionStorage.setItem(INTRO_SEEN_KEY, JSON.stringify([...seen, "2d"]));
+    } catch {
+      // storage blocked: every visit is a first one
+    }
+    const kind = introKind({ seen: seen.has("2d"), switching: false, reducedMotion: reducedMotion() });
+    return kind === "instant" ? "done" : kind;
+  });
+  useEffect(() => {
+    if (intro === "done") return;
+    const end = () => setIntro("done");
+    const timer = window.setTimeout(end, (intro === "full" ? MAP2D_INTRO_FULL_MS : INTRO_MS.short) + 200);
+    window.addEventListener("pointerdown", end, { passive: true });
+    window.addEventListener("wheel", end, { passive: true });
+    window.addEventListener("keydown", end);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", end);
+      window.removeEventListener("wheel", end);
+      window.removeEventListener("keydown", end);
+    };
+  }, [intro]);
   const [level, setLevel] = useState<BoundaryLevel>("bidang");
   const [hiddenFields, setHiddenFields] = useState<Set<string>>(() => new Set());
   const [hoverField, setHoverField] = useState<string | null>(null);
@@ -178,17 +218,25 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   const relayout = useRelayout({ current, domains: domainIdx, storedParams: layoutParams });
 
   // Map coordinates [-1, 1]² → "base" screen coordinates (before zooming). The map's y axis points up.
-  const scale = (Math.min(size.w, size.h) / 2) * 0.92;
-  const toBase = useCallback((p: Point): Point => [size.w / 2 + p[0] * scale, size.h / 2 - p[1] * scale], [size.w, size.h, scale]);
+  // Full screen, the picture is centred in the part the floating panels leave free (safe-area.ts).
+  const freeW = Math.max(160, size.w - safe.left - safe.right);
+  const freeH = Math.max(160, size.h - safe.top - safe.bottom);
+  const scale = (Math.min(freeW, freeH) / 2) * 0.92;
+  const centreX = safe.left + freeW / 2;
+  const centreY = safe.top + freeH / 2;
+  const toBase = useCallback((p: Point): Point => [centreX + p[0] * scale, centreY - p[1] * scale], [centreX, centreY, scale]);
 
   const dots = useMemo<Dot[]>(
     () =>
       visible.map((p) => {
         const [bx, by] = toBase([p.map_x as number, p.map_y as number]);
         const rings = extrasOf(p).flatMap((id) => (domainIdx.has(id) ? [colorVar(fieldOf(id, domainIdx))] : []));
-        return { id: p.id, bx, by, color: colorVar(fieldOf(p.domain_id, domainIdx)), faded: p.domain_source === "pending", rings };
+        // In the intro the terms appear in the order they were learned, Week by Week.
+        const spread = intro === "full" ? 1.4 : 0.3;
+        const delay = (intro === "full" ? 0.5 : 0.05) + (spread * Math.min(currentWeek, weekNumberFor(programStart, p.learned_on))) / Math.max(1, currentWeek);
+        return { id: p.id, bx, by, color: colorVar(fieldOf(p.domain_id, domainIdx)), faded: p.domain_source === "pending", rings, delay: intro === "done" ? 0 : delay };
       }),
-    [visible, toBase, domainIdx],
+    [visible, toBase, domainIdx, intro, currentWeek, programStart],
   );
   const dotById = useMemo(() => new Map(dots.map((d) => [d.id, d])), [dots]);
   const pointById = useMemo(() => new Map(placedPoints.map((p) => [p.id, p])), [placedPoints]);
@@ -229,11 +277,18 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    const measure = () => {
+      const next = measureSafeArea(el);
+      setSafe((prev) => (Object.keys(next).every((k) => Math.abs(prev[k as keyof SafeArea] - next[k as keyof SafeArea]) < 1) ? prev : next));
+    };
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       setSize((prev) => (Math.abs(prev.w - width) < 1 && Math.abs(prev.h - height) < 1 ? prev : { w: width, h: height }));
+      measure();
     });
     observer.observe(el);
+    const stage = el.closest("[data-map-stage]");
+    stage?.querySelectorAll(".map-head, .map-ui, .map-week").forEach((panel) => observer.observe(panel));
     return () => observer.disconnect();
   }, []);
 
@@ -595,7 +650,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   return (
     <div className="space-y-3">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="map-ui flex flex-wrap items-center gap-2">
         <form onSubmit={submitSearch} className="relative min-w-48 flex-1" role="search">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
           <input
@@ -671,7 +726,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
       <div className="grid gap-3 lg:grid-cols-[13rem_1fr]">
         {/* Legend + stats: a column beside the map on wide screens; on phones the legend is a
             scrolling row above the map and the stats sit below it. */}
-        <div className="contents lg:flex lg:flex-col lg:gap-3">
+        <div className="map-ui contents lg:flex lg:flex-col lg:gap-3">
           {legend.length > 0 && (
             <ul className="card order-1 flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible" aria-label="Legenda bidang">
               {legend.map((f) => {
@@ -698,7 +753,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
               })}
             </ul>
           )}
-          <dl className="card order-3 grid grid-cols-2 gap-x-4 gap-y-2 p-3 text-xs lg:grid-cols-1">
+          <dl className="map-stats card order-3 grid grid-cols-2 gap-x-4 gap-y-2 p-3 text-xs lg:grid-cols-1">
             <Stat label="Istilah tampil" value={stats.total} />
             <Stat label="Cabang ilmu aktif" value={stats.activeDomains} />
             <Stat label="Baru minggu ini" value={stats.thisWeek} />
@@ -707,12 +762,13 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
         </div>
 
         {/* Map */}
-        <div ref={containerRef} className="card relative order-2 h-[min(70dvh,44rem)] min-h-96 overflow-hidden">
+        <div ref={containerRef} className="map-canvas card relative order-2 h-[min(70dvh,44rem)] min-h-96 overflow-hidden">
           <svg
             ref={svgRef}
             role="img"
             aria-label={`Peta Otak: ${visible.length} istilah dalam ${regions.length} wilayah. Daftar lengkapnya ada di tab Daftar.`}
-            className="absolute inset-0 size-full touch-none select-none"
+            className="map2d absolute inset-0 size-full touch-none select-none"
+            data-intro={intro === "done" ? undefined : intro}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -722,11 +778,15 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
               setHover(null);
             }}
           >
+            {/* The intro's approach: a wrapper, since d3's zoom owns the inner group's transform. */}
+            <g className="map2d-zoom">
             <g ref={groupRef}>
               {!animating &&
                 regions.map((r) => (
                   <path
                     key={r.id}
+                    pathLength={1}
+                    className="map2d-region"
                     d={r.path}
                     fill={r.color}
                     fillOpacity={hoverField === r.fieldId ? 0.22 : 0.09}
@@ -755,6 +815,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
                 )}
               {size.w > 0 && <DotsLayer dots={dots} register={register} />}
             </g>
+            </g>
 
             {/* Overlay in screen coordinates: constant size at any zoom */}
             {!animating && selectedDot && neighbours?.id === selectedId && (
@@ -772,7 +833,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
             {!animating && selectedDot && (
               <circle cx={screen(selectedDot.bx, selectedDot.by)[0]} cy={screen(selectedDot.bx, selectedDot.by)[1]} r={9} fill="none" stroke="var(--text)" strokeWidth={2} />
             )}
-            <g className="pointer-events-none" fontSize={11}>
+            <g className="map2d-labels pointer-events-none" fontSize={11}>
               {labels.regions.map((l) => (
                 <text key={l.id} x={l.x + l.width / 2} y={l.y} textAnchor="middle" dominantBaseline="middle" fill="var(--text)" fontWeight={600} letterSpacing="0.04em"
                   stroke="var(--surface)" strokeWidth={3} paintOrder="stroke" className="uppercase">
@@ -788,7 +849,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
             </g>
           </svg>
 
-          <div className="absolute top-2 left-2 z-10 flex flex-col rounded-control border border-border bg-surface">
+          <div className="map-zoom absolute top-2 left-2 z-10 flex flex-col rounded-control border border-border bg-surface">
             {/* On touch screens a pinch does this; only "show everything" stays. */}
             <button type="button" className="icon-btn pointer-coarse:hidden" aria-label="Perbesar peta" onClick={() => zoomBy(1.6)}>
               <Plus className="size-4" />
@@ -842,7 +903,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
       </div>
 
       {/* Week slider + relayout */}
-      <div className="card flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+      <div className="map-week card flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <button
           type="button"
           className="btn btn-secondary btn-sm"

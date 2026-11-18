@@ -19,11 +19,13 @@ import {
 } from "three";
 import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
 import { groups3d, paddedCloud3d, withoutOutliers3d } from "@/lib/vocab/map3d-model";
+import { easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { extrasOf, fieldOf, groupsOf } from "@/lib/vocab/map-model";
 import {
   colorVar,
   discTexture,
   disposeTree,
+  fadeTree,
   glowTexture,
   HighlightLayer,
   radialTexture,
@@ -80,6 +82,8 @@ export class CubeScene implements ViewScene {
   private labels: GroupLabel[] = [];
   private regionMeshes: { fieldId: string; mesh: Mesh }[] = [];
   private theme: "dark" | "light" = "dark";
+  /** Where the dots and rings belong, for the intro's bloom. */
+  private settled: { dots: Float32Array; rings: Float32Array } | null = null;
 
   constructor() {
     this.dots.renderOrder = 3;
@@ -131,6 +135,10 @@ export class CubeScene implements ViewScene {
     }
     setPoints(this.rings, ringAt, ringColours);
     (this.rings.material as PointsMaterial).blending = theme === "dark" ? AdditiveBlending : NormalBlending;
+    this.settled = {
+      dots: Float32Array.from((this.dots.geometry.getAttribute("position")?.array as Float32Array) ?? []),
+      rings: Float32Array.from((this.rings.geometry.getAttribute("position")?.array as Float32Array) ?? []),
+    };
 
     // Regions: a hull around each field's (or branch's) terms, like the 2D map.
     disposeTree(this.regions);
@@ -207,6 +215,33 @@ export class CubeScene implements ViewScene {
 
   frame() {
     return { target: new Vector3(0, 0, 0), position: new Vector3(2.3, 1.5, 2.7) };
+  }
+
+  /**
+   * Full: the frame grows out of the middle, then the terms bloom from the
+   * middle to their places, and the regions fill in last. Short: a smaller
+   * bloom.
+   */
+  intro(t: number, kind: IntroKind) {
+    const full = kind === "full";
+    const frame = easeOutCubic(segment(t, 0, full ? 0.45 : 0.6));
+    const from = full ? 0.001 : 0.85;
+    this.frameLines.scale.setScalar(from + (1 - from) * frame);
+    this.grid.scale.setScalar(from + (1 - from) * frame);
+    const bloom = easeOutCubic(segment(t, full ? 0.2 : 0, full ? 0.9 : 1));
+    const k = (full ? 0 : 0.8) + (full ? 1 : 0.2) * bloom;
+    for (const [points, settled] of [
+      [this.dots, this.settled?.dots],
+      [this.rings, this.settled?.rings],
+    ] as const) {
+      const attribute = points.geometry.getAttribute("position");
+      if (!attribute || !settled) continue;
+      const array = attribute.array as Float32Array;
+      for (let i = 0; i < settled.length; i++) array[i] = settled[i] * k;
+      attribute.needsUpdate = true;
+    }
+    fadeTree(this.regions, segment(t, full ? 0.7 : 0.4, 1));
+    fadeTree(this.rings, segment(t, full ? 0.6 : 0.3, 1));
   }
 
   dispose() {

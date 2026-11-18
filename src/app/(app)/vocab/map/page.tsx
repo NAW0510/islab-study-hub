@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { PageHeader } from "@/components/ui";
 import { BrainMapLoader } from "@/components/vocab/map/brain-map-loader";
-import { MapViewSwitch } from "@/components/vocab/map/map-view-switch";
-import { VocabTabs } from "@/components/vocab/vocab-tabs";
+import { MapHead } from "@/components/vocab/map/map-head";
+import { MapStage } from "@/components/vocab/map/map-stage";
 import { requireUser } from "@/lib/auth";
 import { getProfile } from "@/lib/queries";
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
@@ -26,13 +25,8 @@ export default async function VocabMapPage() {
   const domains = (domainsRes.data ?? []) as VocabDomain[];
 
   return (
-    <>
-      <PageHeader
-        title="Peta Otak"
-        description="Tiap istilah satu titik. Istilah yang maknanya dekat letaknya berdekatan."
-        actions={<MapViewSwitch active="2d" />}
-      />
-      <VocabTabs active="map" />
+    <MapStage>
+      <MapHead active="2d" description="Tiap istilah satu titik. Istilah yang maknanya dekat letaknya berdekatan." />
       {pointsRes.error ? (
         <p className="card px-4 py-3 text-sm text-danger">Peta gagal dimuat: {pointsRes.error.message}</p>
       ) : (
@@ -43,6 +37,6 @@ export default async function VocabMapPage() {
           layoutParams={(profile?.vocab_layout_params ?? null) as LayoutParams | null}
         />
       )}
-    </>
+    </MapStage>
   );
 }

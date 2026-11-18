@@ -11,7 +11,7 @@ import type BrainMapComponent from "./brain-map";
 const BrainMap = dynamic(() => import("./brain-map"), {
   ssr: false,
   loading: () => (
-    <div className="card flex h-[min(70dvh,44rem)] min-h-96 items-center justify-center text-sm text-muted" role="status">
+    <div className="map-canvas card flex h-[min(70dvh,44rem)] min-h-96 items-center justify-center text-sm text-muted" role="status">
       Memuat peta…
     </div>
   ),

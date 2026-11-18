@@ -2,11 +2,13 @@ import { BufferGeometry, Color, Float32BufferAttribute, Group, LineBasicMaterial
 import { borderSlots, scaffoldOpacity } from "@/lib/vocab/brain-model";
 import { LAYOUT_3D_CONFIG } from "@/lib/vocab/layout/config";
 import { termGroups } from "@/lib/vocab/map3d-model";
+import { easeOutBack, easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { extrasOf, groupsOf } from "@/lib/vocab/map-model";
 import {
   colorVar,
   discTexture,
   disposeTree,
+  fadeTree,
   fieldLabels,
   HighlightLayer,
   radialTexture,
@@ -264,6 +266,23 @@ export class BrainScene implements ViewScene {
   /** The top fields' names, faint; another field's only while one of its terms is in focus (see FIELD_LABELS). */
   groupLabels() {
     return fieldLabels(this.labels.filter((l) => l.count > 0), this.focusFields);
+  }
+
+  /**
+   * Full: the brain spins from small to big (two turns, landing with a small
+   * overshoot), the neurons light up, then the synapses come in. Short: a
+   * quick grow and a quarter turn.
+   */
+  intro(t: number, kind: IntroKind) {
+    const full = kind === "full";
+    const size = easeOutBack(segment(t, 0, full ? 0.82 : 1));
+    const from = full ? 0.05 : 0.85;
+    this.root.scale.setScalar(from + (1 - from) * size);
+    this.root.rotation.y = (1 - easeOutCubic(segment(t, 0, full ? 0.9 : 1))) * (full ? Math.PI * 4 : 0.5);
+    fadeTree(this.lit, segment(t, full ? 0.3 : 0, full ? 0.7 : 0.6));
+    fadeTree(this.halos, segment(t, full ? 0.5 : 0.2, full ? 0.85 : 0.8));
+    fadeTree(this.synapses, segment(t, full ? 0.6 : 0.3, 1));
+    fadeTree(this.bridges, segment(t, full ? 0.65 : 0.3, 1));
   }
 
   frame() {

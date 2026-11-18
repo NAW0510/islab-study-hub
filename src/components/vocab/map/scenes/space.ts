@@ -25,6 +25,7 @@ import {
 import { mulberry32 } from "@/lib/vocab/layout/prng";
 import { termGroups } from "@/lib/vocab/map3d-model";
 import { extrasOf } from "@/lib/vocab/map-model";
+import { easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { bodyPositions, closedSpline, routeControls, spaceLayout, type Body, type Route, type SpaceLayout } from "@/lib/vocab/space-model";
 import {
   canvasTexture,
@@ -174,6 +175,8 @@ const ROUTE_SAMPLES = 160;
  */
 export class SpaceScene implements ViewScene {
   readonly root = new Group();
+  /** Everything but the background stars, so the intro can grow it out of the dark. */
+  private readonly content = new Group();
   private readonly stars: Points;
   private readonly sky = new Group();
   private readonly bodies: Record<Kind, Points>;
@@ -235,7 +238,8 @@ export class SpaceScene implements ViewScene {
     };
     this.bodies = { planet: layer("planet"), moon: layer("moon"), rock: layer("rock") };
     this.marks = new HighlightLayer(this.tex.glow, SIZE.mark);
-    this.root.add(this.stars, this.sky, this.paths, this.bodies.planet, this.bodies.moon, this.bodies.rock, this.marks.root);
+    this.content.add(this.sky, this.paths, this.bodies.planet, this.bodies.moon, this.bodies.rock, this.marks.root);
+    this.root.add(this.stars, this.content);
   }
 
   build(input: SceneInput) {
@@ -553,6 +557,22 @@ export class SpaceScene implements ViewScene {
 
   groupLabels() {
     return [...fieldLabels(this.galaxyLabels, this.focusFields), ...this.sunLabels];
+  }
+
+  /**
+   * Full: the stars come out of the black one by one, then the galaxies,
+   * tiny and far, grow slowly while turning a quarter of a spiral, and the
+   * bodies light up. Short: a small grow and fade.
+   */
+  intro(t: number, kind: IntroKind) {
+    const full = kind === "full";
+    const grow = easeOutCubic(segment(t, full ? 0.14 : 0, 1));
+    const from = full ? 0.035 : 0.86;
+    this.content.scale.setScalar(from + (1 - from) * grow);
+    this.content.rotation.y = (1 - grow) * (full ? 1.7 : 0.25);
+    (this.stars.material as PointsMaterial).opacity = 0.75 * segment(t, 0, full ? 0.45 : 0.3);
+    const light = segment(t, full ? 0.3 : 0, full ? 0.75 : 0.5);
+    for (const kindOf of ["planet", "moon", "rock"] as const) (this.bodies[kindOf].material as PointsMaterial).opacity = light;
   }
 
   frame() {

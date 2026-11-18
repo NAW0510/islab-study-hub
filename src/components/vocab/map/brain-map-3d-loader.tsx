@@ -11,7 +11,7 @@ import type BrainMap3DComponent from "./brain-map-3d";
 const BrainMap3D = dynamic(() => import("./brain-map-3d"), {
   ssr: false,
   loading: () => (
-    <div className="card flex h-[min(70dvh,44rem)] min-h-96 items-center justify-center text-sm text-muted" role="status">
+    <div className="map-canvas card flex h-[min(70dvh,44rem)] min-h-96 items-center justify-center text-sm text-muted" role="status">
       Memuat ruang 3D…
     </div>
   ),
