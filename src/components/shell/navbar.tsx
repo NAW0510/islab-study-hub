@@ -101,9 +101,9 @@ export function Navbar({ email, weekMarker, weekPeriod }: ShellProps) {
         </div>
       </div>
 
-      <div className="navbar-sub">
+      <div className="navbar-sub" data-open={sub ? "" : undefined}>
         <div className="navbar-sub-row no-scrollbar">
-          {sub && <VocabTabs active={sub.vocab} />}
+          {sub?.vocab && <VocabTabs active={sub.vocab} />}
           {sub?.map && <MapViewSwitch active={sub.map} />}
           {/* Switches that hold the page's own state (Daftar/Kartu, the 3D views, a subject's tabs). */}
           <div id={NAV_SLOT_ID} className="navbar-slot" />

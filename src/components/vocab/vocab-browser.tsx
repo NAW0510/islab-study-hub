@@ -12,6 +12,8 @@ import { cn, excerpt, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, inDomain, suggestionsFor } from "@/lib/vocab/format";
 import { ListItemMotion, ViewSwap } from "../motion";
 import { Shape } from "../shape";
+import { NavSlot } from "../shell/nav-slot";
+import { SlideGroup } from "../slide-group";
 import { EmptyState, PageHeader } from "../ui";
 import { useToast } from "../toast";
 import { BulkAdd } from "./bulk-add";
@@ -216,24 +218,19 @@ export function VocabBrowser({
           <option value="baru">Terbaru dulu</option>
           <option value="abjad">Abjad</option>
         </select>
-        <div className="segmented" role="group" aria-label="Tampilan">
-          <button
-            type="button"
-            className="segmented-item"
-            aria-pressed={!cards}
-            onClick={() => setView(undefined)}
-          >
-            <List className="size-4" /> Daftar
-          </button>
-          <button
-            type="button"
-            className="segmented-item"
-            aria-pressed={cards}
-            onClick={() => setView("kartu")}
-          >
-            <LayoutGrid className="size-4" /> Kartu
-          </button>
-        </div>
+        {/* Daftar | Kartu lives in the top bar's second row, next to the Kosakata tabs. */}
+        <NavSlot>
+          <div role="group" aria-label="Tampilan">
+            <SlideGroup className="segmented segmented-sm">
+              <button type="button" className="segmented-item" aria-pressed={!cards} onClick={() => setView(undefined)}>
+                <List className="size-3.5" /> Daftar
+              </button>
+              <button type="button" className="segmented-item" aria-pressed={cards} onClick={() => setView("kartu")}>
+                <LayoutGrid className="size-3.5" /> Kartu
+              </button>
+            </SlideGroup>
+          </div>
+        </NavSlot>
       </div>
 
       <div className="no-scrollbar mb-6 flex gap-1.5 overflow-x-auto" role="group" aria-label="Filter domain">

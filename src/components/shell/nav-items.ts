@@ -45,9 +45,12 @@ export type VocabTab = "list" | "library" | "map" | "domains";
  * (so it renders on the server and stays put between the pages it serves):
  * the Kosakata tabs on every Kosakata page, and the 2D/3D switch on the
  * Peta Otak. Switches that hold a page's own state come through the page's
- * slot instead (nav-slot.tsx). Null: nothing from the route.
+ * slot instead (nav-slot.tsx); `slotOnly` keeps the row open for a page whose
+ * row is all slot (a subject's tabs), so it does not appear late. Null:
+ * no second row.
  */
-export function subNavFor(pathname: string): { vocab: VocabTab; map?: "2d" | "3d" } | null {
+export function subNavFor(pathname: string): { vocab?: VocabTab; map?: "2d" | "3d"; slotOnly?: true } | null {
+  if (/^\/subjects\/[^/]+$/.test(pathname)) return { slotOnly: true };
   if (!isActivePath(pathname, "/vocab")) return null;
   if (isActivePath(pathname, "/vocab/perpustakaan")) return { vocab: "library" };
   if (isActivePath(pathname, "/vocab/domains")) return { vocab: "domains" };

@@ -1406,11 +1406,12 @@ html:has(dialog.mobile-menu[open]) {
     gap: 0.5rem;
     margin-left: auto;
   }
-  /* Row 2: hidden until the route or the page puts something in it; slides sideways on narrow screens. */
+  /* Row 2: open when the route says so (data-open) or the page fills the slot; slides sideways on narrow screens. */
   .navbar-sub {
     display: none;
   }
-  .navbar-sub:has(.navbar-sub-row > :not(.navbar-slot), .navbar-slot > *) {
+  .navbar-sub[data-open],
+  .navbar-sub:has(.navbar-slot > *) {
     display: block;
   }
   /* When it appears (entering Kosakata), it settles in under the first row instead of popping. */

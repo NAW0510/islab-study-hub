@@ -13,6 +13,11 @@ describe("subNavFor", () => {
     expect(subNavFor("/vocab/map/3d")).toEqual({ vocab: "map", map: "3d" });
   });
 
+  it("keeps the row open on a subject's page, whose tabs come through the slot", () => {
+    expect(subNavFor("/subjects/abc-123")).toEqual({ slotOnly: true });
+    expect(subNavFor("/subjects")).toBeNull();
+  });
+
   it("has nothing for other sections, or for paths that only start alike", () => {
     expect(subNavFor("/")).toBeNull();
     expect(subNavFor("/notes")).toBeNull();

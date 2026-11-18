@@ -15,6 +15,8 @@ import { placeLabels } from "@/lib/vocab/labels";
 import { easeInOutCubic, INTRO_MS, INTRO_SEEN_KEY, introKind, seenViews, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { pickNearest, visible3d, type Layout3dData, type Projected } from "@/lib/vocab/map3d-model";
 import { fieldOf, firstSentence, mapStats, MIN_TERMS_FOR_MAP, type BoundaryLevel, type MapPoint } from "@/lib/vocab/map-model";
+import { NavSlot } from "../../shell/nav-slot";
+import { SlideGroup } from "../../slide-group";
 import { EmptyState } from "../../ui";
 import { useToast } from "../../toast";
 import { MapDetailPanel } from "./map-detail-panel";
@@ -611,22 +613,18 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="map-ui flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tampilan 3D">
-          {VIEWS_3D.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={view === key}
-              onClick={() => chooseView(key)}
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-xs font-medium transition-colors",
-                view === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
-              )}
-            >
-              <Icon className="size-3.5" /> {label}
-            </button>
-          ))}
-        </div>
+        {/* The view switch lives in the top bar's second row, next to 2D/3D. */}
+        <NavSlot>
+          <div role="group" aria-label="Tampilan 3D">
+            <SlideGroup className="segmented segmented-sm">
+              {VIEWS_3D.map(({ key, label, Icon }) => (
+                <button key={key} type="button" aria-pressed={view === key} onClick={() => chooseView(key)} className="segmented-item">
+                  <Icon className="size-3.5" /> {label}
+                </button>
+              ))}
+            </SlideGroup>
+          </div>
+        </NavSlot>
         <form onSubmit={submitSearch} className="relative min-w-48 flex-1" role="search">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
           <input
