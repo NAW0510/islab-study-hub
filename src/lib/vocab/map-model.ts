@@ -18,7 +18,15 @@ export type MapPoint = {
   map_x: number | null;
   map_y: number | null;
   map_placed: "layout" | "knn" | null;
+  /**
+   * Extra domains (one term, many domains), oldest first. Optional so older
+   * cached data and fixtures still type-check; read it with extrasOf().
+   */
+  extra_domain_ids?: string[] | null;
 };
+
+/** A map point's extra domains, never undefined. */
+export const extrasOf = (p: Pick<MapPoint, "extra_domain_ids">): string[] => p.extra_domain_ids ?? [];
 
 export type BoundaryLevel = "bidang" | "cabang" | "none";
 

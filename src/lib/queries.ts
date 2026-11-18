@@ -5,7 +5,7 @@ import type { Profile, SubjectRef, TopicRef } from "./types";
 /** Select strings that embed the linked subject and syllabus topic. */
 /** Every vocab_terms column the Kosakata pages show (no vectors, no map columns). */
 export const VOCAB_TERM_COLUMNS =
-  "id, term, aliases, definition, learned_on, domain_id, domain_source, domain_scores, subject_id, syllabus_item_id, note_id, embedded_at, created_at, updated_at";
+  "id, term, aliases, definition, learned_on, domain_id, domain_source, domain_scores, subject_id, syllabus_item_id, note_id, embedded_at, created_at, updated_at, extra_domains:vocab_term_domains(domain_id, created_at)";
 
 export const NOTE_SELECT = "*, subject:subjects(id, title, color), topic:syllabus_items(id, title)";
 export const RESOURCE_SELECT = "*, subject:subjects(id, title, color), topic:syllabus_items(id, title)";

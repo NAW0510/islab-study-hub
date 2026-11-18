@@ -94,10 +94,17 @@ export interface VocabTerm {
   /** Markdown + LaTeX. */
   definition: string;
   learned_on: string;
+  /** The primary domain: colour, map position, cover, and the one classification may change. */
   domain_id: string | null;
   domain_source: DomainSource;
   /** Top classification scores: cosine similarities, never percentages. */
   domain_scores: { domain_id: string; score: number }[] | null;
+  /**
+   * Extra domains the user attached (one term, many domains: "Allah" in
+   * Islam, Katolik and Kristen). Absent when a query did not embed them; read
+   * them with extraDomainIds() (lib/vocab/format.ts).
+   */
+  extra_domains?: { domain_id: string; created_at: string }[] | null;
   subject_id: string | null;
   syllabus_item_id: string | null;
   note_id: string | null;
