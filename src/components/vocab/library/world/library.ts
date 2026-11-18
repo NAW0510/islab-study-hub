@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { mulberry32 } from "@/lib/vocab/layout/prng";
+import { GALLERY_DEPTH, naveHalfWidth } from "@/lib/vocab/library/nave";
 import type { QualityLevel } from "@/lib/vocab/library/quality";
 import type { LayerFrame, WorldLayer } from "./engine";
 import {
@@ -39,7 +40,7 @@ const L = {
   NEAR: 8,
   BAY: 5.2,
   SHELF: 1.45,
-  GALLERY_DEPTH: 1,
+  GALLERY_DEPTH,
   CASE_DEPTH: 0.95,
   TOP: 20,
 };
@@ -376,7 +377,8 @@ export class LibraryLayer implements WorldLayer {
     const rect = this.river.getBoundingClientRect();
     const canvasLeft = this.canvas.getBoundingClientRect().left;
     const U = frame.viewHeight / 9;
-    const nave = Math.max(frame.viewWidth * 0.3, rect.width / 2 + 0.45 * U);
+    // Wide enough that the galleries' rails stand clear of the sheets (lib/vocab/library/nave.ts).
+    const nave = naveHalfWidth(frame.viewWidth, frame.viewHeight, rect.width);
     const centreX = rect.left + rect.width / 2 - canvasLeft - frame.viewWidth / 2;
     const key = `${Math.round(frame.viewHeight / 10)}:${Math.round(nave / 10)}:${this.tier}`;
     if (key !== this.key) {
