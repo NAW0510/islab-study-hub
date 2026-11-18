@@ -17,7 +17,6 @@ import { useToast } from "../toast";
 import { BulkAdd } from "./bulk-add";
 import { DetailDrawer } from "./detail-drawer";
 import { QuickAdd } from "./quick-add";
-import { VocabTabs } from "./vocab-tabs";
 import { TermRowStatus } from "./term-row-status";
 import { VocabCard } from "./vocab-card";
 
@@ -163,8 +162,6 @@ export function VocabBrowser({
         description={`${terms.length} istilah · ${activeDomains} cabang ilmu terpakai · ${newThisWeek} baru minggu ini`}
         actions={<BulkAdd existing={[...existing.keys()]} onSaved={refresh} />}
       />
-      <VocabTabs active="list" />
-
       <div className="mb-6">
         <QuickAdd
           domains={domains}

@@ -144,14 +144,13 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const stats = useMemo(() => mapStats(visible, { programStart, currentWeek, domains: domainIdx }), [visible, programStart, currentWeek, domainIdx]);
   const searchHit = normalizeSearch(query.trim());
 
-  // The head and the glass panels float over the scene, so they take its scheme
-  // (Luar angkasa is always dark), not the app's.
+  // The top bar, the head and the glass panels float over the scene, so they
+  // take its scheme (Luar angkasa is always dark), not the app's.
   useEffect(() => {
-    const stage = hostRef.current?.closest<HTMLElement>("[data-map-stage]");
-    if (!stage) return;
-    stage.dataset.scheme = theme;
+    const root = document.documentElement;
+    root.dataset.mapScheme = theme;
     return () => {
-      delete stage.dataset.scheme;
+      delete root.dataset.mapScheme;
     };
   }, [theme]);
 

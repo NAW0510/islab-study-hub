@@ -1,5 +1,4 @@
-import { MobileMenu } from "@/components/shell/mobile-menu";
-import { Sidebar } from "@/components/shell/sidebar";
+import { Navbar } from "@/components/shell/navbar";
 import { ToastProvider } from "@/components/toast";
 import { requireUser } from "@/lib/auth";
 import { getProfile } from "@/lib/queries";
@@ -14,11 +13,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const shell = { email, weekMarker: marker, weekPeriod: periodLabel };
 
   return (
-    <div className="min-h-dvh md:flex">
-      <Sidebar {...shell} />
-      <MobileMenu {...shell} />
-      <main className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 md:px-10 md:py-10 print:max-w-none print:p-0">
+    <div className="min-h-dvh">
+      <Navbar {...shell} />
+      <main className="min-w-0">
+        <div className="app-column mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 md:px-10 md:py-10 print:max-w-none print:p-0">
           <ToastProvider>{children}</ToastProvider>
         </div>
       </main>
