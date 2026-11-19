@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { NotebookPen, Plus, Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SubjectRef } from "@/lib/types";
 import { useUrlFilters } from "@/lib/use-url-filters";
@@ -58,7 +58,7 @@ export function NoteBrowser({
         title="Catatan"
         description="Semua materi yang sudah kamu pelajari, dalam satu tempat."
         actions={
-          <Link href={newHref} className="btn btn-primary">
+          <Link href={newHref} className="btn btn-ring h-11 px-5">
             <Plus className="size-4" /> Catatan baru
           </Link>
         }
@@ -137,8 +137,12 @@ export function NoteBrowser({
 
       {visible.length === 0 ? (
         <EmptyState
-          icon={NotebookPen}
           title={hasFilters ? "Tidak ada catatan yang cocok" : "Belum ada catatan"}
+          shapes={[
+            ["triangle", "red"],
+            ["circle", "blue"],
+            ["square", "yellow"],
+          ]}
           description={
             hasFilters
               ? "Coba kata kunci lain atau hapus filter."
@@ -153,7 +157,7 @@ export function NoteBrowser({
           }
         />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3.5 md:grid-cols-2">
           {visible.map((n) => (
             <div key={n.id} className="grid">
               {n.card}

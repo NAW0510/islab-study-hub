@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Link2, Plus, UserRound } from "lucide-react";
 import { ProfileForm } from "@/components/profile-form";
+import { Shape } from "@/components/shape";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getProfile } from "@/lib/queries";
@@ -46,20 +47,20 @@ export default async function ReportsPage() {
         description="Weekly Progress untuk mentor IS Lab — dikirim setiap Sabtu atau Minggu. Bisa diunduh sebagai PDF/Word atau dibagikan lewat link."
         actions={
           current ? (
-            <Link href={`/reports/${current.id}`} className="btn btn-primary">
+            <Link href={`/reports/${current.id}`} className="btn btn-ring h-11 px-5">
               Buka laporan {weekLabel(currentWeek)}
             </Link>
           ) : (
-            <Link href={`/reports/new?week=${currentWeek}`} className="btn btn-primary">
+            <Link href={`/reports/new?week=${currentWeek}`} className="btn btn-ring h-11 px-5">
               <Plus className="size-4" /> Buat laporan {weekLabel(currentWeek)}
             </Link>
           )
         }
       />
 
-      <details className="card group mb-8" open={profileIncomplete}>
-        <summary className="flex cursor-pointer list-none items-center gap-3 p-4 [&::-webkit-details-marker]:hidden">
-          <span className="flex size-8 items-center justify-center rounded-full bg-accent-soft text-accent">
+      <details className="card group mb-10" open={profileIncomplete}>
+        <summary className="flex cursor-pointer list-none items-center gap-3.5 rounded-card p-5 [&::-webkit-details-marker]:hidden">
+          <span className="flex size-10 items-center justify-center rounded-control bg-mark-blue-soft text-accent">
             <UserRound className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
@@ -72,9 +73,9 @@ export default async function ReportsPage() {
                     .join(" · ")}
             </span>
           </span>
-          <ChevronRight className="size-4 text-muted transition group-open:rotate-90" />
+          <ChevronRight className="size-4 text-muted transition-transform duration-(--dur-base) group-open:rotate-90" />
         </summary>
-        <div className="border-t border-border p-4">
+        <div className="border-t border-border p-5">
           <ProfileForm profile={profile} />
         </div>
       </details>
@@ -90,22 +91,26 @@ export default async function ReportsPage() {
             <li key={week}>
               <Link
                 href={report ? `/reports/${report.id}` : `/reports/new?week=${week}`}
-                className="flex items-center gap-4 px-4 py-3.5 transition hover:bg-surface-2/60"
+                className="flex items-center gap-4 px-5 py-4 transition-colors first:rounded-t-card hover:bg-surface-2/60"
               >
                 <span
                   className={cn(
-                    "flex size-10 shrink-0 flex-col items-center justify-center rounded-control font-display text-xs font-semibold leading-none",
-                    isCurrent ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted",
+                    "flex size-11 shrink-0 flex-col items-center justify-center rounded-control font-display text-xs font-semibold leading-none tabular-nums",
+                    isCurrent ? "bg-primary text-primary-fg" : "bg-surface-2 text-muted",
                   )}
                 >
-                  {week === 0 ? "On" : <span className="text-base">{week}</span>}
+                  {week === 0 ? "On" : <span className="text-lg">{String(week).padStart(2, "0")}</span>}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-medium">
+                  <span className="flex items-center gap-2 font-display text-[1.0625rem] font-semibold tracking-tight">
                     {weekLabel(week)}
-                    {isCurrent && <span className="ml-2 text-xs font-normal text-accent">minggu ini</span>}
+                    {isCurrent && (
+                      <span className="inline-flex items-center gap-1.5 font-sans text-xs font-medium text-muted">
+                        <Shape kind="x" color="red" className="size-2" /> minggu ini
+                      </span>
+                    )}
                   </span>
-                  <span className="block text-xs text-muted">{formatPeriod(period.start, period.end)}</span>
+                  <span className="block text-[0.8125rem] text-muted">{formatPeriod(period.start, period.end)}</span>
                 </span>
                 {report?.share_token && (
                   <span title="Dibagikan lewat link" className="text-muted">

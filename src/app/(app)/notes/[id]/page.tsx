@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, Pencil } from "lucide-react";
 import { DeleteButton } from "@/components/action-buttons";
 import { Markdown } from "@/components/markdown";
+import { SharedTitle } from "@/components/motion";
 import { ResourceCard } from "@/components/resource-card";
-import { SubjectChip, Tag } from "@/components/ui";
+import { SectionMark } from "@/components/section-mark";
+import { ChapterTitle, SubjectChip, Tag } from "@/components/ui";
 import { deleteNote } from "@/lib/actions/notes";
 import { requireUser } from "@/lib/auth";
 import { NOTE_SELECT, RESOURCE_SELECT } from "@/lib/queries";
@@ -50,9 +52,11 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
   return (
     <article className="mx-auto max-w-3xl">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <Link href="/notes" className="inline-flex items-center gap-1 text-sm text-muted hover:text-text">
-          <ArrowLeft className="size-3.5" /> Catatan
-        </Link>
+        <SectionMark>
+          <Link href="/notes" className="inline-flex items-center gap-1 hover:text-text">
+            <ArrowLeft className="size-3.5" /> Semua catatan
+          </Link>
+        </SectionMark>
         <div className="flex items-center gap-1">
           <Link href={`/notes/${note.id}/edit`} className="btn btn-secondary btn-sm">
             <Pencil className="size-3.5" /> Edit
@@ -65,9 +69,14 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      <header className="mb-8 border-b border-border pb-6">
-        <h1 className="display text-[clamp(1.75rem,1.3rem+2vw,2.5rem)] text-balance">{note.title}</h1>
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
+      <header className="mb-10 border-b border-border pb-7">
+        {/* The same title as on the card that opened this page: it travels here. */}
+        <SharedTitle name={`note-${note.id}`}>
+          <h1 className="display w-fit text-[clamp(2rem,1.35rem+2.6vw,3.25rem)] leading-[1.04] text-balance">
+            {note.title}
+          </h1>
+        </SharedTitle>
+        <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-muted">
           <span className="inline-flex items-center gap-1.5">
             <CalendarDays className="size-4" />
             <time dateTime={note.learned_on}>{formatDate(note.learned_on)}</time>
@@ -98,10 +107,8 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
       <p className="mt-12 text-xs text-muted">Terakhir diubah {formatDate(note.updated_at)}</p>
 
       {terms.length > 0 && (
-        <section className="mt-10 border-t border-border pt-8" aria-labelledby="istilah-terkait">
-          <h2 id="istilah-terkait" className="mb-3 font-display font-semibold tracking-tight">
-            Istilah terkait
-          </h2>
+        <section className="mt-12 border-t border-border pt-8" aria-labelledby="istilah-terkait">
+          <ChapterTitle id="istilah-terkait" number="01" shape="plus" color="yellow" title="Istilah terkait" />
           <ul className="flex flex-wrap gap-2">
             {terms.map((t) => (
               <li key={t.id}>
@@ -122,9 +129,15 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
       )}
 
       {resources.length > 0 && (
-        <section className="mt-10 border-t border-border pt-8">
-          <h2 className="mb-3 font-display font-semibold tracking-tight">Sumber belajar untuk topik ini</h2>
-          <div className="space-y-3">
+        <section className="mt-12 border-t border-border pt-8" aria-labelledby="sumber-topik">
+          <ChapterTitle
+            id="sumber-topik"
+            number={terms.length > 0 ? "02" : "01"}
+            shape="half"
+            color="blue"
+            title="Sumber belajar untuk topik ini"
+          />
+          <div className="space-y-3.5">
             {resources.map((resource) => (
               <ResourceCard key={resource.id} resource={resource} />
             ))}

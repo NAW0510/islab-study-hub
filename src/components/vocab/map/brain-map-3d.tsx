@@ -7,6 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { Info, Loader2, Maximize, Moon, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
 import type { NearestTerm } from "@/lib/actions/vocab";
 import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-template";
+import { currentScheme } from "@/lib/theme";
 import type { VocabDomain } from "@/lib/types";
 import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
@@ -32,7 +33,8 @@ const PANEL_WIDTH = 320;
 const SHEET_SHARE = 0.62;
 const FLY_MS = 450;
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+// The app's scheme (the theme button, else the device) picks the first view and theme.
+const prefersDark = () => currentScheme() === "dark";
 
 function remembered<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -469,8 +471,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   // ── States without a space ──────────────────────────────────────────────
   if (points.length < MIN_TERMS_FOR_MAP) {
     return (
-      <EmptyState
-        icon={Plus}
+      <EmptyState
         title="Peta butuh beberapa istilah dulu"
         description={`Peta Otak terbentuk dari kedekatan makna antaristilah, jadi butuh minimal 5 istilah. Sekarang baru ada ${points.length}.`}
         action={
@@ -483,8 +484,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   }
   if (!webgl) {
     return (
-      <EmptyState
-        icon={Rotate3d}
+      <EmptyState
         title="Browser ini tidak bisa menampilkan 3D"
         description="Tampilan 3D butuh WebGL, yang tidak tersedia atau dimatikan di browser ini. Tampilan 2D tetap bisa dipakai."
         action={

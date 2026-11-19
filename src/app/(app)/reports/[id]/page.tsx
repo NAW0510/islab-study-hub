@@ -5,6 +5,7 @@ import { cache } from "react";
 import { ArrowLeft } from "lucide-react";
 import { ReportDocument } from "@/components/report-document";
 import { ReportToolbar } from "@/components/report-toolbar";
+import { SectionMark } from "@/components/section-mark";
 import { requireUser } from "@/lib/auth";
 import { getOrigin } from "@/lib/origin";
 import { getProfile } from "@/lib/queries";
@@ -34,10 +35,12 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="mx-auto max-w-[210mm]">
-      <div className="mb-4 flex items-center justify-between gap-2 print:hidden">
-        <Link href="/reports" className="inline-flex items-center gap-1 text-sm text-muted hover:text-text">
-          <ArrowLeft className="size-3.5" /> Laporan Mingguan
-        </Link>
+      <div className="mb-5 flex items-center justify-between gap-2 print:hidden">
+        <SectionMark>
+          <Link href="/reports" className="inline-flex items-center gap-1 hover:text-text">
+            <ArrowLeft className="size-3.5" /> Semua laporan
+          </Link>
+        </SectionMark>
         <span
           className={cn(
             "chip",

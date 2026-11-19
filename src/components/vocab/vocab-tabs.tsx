@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { SlidingMarker } from "../motion";
 
 const TABS = [
   { key: "list", href: "/vocab", label: "Daftar" },
@@ -34,20 +35,26 @@ export function VocabTabs({ active, variant = "line" }: { active: VocabTab; vari
     );
   }
   return (
-    <nav aria-label="Bagian Kosakata" className="mb-6 border-b border-border">
+    <nav aria-label="Bagian Kosakata" className="mb-7 border-b border-border">
       {/* The links sit on top of the nav's bottom border; the inner row scrolls sideways on narrow screens. */}
-      <div className="-mb-px flex gap-1 overflow-x-auto">
+      <div className="no-scrollbar -mb-px flex gap-1 overflow-x-auto">
         {TABS.map((tab) => (
           <Link
             key={tab.key}
             href={tab.href}
             aria-current={tab.key === active ? "page" : undefined}
             className={cn(
-              "shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
-              tab.key === active ? "border-accent text-text" : "border-transparent text-muted hover:text-text",
+              "relative shrink-0 px-3.5 py-3 text-[0.9375rem] font-medium whitespace-nowrap transition-colors",
+              tab.key === active ? "text-text" : "text-muted hover:text-text",
             )}
           >
             {tab.label}
+            {/* Every Kosakata page draws this marker under its own tab, so it slides between pages. */}
+            {tab.key === active && (
+              <SlidingMarker name="vocab-tabs-marker">
+                <span aria-hidden="true" className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-text" />
+              </SlidingMarker>
+            )}
           </Link>
         ))}
       </div>
