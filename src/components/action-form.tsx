@@ -62,7 +62,7 @@ export function FormError({ message }: { message: string }) {
   return (
     <p
       role="alert"
-      className="col-span-full basis-full rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger"
+      className="col-span-full basis-full rounded-control bg-danger-soft px-3 py-2 text-sm text-danger"
     >
       {message}
     </p>

@@ -43,10 +43,13 @@ export default async function VocabPage({
     return <DomainOnboarding />;
   }
 
-  const initial = { q: one(sp.q), domain: one(sp.domain), status: one(sp.status), sort: one(sp.sort) };
+  const filters = { q: one(sp.q), domain: one(sp.domain), status: one(sp.status), topic: one(sp.topic), sort: one(sp.sort) };
+  const initial = { ...filters, term: one(sp.term), view: one(sp.view) === "kartu" ? "kartu" : undefined };
   return (
     <VocabBrowser
-      key={JSON.stringify(initial)}
+      // A new filter set from a link starts the browser afresh. The open term and the
+      // view change inside the page, so a refresh after an edit keeps the drawer open.
+      key={JSON.stringify(filters)}
       terms={terms}
       domains={domains}
       subjects={subjects}

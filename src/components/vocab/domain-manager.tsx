@@ -91,7 +91,7 @@ export function DomainManager({ domains, termCounts }: { domains: VocabDomain[];
 
       <dialog
         ref={dialogRef}
-        className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-panel border border-border bg-surface p-5 text-text shadow-xl backdrop:bg-black/40"
+        className="dialog w-[min(32rem,calc(100vw-2rem))]"
         onClose={closeForm}
         onClick={(e) => e.target === e.currentTarget && closeForm()}
       >

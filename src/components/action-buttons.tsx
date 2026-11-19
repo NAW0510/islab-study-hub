@@ -43,7 +43,7 @@ export function DeleteButton({
 
       <dialog
         ref={dialogRef}
-        className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-5 text-text shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-[2px]"
+        className="dialog w-[min(26rem,calc(100vw-2rem))]"
         onClick={(e) => e.target === e.currentTarget && dialogRef.current?.close()}
       >
         <div className="flex gap-3">
@@ -144,7 +144,7 @@ export function StatusCheck({
       className={cn(
         "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition",
         done
-          ? "border-signal-good bg-signal-good text-white"
+          ? "border-signal-good bg-signal-good text-on-signal"
           : status === "in_progress"
             ? "border-signal-warn hover:bg-signal-warn/10"
             : "border-border hover:border-muted",

@@ -16,7 +16,7 @@ export function NoteCard({ note }: { note: NoteWithRefs }) {
           </>
         )}
       </div>
-      <h3 className="font-medium text-balance group-hover:text-accent">
+      <h3 className="font-display font-semibold tracking-tight text-balance group-hover:text-accent">
         <Link href={`/notes/${note.id}`} className="after:absolute after:inset-0">
           {note.title}
         </Link>

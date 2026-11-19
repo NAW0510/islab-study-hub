@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  BookA,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -14,10 +15,11 @@ import {
 import { NoteCard } from "@/components/note-card";
 import { ResourceCard } from "@/components/resource-card";
 import { ProgressBar, StatusBadge, SubjectChip } from "@/components/ui";
+import { TermMarquee, TermMarqueePause } from "@/components/vocab/term-marquee";
 import { requireUser } from "@/lib/auth";
 import { SUBJECT_COLORS } from "@/lib/constants";
 import { getProfile, NOTE_SELECT, RESOURCE_SELECT } from "@/lib/queries";
-import { currentWeekInfo, weekLabel } from "@/lib/report-template";
+import { addDays, currentWeekInfo, weekLabel } from "@/lib/report-template";
 import type { NoteWithRefs, ResourceWithRefs, Subject, SyllabusItem, WeeklyReport } from "@/lib/types";
 import { cn, daysFromToday, formatDate, percent, TIMEZONE, todayISO } from "@/lib/utils";
 
@@ -42,7 +44,19 @@ function isoDaysAgo(days: number) {
 export default async function DashboardPage() {
   const { supabase, email } = await requireUser();
 
-  const [subjectsRes, topicsRes, recentNotesRes, noteCountRes, weekNotesRes, queueRes, profile, reportsRes] = await Promise.all([
+  const [
+    subjectsRes,
+    topicsRes,
+    recentNotesRes,
+    noteCountRes,
+    weekNotesRes,
+    queueRes,
+    profile,
+    reportsRes,
+    termCountRes,
+    nearTermsRes,
+    latestTermsRes,
+  ] = await Promise.all([
     supabase.from("subjects").select("*").order("updated_at", { ascending: false }),
     supabase.from("syllabus_items").select("id, subject_id, title, status, target_date").order("position"),
     supabase
@@ -62,6 +76,23 @@ export default async function DashboardPage() {
       .limit(3),
     getProfile(supabase),
     supabase.from("weekly_reports").select("id, week_number, status"),
+    // Kosakata (spec §9): total, the dates around today (the current Week is
+    // somewhere in today ± 6 days; filtered below once the programme start is
+    // known), and the 20 most recent terms for the strip.
+    supabase.from("vocab_terms").select("id", { count: "exact", head: true }).is("deleted_at", null),
+    supabase
+      .from("vocab_terms")
+      .select("learned_on")
+      .is("deleted_at", null)
+      .gte("learned_on", isoDaysAgo(6))
+      .lte("learned_on", addDays(todayISO(), 6)),
+    supabase
+      .from("vocab_terms")
+      .select("id, term")
+      .is("deleted_at", null)
+      .order("learned_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
   const subjects = (subjectsRes.data ?? []) as Subject[];
@@ -91,7 +122,13 @@ export default async function DashboardPage() {
   const name = profile?.full_name?.split(" ")[0] || email.split("@")[0];
 
   // Weekly report reminder (due every Saturday/Sunday).
-  const { week: currentWeek, marker: weekMark, periodLabel } = currentWeekInfo(profile?.program_start, todayISO());
+  const { week: currentWeek, period, marker: weekMark, periodLabel } = currentWeekInfo(profile?.program_start, todayISO());
+  const termCount = termCountRes.count ?? 0;
+  const termsThisWeek = ((nearTermsRes.data ?? []) as { learned_on: string }[]).filter(
+    (t) => t.learned_on >= period.start && t.learned_on <= period.end,
+  ).length;
+  const latestTerms = (latestTermsRes.data ?? []) as { id: string; term: string }[];
+
   const currentReport = ((reportsRes.data ?? []) as Pick<WeeklyReport, "id" | "week_number" | "status">[]).find(
     (r) => r.week_number === currentWeek,
   );
@@ -133,7 +170,7 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Ringkasan">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label="Ringkasan">
         <Stat
           icon={CheckCircle2}
           label="Topik selesai"
@@ -143,7 +180,27 @@ export default async function DashboardPage() {
         <Stat icon={Target} label="Sedang dipelajari" value={inProgress.length} hint="topik aktif" />
         <Stat icon={NotebookPen} label="Total catatan" value={noteCount} hint={`${subjects.length} subjek`} />
         <Stat icon={Flame} label="Hari belajar" value={`${studyDays}/7`} hint="7 hari terakhir" />
+        <Stat
+          icon={BookA}
+          label="Istilah"
+          value={termCount}
+          hint={`${termsThisWeek} baru minggu ini`}
+          className="col-span-2 sm:col-span-1"
+        />
       </section>
+
+      {latestTerms.length > 0 && (
+        <section className="marquee-host -mt-4" aria-labelledby="istilah-terbaru">
+          <SectionTitle
+            id="istilah-terbaru"
+            title="Istilah terbaru"
+            href="/vocab"
+            linkLabel="Kosakata"
+            extra={<TermMarqueePause />}
+          />
+          <TermMarquee terms={latestTerms} />
+        </section>
+      )}
 
       <div className="grid gap-10 lg:grid-cols-[1fr_20rem]">
         <section>
@@ -258,14 +315,16 @@ function Stat({
   label,
   value,
   hint,
+  className,
 }: {
   icon: typeof Flame;
   label: string;
   value: React.ReactNode;
   hint: string;
+  className?: string;
 }) {
   return (
-    <div className="card p-4">
+    <div className={cn("card p-4", className)}>
       <div className="flex items-center gap-2 text-xs font-medium text-muted">
         <Icon className="size-4" />
         {label}
@@ -276,15 +335,33 @@ function Stat({
   );
 }
 
-function SectionTitle({ title, href, linkLabel }: { title: string; href?: string; linkLabel?: string }) {
+function SectionTitle({
+  id,
+  title,
+  href,
+  linkLabel,
+  extra,
+}: {
+  id?: string;
+  title: string;
+  href?: string;
+  linkLabel?: string;
+  /** Controls shown before the link. */
+  extra?: React.ReactNode;
+}) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
-      <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
-      {href && (
-        <Link href={href} className="inline-flex items-center gap-1 text-sm text-muted hover:text-text">
-          {linkLabel} <ArrowRight className="size-3.5" />
-        </Link>
-      )}
+      <h2 id={id} className="font-display text-lg font-semibold tracking-tight">
+        {title}
+      </h2>
+      <div className="flex items-center gap-1">
+        {extra}
+        {href && (
+          <Link href={href} className="inline-flex items-center gap-1 text-sm text-muted hover:text-text">
+            {linkLabel} <ArrowRight className="size-3.5" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

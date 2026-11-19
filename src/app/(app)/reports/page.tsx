@@ -94,7 +94,7 @@ export default async function ReportsPage() {
               >
                 <span
                   className={cn(
-                    "flex size-10 shrink-0 flex-col items-center justify-center rounded-lg text-xs font-semibold leading-none",
+                    "flex size-10 shrink-0 flex-col items-center justify-center rounded-control font-display text-xs font-semibold leading-none",
                     isCurrent ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted",
                   )}
                 >

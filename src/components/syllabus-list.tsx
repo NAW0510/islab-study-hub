@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, CalendarDays, Library, ListPlus, NotebookPen, Pencil, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, BookA, CalendarDays, Library, ListPlus, NotebookPen, Pencil, Plus } from "lucide-react";
 import {
   addSyllabusItems,
   deleteSyllabusItem,
@@ -16,7 +16,8 @@ import { cn, daysFromToday, formatDate } from "@/lib/utils";
 import { DeleteButton, StatusCheck, StatusSelect } from "./action-buttons";
 import { ActionForm, SubmitButton } from "./action-form";
 
-type Counts = Record<string, { notes: number; resources: number }>;
+type TopicCounts = { notes: number; resources: number; terms: number };
+type Counts = Record<string, TopicCounts>;
 
 export function SyllabusList({
   subjectId,
@@ -80,7 +81,7 @@ function SyllabusRow({
   index: number;
   isFirst: boolean;
   isLast: boolean;
-  counts?: { notes: number; resources: number };
+  counts?: TopicCounts;
   onMove: (direction: "up" | "down") => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -155,6 +156,10 @@ function SyllabusRow({
           <Link href={`/resources?topic=${item.id}`} className="inline-flex items-center gap-1 hover:text-text">
             <Library className="size-3.5" />
             {counts?.resources ?? 0} sumber
+          </Link>
+          <Link href={`/vocab?topic=${item.id}`} className="inline-flex items-center gap-1 hover:text-text">
+            <BookA className="size-3.5" />
+            {counts?.terms ?? 0} istilah
           </Link>
           <Link
             href={`/notes/new?subject=${item.subject_id}&topic=${item.id}`}

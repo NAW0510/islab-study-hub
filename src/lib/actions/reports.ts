@@ -7,6 +7,7 @@ import { requireUser } from "../auth";
 import { addDays, DEFAULT_PROGRAM_START, LEARNING_SECTIONS, PROJECT_SECTIONS } from "../report-template";
 import type { ActionResult, ReportStatus } from "../types";
 import { TIMEZONE } from "../utils";
+import { newTermsLine } from "../vocab/format";
 import { dbError, optDate, optStr, str } from "./form";
 
 const REPORT_FIELDS = [...LEARNING_SECTIONS, ...PROJECT_SECTIONS].map((s) => s.key);
@@ -151,7 +152,7 @@ export async function suggestReportContent(
   const from = `${periodStart}T00:00:00${tzOffset(periodStart)}`;
   const to = `${addDays(periodEnd, 1)}T00:00:00${tzOffset(periodEnd)}`;
 
-  const [completedRes, activeRes, resourcesRes, notesRes] = await Promise.all([
+  const [completedRes, activeRes, resourcesRes, notesRes, termsRes] = await Promise.all([
     supabase
       .from("syllabus_items")
       .select("title, subject:subjects(title)")
@@ -178,6 +179,14 @@ export async function suggestReportContent(
       .gte("learned_on", periodStart)
       .lte("learned_on", periodEnd)
       .order("learned_on"),
+    supabase
+      .from("vocab_terms")
+      .select("term")
+      .is("deleted_at", null)
+      .gte("learned_on", periodStart)
+      .lte("learned_on", periodEnd)
+      .order("learned_on")
+      .order("created_at"),
   ]);
 
   type TopicRow = { title: string; subject: { title: string } | null };
@@ -196,6 +205,9 @@ export async function suggestReportContent(
     const summary = firstSentence(n.content);
     return `- **${n.title}**${summary ? ` — ${summary}` : ""}`;
   });
+  // Spec §9: the week's new Kosakata terms, as one line after the notes.
+  const termsLine = newTermsLine(((termsRes.data ?? []) as { term: string }[]).map((t) => t.term));
+  if (termsLine) learned.push(termsLine);
 
   return { workedOn: worked.join("\n"), learned: learned.join("\n") };
 }

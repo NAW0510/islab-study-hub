@@ -32,6 +32,7 @@ Semua warna ditulis dengan `light-dark(terang, gelap)` dan mengikuti `color-sche
 | `--primary` | `bg-primary` | Tombol utama (pil tinta) | `#0f1216` | `#ececea` |
 | `--accent` | `text-accent`, `bg-accent` | Tautan, nav aktif, fokus, progres | `#2a5bd7` | `#8fb0ff` |
 | `--accent-soft` | `bg-accent-soft` | Sorotan lembut | `#e6edfc` | `#1c2740` |
+| `--scrim` | `bg-scrim` | Peredup halaman di belakang dialog dan drawer | tinta 40% | hitam 60% |
 
 ### Sinyal (status)
 
@@ -44,6 +45,7 @@ Hanya untuk status, dan selalu bersama label teks.
 | `--signal-bad` | Terlambat | `#d03b3b` |
 | `--success` | Teks keberhasilan | `#006300` / `#3ecf5a` |
 | `--danger`, `--danger-soft`, `--danger-fg` | Teks, latar, dan teks tombol untuk aksi berbahaya | lihat CSS |
+| `--on-signal` (`text-on-signal`) | Tanda di atas warna sinyal pekat, mis. centang topik selesai | `#ffffff` / `#14171c` |
 
 ### Palet kategorikal
 
@@ -106,12 +108,38 @@ Aturan pakai:
 | `icon-btn` | Tombol ikon 36 px, minimal 44 px di layar sentuh |
 | `input`, `label`, `hint` | Formulir |
 | `card` | Kartu |
+| `dialog` | `<dialog>` modal: panel `rounded-panel` di atas `--scrim`. Lebarnya diatur di tempat pakai, mis. `dialog w-[min(32rem,calc(100vw-2rem))]` |
+| `segmented` + `segmented-item` (`segmented-sm` untuk versi kecil) | Pilihan 2–4 opsi berbentuk pil. Item aktif ditandai `aria-current="page"` (tautan), `aria-pressed="true"` (tombol), atau `aria-selected="true"` (tab). Dipakai di sakelar Peta 2D/3D, Daftar/Kartu, Tulis/Pratinjau, dan jenis sumber |
+| `BrandMark` (`src/components/shell/brand-mark.tsx`) | Tanda aplikasi (ubin tinta + topi). Ukuran `sm`/`md`/`lg`; dipakai di shell, login, dan `/r/[token]` |
 | `chip` | Chip netral |
 | `chip chip-tone tone-*` | Chip berwarna: latar lembut + titik + teks tinta. Pilihan tone: `tone-domain-1` … `tone-domain-10`, `tone-none`, `tone-good`, `tone-warn`, `tone-bad`, `tone-info` |
 | `RollText` (`src/components/roll-text.tsx`) | Teks bergulir saat hover/fokus untuk item nav dan tombol utama. Salinan teksnya `aria-hidden` |
 | `src/components/shell/` | Sidebar desktop, menu layar penuh mobile, jam, chip Week |
 
 Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`](../src/lib/constants.ts) (`SUBJECT_COLORS`, `STATUS_META`).
+
+### Kartu bolak-balik (`flip-card`)
+
+`VocabCard` (`src/components/vocab/vocab-card.tsx`), tampilan Kartu di Kosakata:
+
+| Unsur | Aturan |
+|---|---|
+| Struktur | `li.flip-card` > `button.flip-card-inner` berisi dua `flip-face` (`flip-back` untuk sisi belakang). `data-flipped` di `li` memutar 180° pada sumbu Y |
+| Interaksi | Tombolnya `aria-pressed`, jadi klik, tap, Enter, dan Spasi membalik. Sisi yang tersembunyi `aria-hidden` |
+| Isi | Depan: Week, istilah, alias, domain atau status. Belakang: ringkasan definisi (`excerpt`); Markdown + rumus lengkap tetap di drawer |
+| Aksi lain | Tombol "Buka detail" di luar bagian yang berputar, supaya tidak ikut terbalik |
+| Gerak | `transform` selama `--dur-slow`; dengan reduced motion sisi langsung berganti |
+
+### Marquee (`marquee`)
+
+`TermMarquee` (`src/components/vocab/term-marquee.tsx`), strip "Istilah terbaru" di dashboard. Komponen server, tanpa JavaScript.
+
+| Unsur | Aturan |
+|---|---|
+| Struktur | `.marquee` berisi dua `.marquee-group` yang sama, masing-masing selebar strip atau lebih, bergeser `translateX(-100%)`, jadi putarannya tanpa sambungan walau isinya sedikit. Grup kedua `aria-hidden` + `inert` |
+| Berhenti | Saat hover, saat ada fokus di dalamnya, dan saat checkbox "Jeda" (`TermMarqueePause`) dicentang. Checkbox dan strip harus berada di dalam pembungkus `.marquee-host` |
+| Kecepatan | 3 detik per istilah, minimal 24 detik per putaran |
+| Reduced motion | Diam, salinan dan tombol Jeda disembunyikan, strip bisa digeser ke samping |
 
 ### Sub-tab
 

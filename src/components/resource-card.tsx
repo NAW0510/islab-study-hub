@@ -33,7 +33,7 @@ export function ResourceCard({ resource }: { resource: ResourceWithRefs }) {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="relative hidden aspect-video w-36 shrink-0 overflow-hidden rounded-lg bg-surface-2 sm:block"
+        className="relative hidden aspect-video w-36 shrink-0 overflow-hidden rounded-control bg-surface-2 sm:block"
         aria-hidden
         tabIndex={-1}
       >

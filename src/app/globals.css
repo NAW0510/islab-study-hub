@@ -39,6 +39,10 @@
   --danger: light-dark(#b42318, #f97066);
   --danger-fg: light-dark(#ffffff, #2b0b08);
   --danger-soft: light-dark(#fdecea, #3a1a17);
+  /* Ink on a solid signal colour, e.g. the tick of a finished topic */
+  --on-signal: light-dark(#ffffff, #14171c);
+  /* Dims the page behind dialogs and drawers */
+  --scrim: light-dark(rgb(15 18 22 / 0.4), rgb(0 0 0 / 0.6));
 
   /*
    * Categorical palette for subjects and (later) vocabulary domains. The order
@@ -139,6 +143,8 @@
   --color-signal-good: var(--signal-good);
   --color-signal-warn: var(--signal-warn);
   --color-signal-bad: var(--signal-bad);
+  --color-on-signal: var(--on-signal);
+  --color-scrim: var(--scrim);
   --color-domain-1: var(--domain-1);
   --color-domain-2: var(--domain-2);
   --color-domain-3: var(--domain-3);
@@ -258,6 +264,15 @@ html:has(dialog.mobile-menu[open]) {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
   }
 
+  /* Modal <dialog>: a panel on a dimmed page. Set the width where it is used. */
+  .dialog {
+    @apply m-auto max-h-[calc(100dvh-2rem)] rounded-panel border border-border bg-surface p-5 text-text shadow-xl;
+  }
+  .dialog::backdrop {
+    background: var(--scrim);
+    backdrop-filter: blur(2px);
+  }
+
   /* Small uppercase label; an optional marker and rule go in front of it. */
   .eyebrow {
     @apply inline-flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;
@@ -326,6 +341,132 @@ html:has(dialog.mobile-menu[open]) {
     }
     :is(a, button):is(:hover, :focus-visible) .roll > span[aria-hidden="true"] {
       transform: translateY(0);
+    }
+  }
+
+  /*
+   * Segmented control: a pill of two to four choices. The active item is a
+   * link with aria-current="page", or a button with aria-pressed="true" (or
+   * aria-selected="true" for tabs).
+   */
+  .segmented {
+    @apply inline-flex shrink-0 rounded-btn border border-border-strong bg-surface p-0.5;
+  }
+  .segmented-item {
+    @apply inline-flex h-9 min-w-14 items-center justify-center gap-1.5 rounded-btn px-4 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:text-text;
+    transition-duration: var(--dur-fast);
+  }
+  .segmented-item:is([aria-current="page"], [aria-pressed="true"], [aria-selected="true"]) {
+    @apply bg-primary text-primary-fg hover:text-primary-fg;
+  }
+  .segmented-item:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .segmented-sm .segmented-item {
+    @apply h-7 min-w-0 px-3 text-xs;
+  }
+  @media (pointer: coarse) {
+    .segmented-item,
+    .segmented-sm .segmented-item {
+      min-height: 2.75rem;
+    }
+  }
+
+  /*
+   * Flip card (components/vocab/vocab-card.tsx): two faces back to back in a
+   * button that turns 180° on Y. Transform only; with reduced motion the
+   * side changes at once.
+   */
+  .flip-card {
+    perspective: 1200px;
+  }
+  .flip-card-inner {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .flip-card[data-flipped] .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+  .flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    transition: border-color var(--dur-fast) var(--ease-std);
+  }
+  .flip-card-inner:hover .flip-face {
+    border-color: var(--border-strong);
+  }
+  .flip-card-inner:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .flip-back {
+    transform: rotateY(180deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flip-card-inner {
+      transition: none;
+    }
+  }
+
+  /*
+   * Marquee strip (components/vocab/term-marquee.tsx). Two identical groups,
+   * each at least as wide as the strip, slide left by their own width, so the
+   * loop has no seam however few items there are. Transform only. It stops on
+   * hover, while something inside has focus, and while the "Jeda" checkbox in
+   * the surrounding `.marquee-host` is ticked. With reduced motion it stands
+   * still, the copy is gone, and the strip scrolls sideways instead.
+   */
+  .marquee {
+    display: flex;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent);
+  }
+  .marquee-group {
+    display: flex;
+    flex-shrink: 0;
+    min-width: 100%;
+    align-items: center;
+    justify-content: space-around;
+    gap: 1.5rem;
+    padding-right: 1.5rem;
+    animation: marquee-slide var(--marquee-duration, 40s) linear infinite;
+  }
+  .marquee:hover .marquee-group,
+  .marquee:focus-within .marquee-group,
+  .marquee-host:has(.marquee-pause:checked) .marquee-group {
+    animation-play-state: paused;
+  }
+  .marquee-toggle:has(:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .marquee-toggle .when-paused,
+  .marquee-host:has(.marquee-pause:checked) .marquee-toggle .when-running {
+    display: none;
+  }
+  .marquee-host:has(.marquee-pause:checked) .marquee-toggle .when-paused {
+    display: block;
+  }
+  @keyframes marquee-slide {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee {
+      overflow-x: auto;
+      mask-image: none;
+    }
+    .marquee-group {
+      animation: none;
+      justify-content: flex-start;
+    }
+    .marquee-group[aria-hidden="true"],
+    .marquee-toggle {
+      display: none;
     }
   }
 

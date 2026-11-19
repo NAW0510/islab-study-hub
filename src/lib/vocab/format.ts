@@ -28,6 +28,16 @@ export function confidenceLabel(term: Pick<VocabTerm, "domain_scores">, domains:
   return CONFIDENCE_LABELS[level];
 }
 
+/**
+ * The line the weekly report autofill adds to "What did you learn or
+ * discover?" (spec §9): "- Istilah baru minggu ini (2): tensor, overfitting".
+ * Empty when no term was learned in the period.
+ */
+export function newTermsLine(terms: readonly string[]): string {
+  const names = terms.map((t) => t.trim()).filter(Boolean);
+  return names.length === 0 ? "" : `- Istilah baru minggu ini (${names.length}): ${names.join(", ")}`;
+}
+
 /** The top suggested domains for a pending term, best first, resolved to rows. */
 export function suggestionsFor(term: Pick<VocabTerm, "domain_scores">, domains: DomainIndex, count = 3): VocabDomain[] {
   return [...(term.domain_scores ?? [])]

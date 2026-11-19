@@ -55,7 +55,7 @@ export function BulkAdd({ existing, onSaved }: { existing: string[]; onSaved: ()
 
       <dialog
         ref={dialogRef}
-        className="m-auto w-[min(44rem,calc(100vw-2rem))] rounded-panel border border-border bg-surface p-5 text-text shadow-xl backdrop:bg-black/40"
+        className="dialog w-[min(44rem,calc(100vw-2rem))]"
         onClick={(e) => e.target === e.currentTarget && close()}
       >
         <h2 className="font-display text-lg font-semibold tracking-tight">Tempel banyak istilah</h2>

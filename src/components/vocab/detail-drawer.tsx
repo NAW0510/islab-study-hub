@@ -89,7 +89,7 @@ export function DetailDrawer({
     <dialog
       ref={dialogRef}
       aria-label={`Detail istilah ${term.term}`}
-      className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(30rem,100vw)] max-w-none overflow-y-auto border-l border-border bg-surface p-0 text-text backdrop:bg-black/30"
+      className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-[min(30rem,100vw)] max-w-none overflow-y-auto border-l border-border bg-surface p-0 text-text backdrop:bg-scrim"
       onClose={onClose}
       onClick={(e) => e.target === e.currentTarget && dialogRef.current?.close()}
     >
