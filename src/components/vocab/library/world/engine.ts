@@ -38,6 +38,12 @@ export type LibraryWorld = {
   transition(kind: "open" | "close", colour: string, swap: () => void): Promise<void>;
   /** "detail" on a term's page: no lens, a quieter camera and thicker fog, so its text reads over the library. */
   setRoute(route: "list" | "detail"): void;
+  /**
+   * The world is now shown (its canvas fades in, see world-host.tsx). With
+   * `rise` the sheets rise into place and a first visit's lens settles from
+   * here; without it (the DOM sheets already showed) they are simply there.
+   */
+  reveal(rise: boolean): void;
   dispose(): void;
 };
 
@@ -76,6 +82,12 @@ type Options = {
   head: HTMLElement;
   river: HTMLElement;
   onFallback: (reason: string) => void;
+  /**
+   * Once, when the world can be shown: the sheets near the screen are drawn
+   * (or entrance.READY_MAX after the first frame). Until then it draws
+   * unseen, so it never appears half made.
+   */
+  onReady?: () => void;
   /** Extra layers (the library, particles, the cursor); built after the scene exists. */
   layers?: (scene: THREE.Scene, camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement, reader: () => ColorReader) => WorldLayer[];
 };
@@ -90,11 +102,11 @@ type Run = {
   resolve: () => void;
 };
 
-const { camera: CAMERA, lens: LENS, transition: TRANSITION } = LIBRARY_CONFIG;
+const { camera: CAMERA, lens: LENS, transition: TRANSITION, entrance: ENTRANCE } = LIBRARY_CONFIG;
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 
-export async function createLibraryWorld({ page, head, river, onFallback, layers }: Options): Promise<LibraryWorld> {
+export async function createLibraryWorld({ page, head, river, onFallback, onReady, layers }: Options): Promise<LibraryWorld> {
   const canvas = document.createElement("canvas");
   canvas.className = "library-canvas";
   canvas.setAttribute("aria-hidden", "true");
@@ -143,7 +155,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
   const startIndex = forcedTier ? Math.max(0, ladder.findIndex((l) => l.tier === forcedTier)) : 0;
   const governor = new QualityGovernor(ladder, startIndex, Boolean(forcedTier));
 
-  // Size and place: the canvas covers the main column (the sidebar may fold and unfold).
+  // Size and place: the canvas covers the main column (the whole width, under the top bar's glass).
   let viewWidth = 1;
   let viewHeight = 1;
   let canvasLeft = 0;
@@ -254,6 +266,11 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
   let frameId = 0;
   let lastMs = 16;
   let intro = 1;
+  // The entrance: drawn unseen until ready, then shown (reveal).
+  let firstFrameAt = -1;
+  let readySent = false;
+  let revealed = false;
+  let revealedAt = 0;
   try {
     intro = sessionStorage.getItem("library-visited") ? 0 : 1;
     sessionStorage.setItem("library-visited", "1");
@@ -348,7 +365,9 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
       fog,
       fogDepth: 2600,
       pan,
-      texturesPerFrame: busy ? 6 : 2,
+      // More per frame while a transition covers the screen, or while the world is still unseen.
+      texturesPerFrame: busy || !revealed ? 6 : 2,
+      rising: revealed,
     });
     const layerFrame: LayerFrame = {
       time: clock,
@@ -370,9 +389,9 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
     };
     for (const layer of extra) layer.update(layerFrame);
 
-    // Lens: settles from a stronger warp on a first visit; the smear follows the scroll.
-    // A term's page keeps the grain only.
-    const settle = intro * Math.max(0, 1 - clock / LENS.SETTLE);
+    // Lens: settles from a stronger warp on a first visit (from the moment the world shows);
+    // the smear follows the scroll. A term's page keeps the grain only.
+    const settle = intro * Math.max(0, 1 - (revealed ? clock - revealedAt : 0) / LENS.SETTLE);
     const lens = 1 - detail;
     const u = composite.material.uniforms;
     u.uBarrel.value = LENS.BARREL * (1 + (LENS.INTRO_WARP - 1) * settle * settle) * lens;
@@ -387,6 +406,20 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
     renderer.setRenderTarget(composite.target);
     renderer.render(scene, camera);
     composite.render(renderer);
+
+    if (!readySent) {
+      if (firstFrameAt < 0) firstFrameAt = clock;
+      if (cards.awakeDrawn || clock - firstFrameAt >= ENTRANCE.READY_MAX) {
+        readySent = true;
+        onReady?.();
+      }
+    }
+  };
+  const reveal = (rise: boolean) => {
+    if (revealed) return;
+    revealed = true;
+    revealedAt = clock;
+    if (!rise) cards.settle();
   };
   frameId = requestAnimationFrame(frame);
 
@@ -401,6 +434,7 @@ export async function createLibraryWorld({ page, head, river, onFallback, layers
     setTheme,
     transition,
     setRoute,
+    reveal,
     dispose() {
       cancelAnimationFrame(frameId);
       run?.resolve();

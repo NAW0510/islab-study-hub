@@ -1,72 +1,54 @@
+"use client";
+
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { SlidingMarker } from "../motion";
+import { useEffect } from "react";
+import type { VocabTab } from "../shell/nav-items";
+import { SlideGroup } from "../slide-group";
+import { preloadLibraryWorld } from "./library/world-preload";
 
 const TABS = [
   { key: "list", href: "/vocab", label: "Daftar" },
   { key: "library", href: "/vocab/perpustakaan", label: "Perpustakaan" },
   { key: "map", href: "/vocab/map", label: "Peta Otak" },
   { key: "domains", href: "/vocab/domains", label: "Domain" },
-] as const;
+] as const satisfies readonly { key: VocabTab; href: string; label: string }[];
 
-export type VocabTab = (typeof TABS)[number]["key"];
+export type { VocabTab };
 
 /**
- * Sub-navigation shared by the Kosakata pages: an underlined row, or (on
- * the Perpustakaan, over its world) a floating glass pill.
+ * The Kosakata pages, in the top bar's second row (navbar.tsx). The bar stays
+ * mounted between them, so the raised pill slides to the new tab. Heading
+ * for the Perpustakaan (pointer over, focus, press) starts loading its world.
  */
-export function VocabTabs({
-  active,
-  variant = "line",
-  inline = false,
-}: {
-  active: VocabTab;
-  variant?: "line" | "pill";
-  /** The pill inside a row of controls (the Peta Otak head) instead of centred on its own line. */
-  inline?: boolean;
-}) {
-  if (variant === "pill") {
-    return (
-      <nav aria-label="Bagian Kosakata" className={inline ? "flex max-w-full min-w-0" : "mb-6 flex justify-center"}>
-        <div className="segmented segmented-glass max-w-full overflow-x-auto no-scrollbar">
-          {TABS.map((tab) => (
+export function VocabTabs({ active }: { active: VocabTab }) {
+  // Idle on another Kosakata page: load the Perpustakaan's world quietly, for a touch or a key that gives no warning.
+  useEffect(() => {
+    if (active === "library") return;
+    const idle = typeof window.requestIdleCallback === "function";
+    const id = idle ? window.requestIdleCallback(() => preloadLibraryWorld(), { timeout: 4000 }) : window.setTimeout(preloadLibraryWorld, 2000);
+    return () => (idle ? window.cancelIdleCallback(id) : window.clearTimeout(id));
+  }, [active]);
+
+  return (
+    <nav aria-label="Bagian Kosakata">
+      <SlideGroup className="segmented segmented-sm">
+        {TABS.map((tab) => {
+          const intent = tab.key === "library" && tab.key !== active ? preloadLibraryWorld : undefined;
+          return (
             <Link
               key={tab.key}
               href={tab.href}
               aria-current={tab.key === active ? "page" : undefined}
               className="segmented-item"
+              onPointerEnter={intent}
+              onFocus={intent}
+              onPointerDown={intent}
             >
               {tab.label}
             </Link>
-          ))}
-        </div>
-      </nav>
-    );
-  }
-  return (
-    <nav aria-label="Bagian Kosakata" className="mb-7 border-b border-border">
-      {/* The links sit on top of the nav's bottom border; the inner row scrolls sideways on narrow screens. */}
-      <div className="no-scrollbar -mb-px flex gap-1 overflow-x-auto">
-        {TABS.map((tab) => (
-          <Link
-            key={tab.key}
-            href={tab.href}
-            aria-current={tab.key === active ? "page" : undefined}
-            className={cn(
-              "relative shrink-0 px-3.5 py-3 text-[0.9375rem] font-medium whitespace-nowrap transition-colors",
-              tab.key === active ? "text-text" : "text-muted hover:text-text",
-            )}
-          >
-            {tab.label}
-            {/* Every Kosakata page draws this marker under its own tab, so it slides between pages. */}
-            {tab.key === active && (
-              <SlidingMarker name="vocab-tabs-marker">
-                <span aria-hidden="true" className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-text" />
-              </SlidingMarker>
-            )}
-          </Link>
-        ))}
-      </div>
+          );
+        })}
+      </SlideGroup>
     </nav>
   );
 }

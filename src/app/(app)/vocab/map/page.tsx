@@ -26,7 +26,7 @@ export default async function VocabMapPage() {
 
   return (
     <MapStage>
-      <MapHead active="2d" description="Tiap istilah satu titik. Istilah yang maknanya dekat letaknya berdekatan." />
+      <MapHead />
       {pointsRes.error ? (
         <p className="card px-4 py-3 text-sm text-danger">Peta gagal dimuat: {pointsRes.error.message}</p>
       ) : (

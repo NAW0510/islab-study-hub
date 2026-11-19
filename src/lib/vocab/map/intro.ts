@@ -27,12 +27,41 @@ export function segment(t: number, from: number, to: number): number {
 }
 
 export const easeOutCubic = (x: number) => 1 - (1 - x) ** 3;
+/** Quick to start, a long gentle landing: a spin winding down. */
+export const easeOutQuart = (x: number) => 1 - (1 - x) ** 4;
 export const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
-/** Settles with a small overshoot (the brain's spin landing). */
-export const easeOutBack = (x: number) => {
-  const c = 1.4;
-  return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2;
+
+/** How a 3D view's camera comes in (scenes/registry.ts › intro). */
+export type IntroPath = {
+  /** How many times its framed distance the camera starts at. */
+  dolly: number;
+  /** How far round it starts, radians (it turns the way "Putar otomatis" does). */
+  orbit: number;
+  /** How much higher it starts, radians. */
+  rise: number;
 };
+
+/**
+ * Where the camera is on its way in at progress t: its distance as a
+ * multiple of the frame's, and how far round and how much higher than the
+ * frame it still is. The zoom is slow, then steady, then slow; the turn is
+ * quickest at first and winds down. Everything lands on the frame at t = 1
+ * with no speed left, so the view hands over to "Putar otomatis" smoothly.
+ */
+export function introCamera(t: number, path: IntroPath): { distance: number; azimuth: number; elevation: number } {
+  const x = clamp01(t);
+  const away = 1 - easeInOutCubic(x);
+  return {
+    distance: 1 + (path.dolly - 1) * away,
+    azimuth: path.orbit * (1 - easeOutCubic(x)),
+    elevation: path.rise * away,
+  };
+}
+
+/** A short intro's path: the same way in, a fifth of the distance and a sixth of the turn. */
+export function shortPath(path: IntroPath): IntroPath {
+  return { dolly: 1 + (path.dolly - 1) * 0.2, orbit: path.orbit / 6, rise: path.rise / 6 };
+}
 
 /** Views whose full intro already played in this session, from storage (tolerates junk). */
 export function seenViews(stored: string | null): Set<string> {

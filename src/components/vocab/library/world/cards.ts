@@ -54,6 +54,8 @@ export type CardFrame = {
   pan: number;
   /** Textures drawn per frame: more while a transition covers the screen. */
   texturesPerFrame: number;
+  /** False while the world is still hidden (its entrance): the sheets wait to rise until it shows. */
+  rising: boolean;
 };
 
 const { sheet: SHEET } = LIBRARY_CONFIG;
@@ -173,6 +175,17 @@ export class CardsLayer {
     return { cards: this.cards.size, awake: this.awake.size, drawn };
   }
 
+  /** Every sheet near the screen has its textures (the world can show itself). */
+  get awakeDrawn() {
+    for (const id of this.awake) if (!this.cards.get(id)?.textures) return false;
+    return true;
+  }
+
+  /** The sheets are simply there, without the entrance (the DOM sheets already showed). */
+  settle() {
+    for (const card of this.cards.values()) card.rise = 1;
+  }
+
   update(frame: CardFrame) {
     const list = [...this.cards.values()];
     this.awake = awakeCards(
@@ -204,7 +217,7 @@ export class CardsLayer {
       const hoverTarget = settled || card.hover > 0.01 ? card.hoverTarget : 0;
       card.hover += (hoverTarget - card.hover) * follow(0.16);
       card.press += (0 - card.press) * follow(0.12);
-      if (card.rise < 1 && card.textures) {
+      if (card.rise < 1 && card.textures && frame.rising) {
         card.riseDelay -= frame.dt;
         if (card.riseDelay <= 0) card.rise = Math.min(1, card.rise + frame.dt / 0.9);
       }

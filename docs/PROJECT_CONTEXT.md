@@ -169,6 +169,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - 🔄 Fase 4 (integrasi Kosakata, tampilan Kartu, sisa redesign) di branch `feat/fase-4-integrasi`, menunggu QA dan merge.
 - 🔄 Restyle Bauhaus (arah labmgm.org) di branch `feat/restyle-bauhaus` (di atas `feat/perpustakaan-kosakata`). Tahap 1 (token, bentuk, tema, fondasi transisi, shell, dashboard, login) disetujui; Tahap 2 (semua halaman lain dan transisinya) selesai, menunggu QA.
 - 🔄 Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro di branch `feat/istilah-multi-domain` (di atas `feat/restyle-bauhaus`). Migrasi `20261118120000_vocab_multi_domain.sql` baru diterapkan di stack **lokal**; remote menunggu konfirmasi. Sampai migrasinya ada di remote, app tetap jalan di data asli (tanpa domain tambahan).
+- 🔄 Navbar atas menggantikan sidebar (branch `feat/navbar-atas`, di atas `feat/istilah-multi-domain`): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab dan sakelar tampilan (tab Kosakata, 2D/3D, tampilan 3D, Daftar/Kartu, tab Subjek), transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan (dunia ditahan sampai siap lalu memudar masuk; surut ke kertas saat keluar). Menunggu QA.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.

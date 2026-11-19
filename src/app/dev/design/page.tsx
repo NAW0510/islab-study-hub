@@ -374,28 +374,54 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
 
       <Block
         title="Navigasi"
-        note="Nomor di navigasi, penanda Week, dan penanda bab. Halaman aktif: pil kertas terangkat; bentuknya meluncur ke halaman baru saat berpindah."
+        note="Navbar atas di semua halaman: nomor bagian, penanda Week, jam, tema, akun. Halaman aktif: pil kertas terangkat yang meluncur ke link baru, dan bentuk bagiannya ikut berpindah. Baris kedua hanya ada bila halaman punya sub-tab atau sakelar tampilan."
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-card border border-border bg-bg p-3">
-            <p className="eyebrow px-3 pb-2">Sidebar desktop</p>
-            <nav aria-label={`Contoh sidebar, ${scheme}`} className="flex flex-col gap-1">
-              {NAV_ITEMS.map(({ label, shape, color }, i) => (
-                <a key={label} href="#" aria-current={i === 0 ? "page" : undefined} className="nav-item">
-                  <span className="nav-number w-5">{navNumber(i)}</span>
-                  <span className="min-w-0 flex-1">
-                    <RollText>{label}</RollText>
+        <div className="grid gap-4">
+          <div className="overflow-x-auto rounded-card border border-border bg-bg">
+            <div className="navbar relative z-0 min-w-[56rem]">
+              <div className="navbar-row">
+                <span className="navbar-brand">
+                  <BrandMark size="sm" />
+                  <span>IS Lab Study Hub</span>
+                </span>
+                <nav aria-label={`Contoh navbar, ${scheme}`} className="ml-3">
+                  <div className="nav-slide slide-group">
+                    {NAV_ITEMS.map(({ href, short, shape, color }, i) => (
+                      <a key={href} href="#" aria-current={i === 3 ? "page" : undefined} className="nav-link">
+                        <span className="nav-number">{navNumber(i)}</span>
+                        <RollText>{short}</RollText>
+                        {i === 3 && <Shape kind={shape} color={color} className="size-2.5" />}
+                      </a>
+                    ))}
+                  </div>
+                </nav>
+                <div className="navbar-tools">
+                  <span className="chip h-[1.875rem] border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text">
+                    <Shape kind="circle" color="blue" className="size-2" />
+                    <span className="font-display tabular-nums">{sample.weekMarker}</span>
                   </span>
-                  <Shape kind={shape} color={color} className="nav-shape size-3" />
-                </a>
-              ))}
-            </nav>
-            <div className="mt-3 flex items-center justify-between border-t border-border px-3 pt-3 text-xs text-muted">
-              <span className="chip h-[1.875rem] border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text">
-                <Shape kind="circle" color="blue" className="size-2" />
-                <span className="font-display tabular-nums">{sample.weekMarker}</span>
-              </span>
-              <span className="font-display tabular-nums">23.41 WIB</span>
+                  <span className="font-display text-xs text-muted tabular-nums">23.41 WIB</span>
+                  <span className="account-btn" aria-hidden="true">
+                    N
+                  </span>
+                </div>
+              </div>
+              <div className="navbar-sub-row">
+                <div className="segmented segmented-sm slide-group">
+                  {["Daftar", "Perpustakaan", "Peta Otak", "Domain"].map((label) => (
+                    <a key={label} href="#" aria-current={label === "Peta Otak" ? "page" : undefined} className="segmented-item">
+                      {label}
+                    </a>
+                  ))}
+                </div>
+                <div className="segmented segmented-sm slide-group">
+                  {["2D", "3D"].map((label) => (
+                    <a key={label} href="#" aria-current={label === "3D" ? "page" : undefined} className="segmented-item">
+                      {label}
+                    </a>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 

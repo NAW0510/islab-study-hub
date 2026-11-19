@@ -7,7 +7,7 @@ import { forceCollide, forceSimulation, forceX, forceY, type Simulation } from "
 import { quadtree } from "d3-quadtree";
 import { select } from "d3-selection";
 import { zoom as d3zoom, zoomIdentity, type ZoomBehavior } from "d3-zoom";
-import { Info, Loader2, Maximize, Minus, Pause, Play, Plus, RefreshCw, Search } from "lucide-react";
+import { Loader2, Maximize, Minus, Pause, Play, Plus, RefreshCw } from "lucide-react";
 import type { NearestTerm } from "@/lib/actions/vocab";
 import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-template";
 import type { VocabDomain } from "@/lib/types";
@@ -31,8 +31,10 @@ import {
   type MapPoint,
 } from "@/lib/vocab/map-model";
 import { asDomainColor } from "@/lib/vocab/seed-domains";
+import { NavSlot } from "../../shell/nav-slot";
 import { EmptyState } from "../../ui";
 import { useToast } from "../../toast";
+import { MapBoundary, MapInfoButton, MapInfoPanel, MapLegend, MapSearch, MapStatsLine } from "./map-chrome";
 import { MapDetailPanel } from "./map-detail-panel";
 import { measureSafeArea, NO_INSETS, type SafeArea } from "./safe-area";
 import { useRelayout, type PlacedPoint } from "./use-relayout";
@@ -51,7 +53,7 @@ type View = { k: number; x: number; y: number };
  */
 type Dot = { id: string; bx: number; by: number; color: string; faded: boolean; rings: string[]; delay: number };
 /** The 2D map's full intro, in milliseconds (the short one is INTRO_MS.short). */
-const MAP2D_INTRO_FULL_MS = 2200;
+const MAP2D_INTRO_FULL_MS = 2700;
 type SimNode = { id: string; x: number; y: number; hx: number; hy: number; fx?: number | null; fy?: number | null };
 
 const HIT_RADIUS = 14;
@@ -185,6 +187,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
   const [animating, setAnimating] = useState(false);
   const [supervised, setSupervised] = useState(Boolean(layoutParams?.supervised));
   const [showInfo, setShowInfo] = useState(false);
+  const closeInfo = useCallback(() => setShowInfo(false), []);
   const [playing, setPlaying] = useState(false);
 
   const domainIdx = useMemo(() => domainIndex(domains), [domains]);
@@ -288,7 +291,10 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
     });
     observer.observe(el);
     const stage = el.closest("[data-map-stage]");
-    stage?.querySelectorAll(".map-head, .map-ui, .map-week").forEach((panel) => observer.observe(panel));
+    stage?.querySelectorAll(".map-ui, .map-week").forEach((panel) => observer.observe(panel));
+    // The top bar's height decides where the free area starts (its second row holds the tools).
+    const bar = document.querySelector("header.navbar");
+    if (bar) observer.observe(bar);
     return () => observer.disconnect();
   }, []);
 
@@ -649,39 +655,15 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="map-ui flex flex-wrap items-center gap-2">
-        <form onSubmit={submitSearch} className="relative min-w-48 flex-1" role="search">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari istilah di peta, lalu Enter"
-            aria-label="Cari istilah di peta"
-            list="map-terms"
-            className="input pl-9"
-          />
-          <datalist id="map-terms">
-            {placedPoints.slice(0, 500).map((p) => (
-              <option key={p.id} value={p.term} />
-            ))}
-          </datalist>
-        </form>
-        <label className="flex items-center gap-2 text-sm text-muted">
-          Batas
-          <select value={level} onChange={(e) => setLevel(e.target.value as BoundaryLevel)} className="input w-auto" aria-label="Tingkat batas wilayah">
-            <option value="bidang">Bidang</option>
-            <option value="cabang">Cabang</option>
-            <option value="none">Tanpa batas</option>
-          </select>
-        </label>
-        <button type="button" className="icon-btn" aria-label="Cara membaca peta" aria-expanded={showInfo} onClick={() => setShowInfo((v) => !v)}>
-          <Info className="size-4" />
-        </button>
-      </div>
+      {/* The tools, at the far end of the top bar's second row. */}
+      <NavSlot place="end">
+        <MapSearch value={query} onChange={setQuery} onSubmit={submitSearch} label="Cari istilah di peta" listId="map-terms" terms={placedPoints} />
+        <MapBoundary value={level} onChange={setLevel} />
+        <MapInfoButton open={showInfo} onToggle={() => setShowInfo((v) => !v)} label="Cara membaca peta" />
+      </NavSlot>
       {showInfo && (
-        <div className="card space-y-2 px-4 py-3 text-sm text-muted">
+        <MapInfoPanel title="Peta Otak 2D" onClose={closeInfo}>
+          <p>Tiap istilah satu titik. Istilah yang maknanya dekat letaknya berdekatan.</p>
           <p>
             Titik yang berdekatan dalam satu wilayah memang mirip maknanya. Jarak antarwilayah yang berjauhan tidak bisa dibaca secara
             presisi, karena UMAP menjaga struktur lokal, bukan jarak global. Seret titik untuk bermain; ia akan kembali ke tempatnya.
@@ -700,7 +682,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
               kalau kamu ingin susunan yang benar-benar baru.
             </p>
           )}
-        </div>
+        </MapInfoPanel>
       )}
 
       {/* Banner: first layout, or the map has grown since the last one */}
@@ -724,41 +706,9 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
       {relayout.state.phase === "error" && <p className="text-sm text-danger">Gagal menyusun peta: {relayout.state.message}</p>}
 
       <div className="grid gap-3 lg:grid-cols-[13rem_1fr]">
-        {/* Legend + stats: a column beside the map on wide screens; on phones the legend is a
-            scrolling row above the map and the stats sit below it. */}
-        <div className="map-ui contents lg:flex lg:flex-col lg:gap-3">
-          {legend.length > 0 && (
-            <ul className="card order-1 flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible" aria-label="Legenda bidang">
-              {legend.map((f) => {
-                const off = hiddenFields.has(f.id);
-                return (
-                  <li key={f.id} className="shrink-0">
-                    <button
-                      type="button"
-                      aria-pressed={!off}
-                      onClick={() => toggleField(f.id)}
-                      onPointerEnter={() => setHoverField(f.id)}
-                      onPointerLeave={() => setHoverField(null)}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-sm whitespace-nowrap hover:bg-surface-2",
-                        off && "opacity-40",
-                      )}
-                    >
-                      <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
-                      <span className="flex-1 truncate">{f.name}</span>
-                      <span className="text-xs text-muted tabular-nums">{f.count}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <dl className="map-stats card order-3 grid grid-cols-2 gap-x-4 gap-y-2 p-3 text-xs lg:grid-cols-1">
-            <Stat label="Istilah tampil" value={stats.total} />
-            <Stat label="Cabang ilmu aktif" value={stats.activeDomains} />
-            <Stat label="Baru minggu ini" value={stats.thisWeek} />
-            <Stat label="Bidang terbesar" value={stats.biggestField ? `${stats.biggestField.name} (${stats.biggestField.count})` : "–"} />
-          </dl>
+        {/* The legend: a light list beside the map on wide screens, a scrolling row above it on phones. */}
+        <div className="map-ui order-1 min-w-0">
+          <MapLegend items={legend} hidden={hiddenFields} onToggle={toggleField} onHover={setHoverField} />
         </div>
 
         {/* Map */}
@@ -938,6 +888,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
           Rapikan per bidang
         </label>
         {advice.kind === "ok" && <RelayoutButton first={false} busy={relayout.busy} progress={progress} onClick={() => runRelayout()} />}
+        <MapStatsLine stats={stats} />
       </div>
     </div>
   );
@@ -948,15 +899,6 @@ function visibleOrHiddenCount(points: MapPoint[], fieldId: string, domains: Read
   return visiblePoints(points, { programStart, week, hiddenFields: new Set(), domains }).filter(
     (p) => (fieldOf(p.domain_id, domains)?.id ?? "none") === fieldId,
   ).length;
-}
-
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
-    </div>
-  );
 }
 
 function RelayoutButton({ first, busy, progress, onClick }: { first: boolean; busy: boolean; progress: number | null; onClick: () => void }) {

@@ -1,29 +1,7 @@
 import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { Shape } from "@/components/shape";
-import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { BrandMark } from "./brand-mark";
-
-/** The mark and the name. `compact` (the phone bar): one line, no subtitle. */
-export function Brand({ compact = false }: { compact?: boolean }) {
-  return (
-    <Link href="/" className={cn("flex min-w-0 items-center rounded-control", compact ? "gap-2.5" : "gap-3")}>
-      <BrandMark size={compact ? "sm" : "md"} />
-      <span className="min-w-0 leading-tight">
-        <span
-          className={cn(
-            "block font-display font-semibold tracking-tight whitespace-nowrap",
-            compact ? "text-[0.9375rem]" : "text-[1.0625rem]",
-          )}
-        >
-          {APP_NAME}
-        </span>
-        {!compact && <span className="block text-xs text-muted">ML &amp; Data Science</span>}
-      </span>
-    </Link>
-  );
-}
 
 /** Current programme week, e.g. "Week 07". Links to the weekly reports. */
 export function WeekChip({ marker, period, className }: { marker: string; period: string; className?: string }) {
@@ -39,6 +17,37 @@ export function WeekChip({ marker, period, className }: { marker: string; period
       <Shape kind="circle" color="blue" className="size-2" />
       <span className="font-display tracking-tight tabular-nums">{marker}</span>
     </Link>
+  );
+}
+
+/**
+ * The account in the top bar: the email's initial in a circle, opening a
+ * small native popover (Esc and a click outside close it) with the email and
+ * "Keluar". The bar's own right edge is where it opens, so it needs no anchor.
+ */
+export function AccountMenu({ email, className }: { email: string; className?: string }) {
+  const initial = (email.trim()[0] ?? "?").toUpperCase();
+  return (
+    <>
+      <button
+        type="button"
+        popoverTarget="account-menu"
+        className={cn("account-btn", className)}
+        aria-label="Akun"
+        title={email}
+      >
+        <span aria-hidden="true">{initial}</span>
+      </button>
+      <div id="account-menu" popover="auto" className="account-menu">
+        <p className="eyebrow">Akun</p>
+        <p className="mt-1.5 truncate text-sm text-text" title={email}>
+          {email}
+        </p>
+        <div className="-mx-2 mt-3 border-t border-border pt-2">
+          <SignOutButton />
+        </div>
+      </div>
+    </>
   );
 }
 

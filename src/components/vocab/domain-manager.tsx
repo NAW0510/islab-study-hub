@@ -13,7 +13,6 @@ import { DeleteButton } from "../action-buttons";
 import { PageHeader } from "../ui";
 import { useToast } from "../toast";
 import { DomainChip } from "./domain-chip";
-import { VocabTabs } from "./vocab-tabs";
 
 /** Manage fields and branches: edit, merge, delete, reclassify (spec §3.5). */
 export function DomainManager({ domains, termCounts }: { domains: VocabDomain[]; termCounts: Record<string, number> }) {
@@ -70,7 +69,6 @@ export function DomainManager({ domains, termCounts }: { domains: VocabDomain[];
           </>
         }
       />
-      <VocabTabs active="domains" />
 
       {fields.length === 0 ? (
         <p className="card px-4 py-8 text-center text-sm text-muted">Belum ada domain.</p>

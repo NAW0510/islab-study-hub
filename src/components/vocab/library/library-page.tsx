@@ -11,7 +11,6 @@ import { excerpt, normalizeSearch } from "@/lib/utils";
 import { domainIndex, domainPath, termDomainIds, type DomainIndex } from "@/lib/vocab/format";
 import { asDomainColor, type DomainColor } from "@/lib/vocab/seed-domains";
 import { EmptyState } from "../../ui";
-import { VocabTabs } from "../vocab-tabs";
 import { FilterSheet, type FilterOption } from "./filter-sheet";
 import { LibraryCard, type LibraryCardData } from "./library-card";
 import { LibraryTerm, type TermPageData } from "./library-term";
@@ -107,7 +106,7 @@ export function LibraryPage({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // The head sticks under the phone's top bar (the shell's sticky header), and at the top on wide screens.
+  // The head sticks right under the app's top bar (the shell's sticky header).
   useEffect(() => {
     const shellHeader = document.querySelector<HTMLElement>("[data-shell-header]");
     const head = headRef.current;
@@ -365,8 +364,6 @@ export function LibraryPage({
       data-room={field ? field.id : undefined}
       data-view={onTermPage ? "term" : field ? "room" : "shelf"}
     >
-      <VocabTabs active="library" variant="pill" />
-
       <div ref={headRef} className="library-head" data-library-head hidden={onTermPage}>
         {field && (
           <div className="flex justify-center">

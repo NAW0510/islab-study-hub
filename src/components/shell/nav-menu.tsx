@@ -8,17 +8,16 @@ import { Shape } from "@/components/shape";
 import { cn } from "@/lib/utils";
 import { LocalClock } from "./local-clock";
 import { isActivePath, NAV_ITEMS, navNumber } from "./nav-items";
-import { Brand, SignOutButton, WeekChip } from "./parts";
-import type { ShellProps } from "./sidebar";
+import type { ShellProps } from "./navbar";
+import { SignOutButton, WeekChip } from "./parts";
 import { ThemeToggle } from "./theme-toggle";
 
 /**
- * Phone navigation: a slim top bar and a full-screen menu of numbered
+ * The top bar's "Menu" below 1024 px: a full-screen menu of numbered
  * sections, each with its shape. The menu is a native modal <dialog>, which
- * traps focus, closes on Esc and returns focus to the "Menu" button. Hidden
- * on desktop (see Sidebar) and in print.
+ * traps focus, closes on Esc and returns focus to the button.
  */
-export function MobileMenu({ email, weekMarker, weekPeriod }: ShellProps) {
+export function NavMenu({ email, weekMarker, weekPeriod, className }: ShellProps & { className?: string }) {
   const pathname = usePathname();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -28,22 +27,16 @@ export function MobileMenu({ email, weekMarker, weekPeriod }: ShellProps) {
   }, [pathname]);
 
   return (
-    <header data-shell-header className="sticky top-0 z-20 border-b border-border bg-bg/90 backdrop-blur md:hidden print:!hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-        <Brand compact />
-        <div className="flex shrink-0 items-center gap-2">
-          <WeekChip marker={weekMarker} period={weekPeriod} className="max-[22rem]:hidden" />
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            aria-haspopup="dialog"
-            onClick={() => dialogRef.current?.showModal()}
-          >
-            <Menu className="size-4" />
-            Menu
-          </button>
-        </div>
-      </div>
+    <>
+      <button
+        type="button"
+        className={cn("btn btn-secondary btn-sm", className)}
+        aria-haspopup="dialog"
+        onClick={() => dialogRef.current?.showModal()}
+      >
+        <Menu className="size-4" />
+        Menu
+      </button>
 
       <dialog ref={dialogRef} className="mobile-menu" aria-label="Menu">
         <div className="flex min-h-dvh flex-col px-5 pt-3 pb-6">
@@ -96,6 +89,6 @@ export function MobileMenu({ email, weekMarker, weekPeriod }: ShellProps) {
           </div>
         </div>
       </dialog>
-    </header>
+    </>
   );
 }

@@ -138,7 +138,7 @@ Bentuk: `circle`, `square`, `triangle`, `plus`, `x`, `spark`, `half`, `quarter`,
 
 ## Tema
 
-`src/lib/theme.ts`. Tanpa pilihan, aplikasi mengikuti perangkat (`color-scheme: light dark`). Tombol tema (`ThemeToggle`, di kaki sidebar, rel Perpustakaan, dan menu HP) menyematkan `data-theme="light"`/`"dark"` di `<html>` dan mengingatnya di `localStorage` (`islab-theme`). Memilih mode yang sama dengan perangkat menghapus pilihan, jadi aplikasi kembali mengikuti perangkat.
+`src/lib/theme.ts`. Tanpa pilihan, aplikasi mengikuti perangkat (`color-scheme: light dark`). Tombol tema (`ThemeToggle`, di navbar atas dan di menu HP) menyematkan `data-theme="light"`/`"dark"` di `<html>` dan mengingatnya di `localStorage` (`islab-theme`). Memilih mode yang sama dengan perangkat menghapus pilihan, jadi aplikasi kembali mengikuti perangkat.
 
 - Script kecil `THEME_SCRIPT` di `<head>` memasang pilihan sebelum halaman tergambar: tidak ada kedipan mode lain.
 - Ikon tombol dipilih CSS (`.theme-icon-*`) sebelum React hidup; `aria-pressed` menyusul.
@@ -151,14 +151,17 @@ Transisi hanya di titik penting, dan dibuat supaya **tidak terasa sebagai transi
 
 1. **Tidak pernah menghalangi.** `::view-transition` memakai `pointer-events: none`, jadi klik dan ketik tetap sampai ke halaman. Navigasi baru memotong transisi yang berjalan.
 2. **Tidak pernah menunda isi.** Halaman berganti seketika (snapshot `root` tidak dianimasikan); hanya bagian yang diberi nama yang bergerak di atasnya, sebentar.
-3. **Selalu ada yang tetap.** Shell bagian dari `root` yang diam. Bila bisa, benda yang sama berpindah tempat.
+3. **Selalu ada yang tetap.** Navbar atas tidak pernah ikut bergerak: ia lapisan View Transition sendiri (`navbar`) di atas halaman dan dunia yang berganti di bawahnya, dan langsung menampilkan keadaan barunya. Bila bisa, benda yang sama berpindah tempat.
 4. **Durasi pendek** (`--vt-*`); satu-satunya gestur panjang adalah gelombang tema.
 5. **Reduced motion atau browser tanpa View Transitions**: semuanya langsung berganti dan tetap berfungsi.
 
 | Momen | Yang terjadi | Di mana |
 |---|---|---|
 | Pindah bagian | Halaman lama memudar 120 ms, halaman baru naik 8 px dalam 200 ms | `src/app/(app)/template.tsx` (`vt-page-out`/`vt-page-in`) |
-| Halaman aktif di nav | Bentuk bagian aktif meluncur ke item baru dan berubah bentuk di jalan | `sidebar.tsx`, nama `nav-active`, kelas `vt-morph` |
+| Halaman aktif di nav | Pil kertas meluncur mendatar ke link baru (`SlideGroup`, transform), bentuk bagiannya ikut berpindah dan berubah bentuk di jalan | `navbar.tsx`, nama `nav-active`, kelas `vt-morph` |
+| Antarhalaman Kosakata | Daftar ↔ Perpustakaan ↔ Peta Otak ↔ Domain: crossfade cepat di tempat, pil tab meluncur di baris kedua navbar | `src/app/(app)/vocab/template.tsx` (`vt-swap`) |
+| Masuk Perpustakaan | Sungai ditahan di atas kertas sejak paint pertama sementara dunia menggambar tanpa terlihat; lalu kanvas memudar masuk dan lembar naik. Paling lama 1,2 detik; lewat dari itu kartu DOM tampil dan dunia yang terlambat ber-crossfade masuk. Engine mulai dimuat saat link Perpustakaan disorot/difokus/ditekan, atau saat idle di halaman Kosakata lain | `world-host.tsx`, `world-preload.ts`, `entrance` di `library/config.ts` |
+| Keluar dari dunia | Kanvas Perpustakaan (`library-world`) atau Peta Otak (`map-world`) surut ke kertas (memudar + mengecil 1,5%, 320 ms) di bawah halaman baru yang naik di depannya. Antara dua tampilan dunia yang sama (2D ↔ 3D, halaman di dalam Perpustakaan) yang hidup langsung tetap | `globals.css` › view transitions |
 | Memuat | Skeleton tak terlihat bila < 250 ms; bila sempat tampil, ia larut di atas halaman yang datang | `(app)/loading.tsx` (`vt-skeleton-out`) |
 | Dialog | Muncul sedikit dari bawah dan lebih kecil (160 ms), menutup lebih cepat (120 ms), backdrop ikut | `.dialog` (`@starting-style`) |
 | Bar progres | Isian meluncur ke nilai baru | `ProgressBar` (`.progress-fill`, translate) |
@@ -184,7 +187,10 @@ Pengecualian dari aturan "hanya transform/opacity": animasi ukuran grup bawaan V
 | `SectionMark` (`components/section-mark.tsx`) | Penanda bab bagian saat ini, dibaca dari URL; dipakai juga di atas halaman catatan dan laporan |
 | `EmptyState` (`components/ui.tsx`) | Lembar putus-putus dengan tiga bentuk kecil yang bergoyang pelan (`shapes` memilih bentuk bagiannya), judul, satu baris bantuan, aksi |
 | `components/motion.tsx` | `SharedTitle`, `ListItemMotion`, `ViewSwap`, `SwapMotion`, `SlidingMarker`: pembungkus `<ViewTransition>` dengan kelas `vt-*` di atas |
-| `nav-item`, `nav-number`, `nav-shape`, `nav-rail` | Item navigasi; yang aktif (`aria-current="page"`) pil kertas terangkat dengan bentuk penuh |
+| `navbar`, `nav-link`, `nav-number`, `nav-shape` | Navbar atas (`components/shell/navbar.tsx`), di semua halaman, `sticky`. Baris 1: tanda, enam bagian bernomor (mulai 1024 px; di bawahnya tombol "Menu" ke menu layar penuh), Week, jam (mulai 1280 px), tema, akun. Baris 2 hanya bila ada isinya (lihat Sub-tab). Kaca buram di halaman biasa, hampir bening di Perpustakaan dan Peta Otak; solid bila "reduce transparency". Link aktif (`aria-current="page"`) duduk di atas pil kertas terangkat dengan bentuk bagiannya; setiap link menyimpan ruang untuk bentuknya, dan `html` memakai `scrollbar-gutter: stable`, jadi navbar tidak pernah bergeser antara halaman panjang dan halaman layar penuh |
+| `SlideGroup` (`components/slide-group.tsx`) | Baris pilihan dengan satu pil kertas terangkat (`slide-thumb`) yang meluncur ke pilihan aktif lewat transform, di bawah labelnya. Sebelum terukur, item aktif menggambar pilnya sendiri. Dipakai di link navbar, tab Kosakata, 2D/3D, tampilan 3D, Daftar/Kartu, tab Subjek |
+| `NavSlot` (`components/shell/nav-slot.tsx`) | Portal ke baris kedua navbar: `place="start"` (bawaan) untuk sakelar yang memegang state halaman di samping tab (Daftar/Kartu, tampilan 3D, tab Subjek); `place="end"` untuk alat halaman di ujung kanan (cari, Batas, Gelap/Terang, Putar otomatis, info Peta Otak) |
+| `AccountMenu` (`components/shell/parts.tsx`) | Inisial akun dalam lingkaran di navbar, membuka popover native berisi email + "Keluar" |
 | `ThemeToggle` (`components/shell/theme-toggle.tsx`) | Tombol terang/gelap dengan gelombang |
 | `bob`, `bob-1…3` | Goyangan pelan bentuk di sapaan dashboard dan login; diam bila gerak dikurangi |
 | `icon-btn` | Tombol ikon 36 px, minimal 44 px di layar sentuh |
@@ -192,11 +198,11 @@ Pengecualian dari aturan "hanya transform/opacity": animasi ukuran grup bawaan V
 | `card` | Kartu |
 | `dialog` | `<dialog>` modal: panel `rounded-panel` di atas `--scrim`. Lebarnya diatur di tempat pakai, mis. `dialog w-[min(32rem,calc(100vw-2rem))]` |
 | `segmented` + `segmented-item` (`segmented-sm` untuk versi kecil) | Pilihan 2–4 opsi berbentuk pil. Item aktif ditandai `aria-current="page"` (tautan), `aria-pressed="true"` (tombol), atau `aria-selected="true"` (tab). Dipakai di sakelar Peta 2D/3D, Daftar/Kartu, Tulis/Pratinjau, dan jenis sumber |
-| `BrandMark` (`src/components/shell/brand-mark.tsx`) | Tanda aplikasi (empat bentuk Bauhaus). Ukuran `sm`/`md`/`lg`; dipakai di shell, login, dan `/r/[token]` |
+| `BrandMark` (`src/components/shell/brand-mark.tsx`) | Tanda aplikasi (empat bentuk Bauhaus). Ukuran `sm`/`md`/`lg`; dipakai di navbar, login, dan `/r/[token]` |
 | `chip` | Chip netral |
 | `chip chip-tone tone-*` | Chip berwarna: latar lembut + penanda berbentuk + teks tinta. Pilihan tone: `tone-domain-1` … `tone-domain-10`, `tone-none`, `tone-good`, `tone-warn`, `tone-bad`, `tone-info`. Bentuk penandanya di tabel palet dan sinyal |
 | `RollText` (`src/components/roll-text.tsx`) | Teks bergulir saat hover/fokus untuk item nav dan tombol utama. Salinan teksnya `aria-hidden` |
-| `src/components/shell/` | Sidebar desktop, menu layar penuh mobile, jam, chip Week |
+| `src/components/shell/` | Navbar atas (`navbar.tsx`), menu layar penuh di bawah 1024 px (`nav-menu.tsx`), isi baris kedua per rute (`subNavFor` di `nav-items.ts`), jam, chip Week |
 
 Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`](../src/lib/constants.ts) (`SUBJECT_COLORS`, `STATUS_META`).
 
@@ -225,7 +231,11 @@ Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`]
 
 ### Sub-tab
 
-`VocabTabs` (`src/components/vocab/vocab-tabs.tsx`): garis bawah tinta di bawah tab aktif yang meluncur antarhalaman Kosakata, `aria-current="page"`, baris bisa digeser ke samping di layar sempit. Di Perpustakaan dan Peta Otak menjadi pil kaca (`variant="pill"`; `inline` untuk pil di dalam baris kontrol). `UrlTabs` (tab di halaman subjek) memakai garis yang sama.
+Sub-tab dan sakelar tampilan tinggal di **baris kedua navbar**, bukan di halaman:
+- `VocabTabs` (Daftar · Perpustakaan · Peta Otak · Domain) di semua halaman Kosakata dan `MapViewSwitch` (2D/3D) di Peta Otak, dari rute (`subNavFor`). Navbar tetap terpasang, jadi pilnya meluncur antarhalaman.
+- Lewat `NavSlot`: Daftar/Kartu (`vocab-browser.tsx`), Luar angkasa/Otak/Kubus (`brain-map-3d.tsx`), dan tab Subjek beserta jumlahnya (`UrlTabs`, `?tab=`). Rute subjek membuka baris itu sejak render server (`slotOnly`), jadi navbar tidak membesar terlambat.
+- Di ujung kanan (`NavSlot place="end"`): alat Peta Otak dari `map-chrome.tsx`, yaitu cari ringkas (melebar saat dipakai), Batas, Gelap/Terang (Kubus), Putar otomatis (pil kertas terangkat saat aktif), dan info. Label kata baru tampil di layar lebar (`ResponsiveLabel`: tampilan 3D mulai 1280 px, Gelap/Terang dan Putar otomatis mulai 1536 px); di bawahnya ikon dengan tooltip dan label untuk pembaca layar. Baris kedua `position: relative`, jadi label tersembunyi pun ikut tergulir di dalamnya.
+- Baris kedua muncul halus saat dibuka dan hilang seketika saat ditutup. Di layar sempit bisa digeser ke samping.
 
 ### Istilah multi-domain
 
@@ -252,17 +262,17 @@ Satu istilah bisa milik beberapa domain (mis. "Allah" di Islam, Katolik, Kristen
 | Gerak | Pindah ke titik 450 ms, perpindahan setelah susun ulang 600 ms. Tanpa animasi saat `prefers-reduced-motion` |
 | Irisan (multi-domain) | Titik istilah multi-domain ikut membentuk wilayah tiap domainnya dan tidak pernah dibuang sebagai pencilan, jadi wilayah-wilayahnya bertumpuk di titik itu seperti diagram Venn. Titik yang terlalu jauh untuk diraih wilayah lain (`OVERLAP_REACH`) dihubungkan dengan sulur putus-putus `4 3`. Titiknya bercincin warna domain lain (satu cincin per domain). Tooltip dan panel: "Juga di: …" |
 
-### Peta Otak layar penuh (`map-stage.tsx`, `map-head.tsx`, `safe-area.ts`)
+### Peta Otak layar penuh (`map-stage.tsx`, `map-chrome.tsx`, `safe-area.ts`)
 
 Keempat tampilan (2D, Luar angkasa, Otak, Kubus) mengisi kolom utama seperti Perpustakaan.
 
 | Unsur | Aturan |
 |---|---|
-| Panggung | `MapStage` (`.map-immersive theme-scope`, `data-map-stage`) mengukur `--stage-left` (kolom utama) dan `--stage-top` (header HP). Kanvas `.map-canvas` menjadi lapisan `fixed` di belakang semuanya; halaman meneruskan pointer ke peta kecuali di panel dan kontrol |
-| Shell | `/vocab/map*` masuk `IMMERSIVE` di `sidebar.tsx`: sidebar menciut jadi rel |
-| Panel | Kepala (`MapHead`: penanda bab, judul yang hurufnya naik, deskripsi mulai `md`, pil Kosakata, sakelar 2D/3D), baris kontrol `.map-ui`, legenda, dan statistik melayang sebagai kaca (`.card` di dalam panggung: tembus 82%, blur 14 px). Slider Week `.map-week` menempel di kiri bawah. Statistik `.map-stats` disembunyikan di bawah 48rem |
-| Pusat gambar | `measureSafeArea` mengukur bagian kanvas yang tertutup kepala dan kontrol (atas, maks 45%), legenda di layar lebar (kiri), dan slider Week (bawah, maks 30%). 2D: skala dan pusat dihitung untuk area bebas itu. 3D: kanvas virtual `setViewOffset` berpusat di area bebas, dan `camera.zoom` membingkai gambar untuk tinggi area bebas; panel detail atau sheet yang terbuka hanya menggeser gambar, tidak mengubah ukurannya |
-| Tema | Tampilan 3D menulis `data-scheme` di panggung, jadi kepala dan panel kaca mengikuti tema scene (Luar angkasa selalu gelap), bukan tema aplikasi. Panggung `theme-scope` karena `light-dark()` di token sudah terselesaikan di `:root` |
+| Panggung | `MapStage` (`.map-immersive theme-scope`, `data-map-stage`). Kanvas `.map-canvas` menjadi lapisan `fixed` selayar penuh di bawah kaca navbar; halaman meneruskan pointer ke peta kecuali di panel dan kontrol. Kolomnya selebar isi navbar (`90rem`), jadi kepala sejajar dengan navbar |
+| Navbar | Hampir bening di atas peta (`isImmersive`), dengan halo di belakang teks |
+| Kanvas bersih | Tanpa kepala yang terlihat: tab "Peta Otak" yang aktif di navbar sudah jadi judulnya (`MapHead` hanya `h1` untuk pembaca layar), dan semua kontrol ada di baris kedua navbar. Legenda (`MapLegend`) daftar ringan tanpa kartu di kiri atas kanvas, dengan halo di belakang teks; kolom di layar lebar, baris yang bisa digeser di HP. Statistik (`MapStatsLine`) satu baris di bar Week `.map-week` di kiri bawah, disembunyikan di bawah 48rem. "Cara membaca" (`MapInfoPanel`) panel kaca di bawah navbar sebelah kanan (`--nav-h`), berisi deskripsi tampilan, cara membaca, dan kredit model otak; Esc atau × menutupnya |
+| Pusat gambar | `measureSafeArea` mengukur bagian kanvas yang tertutup navbar dan, di HP, baris legenda (atas, maks 45%), kolom legenda di layar lebar (kiri), dan bar Week (bawah, maks 30%). 2D: skala dan pusat dihitung untuk area bebas itu. 3D: kanvas virtual `setViewOffset` berpusat di area bebas, dan `camera.zoom` membingkai gambar untuk tinggi area bebas, atau lebarnya di layar potret; panel detail atau sheet yang terbuka hanya menggeser gambar, tidak mengubah ukurannya |
+| Tema | Tampilan 3D menulis `data-map-scheme` di `<html>` selama tampil, jadi seluruh halaman, navbar dan panel kaca ikut, memakai tema scene (Luar angkasa selalu gelap), bukan tema aplikasi; pilihan aplikasi kembali saat scene ditinggalkan |
 
 ### Intro Peta Otak (`src/lib/vocab/map/intro.ts`)
 
@@ -272,12 +282,12 @@ Mengikuti protokol kedatangan MGM: kunjungan baru mendapat intro penuh, kunjunga
 |---|---|
 | Jenis | `introKind`: `instant` saat reduced motion; `short` (800 ms) bila tampilan itu sudah diputar penuh di sesi ini (`sessionStorage` `islab-peta-intro`) atau saat ganti tampilan 3D; selain itu `full` |
 | Tidak menghalangi | Pointer, gulir, atau tombol apa pun langsung melompat ke akhir. Kontrol tetap bisa dipakai selama intro |
-| Shell 3D | Tirai (`veil`, `bg-paper-ink`) memudar keluar di 4–40% waktu, kamera mendekat dari `dolly` × jarak, label muncul di 78–100%, lalu `data-intro="done"` di kanvas. Durasi penuh, tirai, dan `dolly` per tampilan di `scenes/registry.ts` (`intro`) |
-| Luar angkasa (3,6 s) | Tirai hitam memudar, bintang menyala, gugus galaksi tumbuh dari titik (skala 0,035 → 1) sambil berputar spiral, lalu label |
-| Otak (2,6 s) | Berputar dari kecil ke besar (`easeOutBack`, dua putaran yang mengendur); neuron, halo, sinaps, dan jembatan memudar masuk |
-| Kubus (2,4 s) | Rusuk dan grid tumbuh, titik dan cincin mekar dari pusat ke posisinya, lalu wilayah muncul |
-| 2D (2,2 s) | Peta mendekat halus (`g.map2d-zoom` di luar grup milik d3-zoom), garis wilayah tergambar (`pathLength=1` + `stroke-dasharray`), isinya memudar masuk, titik muncul berurutan per Week, label terakhir |
-| Kepala | Huruf "Peta Otak" naik dari dalam katanya (`.map-letter`), panel meluncur masuk (`map-rise`); keduanya diam saat reduced motion |
+| Shell 3D | Zoom panjang sambil berputar. Kamera datang dari lebih jauh (`dolly` × jarak), lebih tinggi (`rise`), dan memutar dari samping (`orbit`) menurut `introCamera`: mendekat pelan–tetap–pelan, putarannya paling cepat di awal lalu mengendur searah "Putar otomatis", dan mendarat tanpa sisa kecepatan supaya putaran otomatis menyambung mulus. Tirai (`veil`, `bg-paper-ink`) memudar keluar di 3–30% waktu, label muncul di 82–100%, lalu `data-intro="done"` di kanvas. Intro singkat memakai jalur yang sama, lebih dekat (`shortPath`). Durasi, tirai, dan jalur per tampilan di `scenes/registry.ts` (`intro`) |
+| Luar angkasa (6 s; dolly 2,6, orbit 1,2, rise 0,5) | Tirai hitam memudar, bintang menyala, gugus galaksi tumbuh dari titik (skala 0,03 → 1) sambil berputar spiral yang mengendur sepanjang intro, benda langit menyala, lalu label. Dolly dibatasi supaya kamera tetap di dalam cangkang bintang |
+| Otak (5,2 s; dolly 2,4, orbit 0,9, rise 0,3) | Tumbuh dari titik (0,06 → 1) sambil berputar satu setengah putaran yang terus mengendur sampai mendarat; neuron, halo, sinaps, dan jembatan memudar masuk bergiliran |
+| Kubus (4,6 s; dolly 2,6, orbit 1, rise 0,4) | Seluruh kubus berputar masuk dan mengendur, rusuk dan grid tumbuh, titik dan cincin mekar dari pusat ke posisinya, lalu wilayah muncul |
+| 2D (2,7 s) | Peta mendekat pelan dari jauh sambil sedikit berputar (skala 0,78 → 1, −4° → 0°, 2,2 s; `g.map2d-zoom` di luar grup milik d3-zoom), garis wilayah tergambar (`pathLength=1` + `stroke-dasharray`), isinya memudar masuk, titik muncul berurutan per Week, label terakhir |
+| Panel | Legenda dan bar Week meluncur masuk (`map-rise`); diam saat reduced motion |
 | Menambah intro scene | `ViewScene.intro?(t, kind)` menerima kemajuan 0–1; `fadeTree(object, share)` memudarkan satu cabang scene dan mengingat opasitas aslinya |
 
 ### Pola Peta Otak 3D (`src/components/vocab/map/brain-map-3d.tsx` + `scenes/`)
@@ -304,7 +314,9 @@ Kosakata › Perpustakaan: tiap istilah selembar kertas di sungai, dan perpustak
 | Dua tingkat | **Rak**: satu lembar per bidang (sampul warna bidang, jumlah istilah dan cabang); mencari di rak menampilkan istilah dari semua bidang. **Ruang** (`?bidang=<id>`): istilah bidang itu, termasuk istilah yang bidang itu hanya domain tambahannya, dan Filter memilih cabang. Masuk/keluar: adegan bergeser, sapuan warna bidang yang dilembutkan ke kabut, daftar ditukar di bawah sapuan, lembar baru meluncur masuk; tombol back browser memutar arah sebaliknya dan posisi scroll rak dipulihkan |
 | Halaman istilah | `?istilah=<id>` (klik lembar; balik kartu pindah ke ikon kecil di pojok). Hero: Week + tanggal, istilah besar yang hurufnya naik dari dalam katanya, alias, chip bidang. Sampul 5:2, definisi (Markdown + KaTeX, dimuat dinamis), istilah terdekat (`match_vocab_terms`), kaitan subjek/topik/catatan, "Edit di Daftar". Blok muncul saat masuk layar; dengan reduced motion semuanya diam. Di dunia: lensa mati, kamera tenang, kabut jauh lebih tebal (`uDetail`) agar teks terbaca, dan sampul digambar sebagai lembar air (gelombang memunculkan gambar dengan buih, riak dari pointer, cipratan saat klik; `world/cover.ts`). Tanpa dunia: tirai kertas yang bergeser |
 | Istilah berikutnya | Di ujung halaman istilah (`next-threshold.tsx`): hanya input setelah sampai bawah yang dihitung (gulir 2 tinggi layar, seret 400 px, atau tombol Bawah/PageDown/Spasi/End), surut 1 detik setelah diam. Progres menaikkan kubah warna bidang istilah berikutnya dan membawa namanya ke atas; di 100 % (atau klik/Enter) kubah membanjiri layar dan halaman berganti di bawahnya. Urutannya mengikuti daftar asal (ruang, hasil cari, atau bidang istilah). Tombol back langsung kembali ke ruang |
-| Shell | Sidebar desktop menciut jadi rel nomor 72 px di halaman ini (tombol tema dan tombol melebarkan di bawah); tab Kosakata jadi pil kaca `segmented segmented-glass` tanpa garis |
+| Navbar | Hampir bening di atas dunia (tint 14%, blur 3 px, halo teks), seperti header MGM di atas perpustakaannya. Dengan "reduce transparency" (Windows: Transparency effects mati) navbar solid yang memudar ke bawah tanpa garis tegas. Tab Kosakata di baris kedua navbar |
+| Masuk | Sungai ditahan di atas kertas sejak paint pertama (`data-library-world` belum `gl`/`dom`), dunia menggambar tanpa terlihat sampai kartu yang tampil bertekstur (`onReady`, paling lama `entrance.READY_MAX`), lalu `reveal`: kanvas memudar masuk 0,6 detik, lembar naik bergiliran, lensa kunjungan pertama "settle" dari saat itu. Batas tahan `entrance.HOLD_MS` waktu terlihat; lewat dari itu kartu DOM tampil (`data-library-shown`) dan dunia yang terlambat ber-crossfade (`data-library-late`: muka DOM memudar keluar, kanvas masuk). Failsafe CSS 3 detik bila tidak ada script. Engine dimuat saat ada niat (`preloadLibraryWorld`) |
+| Keluar | Kanvas punya `view-transition-name: library-world`: saat meninggalkan Perpustakaan ia surut ke kertas di bawah halaman baru |
 | Sumber kebenaran | Halaman DOM lengkap tanpa WebGL: kepala lengket (judul, cari, Filter), sungai kartu, ujung daftar. Tombol/tautan kartu tetap pemilik fokus, area klik, dan nama aksesibel. Tanpa dunia, transisi memakai sapuan DOM (`.library-wash`, transform + opacity) |
 | Mode | `data-library-world` di halaman: `pending` → `gl` atau `dom`. `dom` untuk reduced motion, `?noworld`, tanpa WebGL2, renderer perangkat lunak, konteks hilang, atau di bawah 8 fps (`src/lib/vocab/library/world-mode.ts`, `quality.ts`) |
 | Sampul | `coverPattern(id)`: grid ubin Bauhaus 10 × 4 dari id istilah (deterministik, Fisher–Yates), warna bidang + nada gelapnya di atas `--paper`. DOM menggambarnya sebagai SVG, dunia sebagai tekstur dari path yang sama |

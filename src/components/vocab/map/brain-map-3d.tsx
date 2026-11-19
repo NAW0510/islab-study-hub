@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Color, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { Info, Loader2, Maximize, Moon, Pause, Play, Plus, Rotate3d, Search, Sun } from "lucide-react";
+import { Loader2, Maximize, Moon, Pause, Play, Plus, Rotate3d, Sun } from "lucide-react";
 import type { NearestTerm } from "@/lib/actions/vocab";
 import { currentWeekInfo, weekMarker, weekNumberFor } from "@/lib/report-template";
 import { currentScheme } from "@/lib/theme";
@@ -12,11 +12,14 @@ import type { VocabDomain } from "@/lib/types";
 import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
 import { placeLabels } from "@/lib/vocab/labels";
-import { easeInOutCubic, INTRO_MS, INTRO_SEEN_KEY, introKind, seenViews, segment, type IntroKind } from "@/lib/vocab/map/intro";
+import { INTRO_MS, INTRO_SEEN_KEY, introCamera, introKind, seenViews, segment, shortPath, type IntroKind, type IntroPath } from "@/lib/vocab/map/intro";
 import { pickNearest, visible3d, type Layout3dData, type Projected } from "@/lib/vocab/map3d-model";
 import { fieldOf, firstSentence, mapStats, MIN_TERMS_FOR_MAP, type BoundaryLevel, type MapPoint } from "@/lib/vocab/map-model";
+import { NavSlot } from "../../shell/nav-slot";
+import { SlideGroup } from "../../slide-group";
 import { EmptyState } from "../../ui";
 import { useToast } from "../../toast";
+import { MapBoundary, MapInfoButton, MapInfoPanel, MapLegend, MapSearch, MapStatsLine, MapToggle, ResponsiveLabel } from "./map-chrome";
 import { MapDetailPanel } from "./map-detail-panel";
 import { colorVar, type SceneInput, type Theme, type ViewScene } from "./scenes/common";
 import { defaultView, VIEW_KEYS, viewDefinition, VIEWS_3D, type View3d } from "./scenes/registry";
@@ -34,6 +37,8 @@ const TOUCH_HIT_RADIUS = 24;
 const PANEL_WIDTH = 320;
 const SHEET_SHARE = 0.62;
 const FLY_MS = 450;
+/** The world's up, the axis the intro's camera turns round. */
+const UP = new Vector3(0, 1, 0);
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 // The app's scheme (the theme button, else the device) picks the first view and theme.
 const prefersDark = () => currentScheme() === "dark";
@@ -87,14 +92,15 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const sceneRef = useRef<{ view: View3d; scene: ViewScene } | null>(null);
   /**
    * The intro playing, if any (lib/vocab/map/intro.ts): when it started, how
-   * long it lasts, and where the camera lands. Any input skips to its end.
+   * long it lasts, the camera's way in, and where it lands. Any input skips
+   * to its end.
    */
   const introRef = useRef<{
     kind: IntroKind;
     start: number;
     duration: number;
     veil: "black" | "none";
-    dolly: number;
+    path: IntroPath;
     target: Vector3;
     position: Vector3;
   } | null>(null);
@@ -121,6 +127,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const [neighbours, setNeighbours] = useState<{ id: string; list: NearestTerm[] } | null>(null);
   const [query, setQuery] = useState("");
   const [showInfo, setShowInfo] = useState(false);
+  const closeInfo = useCallback(() => setShowInfo(false), []);
   const [level, setLevel] = useState<BoundaryLevel>("bidang");
   const [hoverField, setHoverField] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -144,14 +151,13 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const stats = useMemo(() => mapStats(visible, { programStart, currentWeek, domains: domainIdx }), [visible, programStart, currentWeek, domainIdx]);
   const searchHit = normalizeSearch(query.trim());
 
-  // The head and the glass panels float over the scene, so they take its scheme
-  // (Luar angkasa is always dark), not the app's.
+  // The top bar, the head and the glass panels float over the scene, so they
+  // take its scheme (Luar angkasa is always dark), not the app's.
   useEffect(() => {
-    const stage = hostRef.current?.closest<HTMLElement>("[data-map-stage]");
-    if (!stage) return;
-    stage.dataset.scheme = theme;
+    const root = document.documentElement;
+    root.dataset.mapScheme = theme;
     return () => {
-      delete stage.dataset.scheme;
+      delete root.dataset.mapScheme;
     };
   }, [theme]);
 
@@ -187,6 +193,10 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     // Fires once right after observe(), then on every size change.
     const observer = new ResizeObserver(resize);
     observer.observe(host);
+    // The free area also moves with the legend, the Week bar and the top bar (which holds the tools).
+    host.closest("[data-map-stage]")?.querySelectorAll(".map-ui, .map-week").forEach((panel) => observer.observe(panel));
+    const bar = document.querySelector("header.navbar");
+    if (bar) observer.observe(bar);
     controls.addEventListener("change", () => {
       stage.dirty = true;
     });
@@ -228,12 +238,16 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       if (intro && current) {
         const t = Math.min(1, (now - intro.start) / Math.max(1, intro.duration));
         current.intro?.(t, intro.kind);
-        // The camera comes in from farther away and settles on the view's frame.
-        const k = 1 + (intro.dolly - 1) * (1 - easeInOutCubic(segment(t, 0, 0.95)));
+        // The camera comes in from farther away, higher and further round, and settles on the view's frame:
+        // a long, slow zoom while the scene turns, landing with no speed left for "Putar otomatis" to take over.
+        const way = introCamera(t, intro.path);
+        const offset = intro.position.clone().sub(intro.target).applyAxisAngle(UP, way.azimuth);
+        const side = new Vector3().crossVectors(UP, offset);
+        if (side.lengthSq() > 1e-10) offset.applyAxisAngle(side.normalize(), -way.elevation);
         controls.target.copy(intro.target);
-        camera.position.copy(intro.target).addScaledVector(intro.position.clone().sub(intro.target), k);
-        if (veilRef.current) veilRef.current.style.opacity = intro.veil === "black" ? String(1 - segment(t, 0.04, 0.4)) : "0";
-        if (labelLayerRef.current) labelLayerRef.current.style.opacity = String(segment(t, 0.78, 1));
+        camera.position.copy(intro.target).addScaledVector(offset, way.distance);
+        if (veilRef.current) veilRef.current.style.opacity = intro.veil === "black" ? String(1 - segment(t, 0.03, 0.3)) : "0";
+        if (labelLayerRef.current) labelLayerRef.current.style.opacity = String(segment(t, intro.kind === "full" ? 0.82 : 0.6, 1));
         stage.dirty = true;
         if (t >= 1) {
           introRef.current = null;
@@ -349,7 +363,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
           start: performance.now(),
           duration: kind === "full" ? spec.fullMs : INTRO_MS.short,
           veil: kind === "full" ? spec.veil : "none",
-          dolly: kind === "full" ? spec.dolly : 1 + (spec.dolly - 1) * 0.2,
+          path: kind === "full" ? spec : shortPath(spec),
           target: target.clone(),
           position: position.clone(),
         };
@@ -610,88 +624,45 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="map-ui flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tampilan 3D">
-          {VIEWS_3D.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={view === key}
-              onClick={() => chooseView(key)}
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-xs font-medium transition-colors",
-                view === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
-              )}
-            >
-              <Icon className="size-3.5" /> {label}
-            </button>
-          ))}
-        </div>
-        <form onSubmit={submitSearch} className="relative min-w-48 flex-1" role="search">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari istilah, lalu Enter"
-            aria-label="Cari istilah di ruang 3D"
-            list="map3d-terms"
-            className="input pl-9"
-          />
-          <datalist id="map3d-terms">
-            {points.slice(0, 500).map((p) => (
-              <option key={p.id} value={p.term} />
+      {/* The top bar's second row: the view switch next to 2D/3D, the tools at the far end. */}
+      <NavSlot>
+        <div role="group" aria-label="Tampilan 3D">
+          <SlideGroup className="segmented segmented-sm">
+            {VIEWS_3D.map(({ key, label, Icon }) => (
+              <button key={key} type="button" aria-pressed={view === key} onClick={() => chooseView(key)} className="segmented-item" title={label}>
+                <Icon className="size-3.5" />
+                <ResponsiveLabel text={label} from="xl" />
+              </button>
             ))}
-          </datalist>
-        </form>
-        {definition.boundaries && (
-            <label className="flex items-center gap-2 text-sm text-muted">
-              Batas
-              <select value={level} onChange={(e) => setLevel(e.target.value as BoundaryLevel)} className="input w-auto" aria-label="Tingkat batas wilayah">
-                <option value="bidang">Bidang</option>
-                <option value="cabang">Cabang</option>
-                <option value="none">Tanpa batas</option>
-              </select>
-            </label>
-        )}
+          </SlideGroup>
+        </div>
+      </NavSlot>
+      <NavSlot place="end">
+        <MapSearch value={query} onChange={setQuery} onSubmit={submitSearch} label="Cari istilah di ruang 3D" listId="map3d-terms" terms={points} />
+        {definition.boundaries && <MapBoundary value={level} onChange={setLevel} />}
         {definition.theme === "choice" && (
-            <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tema kanvas">
+          <div role="group" aria-label="Tema kanvas">
+            <SlideGroup className="segmented segmented-sm">
               {(
                 [
                   { key: "dark", label: "Gelap", Icon: Moon },
                   { key: "light", label: "Terang", Icon: Sun },
                 ] as const
               ).map(({ key, label, Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  aria-pressed={chosenTheme === key}
-                  onClick={() => chooseTheme(key)}
-                  className={cn(
-                    "inline-flex h-8 items-center gap-1.5 rounded-btn px-3 text-xs font-medium transition-colors",
-                    chosenTheme === key ? "bg-primary text-primary-fg" : "text-muted hover:text-text",
-                  )}
-                >
-                  <Icon className="size-3.5" /> {label}
+                <button key={key} type="button" aria-pressed={chosenTheme === key} onClick={() => chooseTheme(key)} className="segmented-item" title={label}>
+                  <Icon className="size-3.5" />
+                  <ResponsiveLabel text={label} from="2xl" />
                 </button>
               ))}
-            </div>
+            </SlideGroup>
+          </div>
         )}
-        <button
-          type="button"
-          className={cn("btn btn-sm", autoRotate ? "btn-primary" : "btn-secondary")}
-          aria-pressed={autoRotate}
-          onClick={() => setAutoRotate((v) => !v)}
-        >
-          <Rotate3d className="size-3.5" /> Putar otomatis
-        </button>
-        <button type="button" className="icon-btn" aria-label="Cara membaca tampilan ini" aria-expanded={showInfo} onClick={() => setShowInfo((v) => !v)}>
-          <Info className="size-4" />
-        </button>
-      </div>
+        <MapToggle pressed={autoRotate} onClick={() => setAutoRotate((v) => !v)} icon={<Rotate3d className="size-3.5" />} label="Putar otomatis" />
+        <MapInfoButton open={showInfo} onToggle={() => setShowInfo((v) => !v)} label="Cara membaca tampilan ini" />
+      </NavSlot>
       {showInfo && (
-        <div className="card space-y-2 px-4 py-3 text-sm text-muted">
+        <MapInfoPanel title={`Peta Otak 3D · ${definition.label}`} onClose={closeInfo}>
+          <p>Tiap istilah satu titik di ruang tiga dimensi. Putar ruangnya untuk melihat kelompok istilah dari sisi lain.</p>
           <p>
             {definition.info} Seret untuk memutar, gulir atau cubit untuk zoom, klik kanan atau dua jari untuk menggeser. Susunan 3D dihitung dan disimpan
             di browser ini.
@@ -713,43 +684,12 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
               ; {definition.credit.note}
             </p>
           )}
-        </div>
+        </MapInfoPanel>
       )}
 
       <div className="grid gap-3 lg:grid-cols-[13rem_1fr]">
-        <div className="map-ui contents lg:flex lg:flex-col lg:gap-3">
-          {legend.length > 0 && (
-            <ul className="card order-1 flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible" aria-label="Legenda bidang">
-              {legend.map((f) => {
-                const off = hiddenFields.has(f.id);
-                return (
-                  <li key={f.id} className="shrink-0">
-                    <button
-                      type="button"
-                      aria-pressed={!off}
-                      onClick={() => toggleField(f.id)}
-                      onPointerEnter={() => setHoverField(f.id)}
-                      onPointerLeave={() => setHoverField(null)}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-sm whitespace-nowrap hover:bg-surface-2",
-                        off && "opacity-40",
-                      )}
-                    >
-                      <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
-                      <span className="flex-1 truncate">{f.name}</span>
-                      <span className="text-xs text-muted tabular-nums">{f.count}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <dl className="map-stats card order-3 grid grid-cols-2 gap-x-4 gap-y-2 p-3 text-xs lg:grid-cols-1">
-            <Stat label="Istilah tampil" value={stats.total} />
-            <Stat label="Cabang ilmu aktif" value={stats.activeDomains} />
-            <Stat label="Baru minggu ini" value={stats.thisWeek} />
-            <Stat label="Bidang terbesar" value={stats.biggestField ? `${stats.biggestField.name} (${stats.biggestField.count})` : "–"} />
-          </dl>
+        <div className="map-ui order-1 min-w-0">
+          <MapLegend items={legend} hidden={hiddenFields} onToggle={toggleField} onHover={setHoverField} />
         </div>
 
         {/* Canvas: its own theme and background, from the view's definition in scenes/registry.ts */}
@@ -882,19 +822,11 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
           />
           <span className="shrink-0 text-xs text-muted tabular-nums">{weekMarker(currentWeek)}</span>
         </label>
+        <MapStatsLine stats={stats} />
         {layout.phase === "ready" && layout.ms !== null && (
-          <span className="text-xs text-muted tabular-nums">Disusun dalam {(layout.ms / 1000).toFixed(1)} detik</span>
+          <span className="hidden text-xs text-muted tabular-nums 2xl:inline">Disusun dalam {(layout.ms / 1000).toFixed(1)} detik</span>
         )}
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -924,10 +856,12 @@ function applyViewOffset(stage: Stage, panelOpen: boolean, safe: SafeArea = NO_I
     const vh = cy >= h / 2 ? 2 * cy : 2 * (h - cy);
     camera.aspect = vw / vh;
     camera.setViewOffset(vw, vh, cx >= w / 2 ? 0 : vw - w, cy >= h / 2 ? 0 : vh - h, w, h);
-    // Framed for the height the head and the Week bar leave free, as the scenes
-    // were framed for their old card; an opening panel or sheet only moves it.
+    // Framed for the area the top bar, the legend and the Week bar leave free, as
+    // the scenes were framed for their old card (by height; a tall phone screen
+    // is bounded by its width instead). An opening panel or sheet only moves it.
     const freeH = Math.max(160, h - safe.top - safe.bottom);
-    camera.zoom = Math.min(1, freeH / vh);
+    const freeW = Math.max(160, w - safe.left - safe.right);
+    camera.zoom = Math.min(1, Math.min(freeH, freeW / 1.1) / vh);
   }
   camera.updateProjectionMatrix();
   stage.dirty = true;
