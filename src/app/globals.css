@@ -43,6 +43,9 @@
   --on-signal: light-dark(#ffffff, #14171c);
   /* Dims the page behind dialogs and drawers */
   --scrim: light-dark(rgb(15 18 22 / 0.4), rgb(0 0 0 / 0.6));
+  /* Paper of the Perpustakaan's sheets: it stays light at night, like paper under a lamp */
+  --paper: light-dark(#fbfaf6, #eceae3);
+  --paper-ink: #14171c;
 
   /*
    * Categorical palette for subjects and (later) vocabulary domains. The order
@@ -366,6 +369,12 @@ html:has(dialog.mobile-menu[open]) {
   .segmented-sm .segmented-item {
     @apply h-7 min-w-0 px-3 text-xs;
   }
+  /* Over a picture (the Perpustakaan's world): frosted, no hard edge. */
+  .segmented-glass {
+    border-color: color-mix(in srgb, var(--border) 55%, transparent);
+    background: color-mix(in srgb, var(--surface) 62%, transparent);
+    backdrop-filter: blur(14px) saturate(1.2);
+  }
   @media (pointer: coarse) {
     .segmented-item,
     .segmented-sm .segmented-item {
@@ -467,6 +476,520 @@ html:has(dialog.mobile-menu[open]) {
     .marquee-group[aria-hidden="true"],
     .marquee-toggle {
       display: none;
+    }
+  }
+
+  /*
+   * Kosakata › Perpustakaan (components/vocab/library/). The DOM page is
+   * complete on its own; with the WebGL world running (data-library-world="gl"
+   * on the page) the world draws the sheets and the DOM faces turn
+   * transparent, keeping links, focus and hit areas.
+   */
+  .library-head {
+    position: sticky;
+    top: var(--library-top, 0px);
+    z-index: 10;
+    margin: 0 -1rem 2rem;
+    padding: 0.75rem 1rem 1.25rem;
+    background: color-mix(in srgb, var(--bg) 84%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .library-river {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 48rem) {
+    .library-river {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .library-item {
+    position: relative;
+  }
+  .library-flip {
+    perspective: 1400px;
+  }
+  .library-sheet {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-card);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .library-sheet:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+  }
+  .library-item[data-flipped] .library-sheet {
+    transform: rotateY(180deg);
+  }
+  .library-front,
+  .library-back {
+    overflow: hidden;
+    border-radius: var(--r-card);
+    backface-visibility: hidden;
+  }
+  .library-front {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .library-back {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 1.5rem;
+    background: var(--primary);
+    color: var(--primary-fg);
+    transform: rotateY(180deg);
+  }
+  .library-back .eyebrow {
+    color: inherit;
+    opacity: 0.75;
+  }
+  .library-definition {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    -webkit-line-clamp: 7;
+    -webkit-box-orient: vertical;
+  }
+  .library-cover {
+    position: relative;
+    display: block;
+    aspect-ratio: 5 / 2;
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .library-cover-art {
+    --cover-deep: color-mix(in srgb, var(--cover-main) 58%, var(--paper-ink));
+    display: block;
+    width: 100%;
+    height: 100%;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .library-sweep {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--paper) 70%, transparent) 50%, transparent 65%);
+    transform: translateX(-120%);
+  }
+  .library-strip {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.15rem;
+    padding: 0.85rem 1rem 1rem;
+  }
+  .library-title {
+    overflow: hidden;
+    font-family: var(--display-font);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .library-meta {
+    overflow: hidden;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .library-arrow {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--muted);
+  }
+  .library-rule {
+    position: absolute;
+    right: 1rem;
+    bottom: 0;
+    left: 1rem;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--dur-slow) var(--ease-std);
+  }
+  .library-open {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    color: var(--paper-ink);
+  }
+  .library-open:hover {
+    background: var(--paper);
+    color: var(--paper-ink);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .library-sheet:is(:hover, :focus-visible) .library-cover-art {
+      transform: scale(1.05);
+    }
+    .library-sheet:is(:hover, :focus-visible) .library-sweep {
+      transform: translateX(120%);
+      transition: transform 900ms var(--ease-std);
+    }
+    .library-sheet:is(:hover, :focus-visible) .library-rule {
+      transform: scaleX(1);
+    }
+    .library-sheet:is(:hover, :focus-visible) .library-arrow {
+      animation: library-arrow 520ms var(--ease-std);
+    }
+  }
+  @keyframes library-arrow {
+    45% {
+      opacity: 0;
+      transform: translate(6px, 6px);
+    }
+    46% {
+      opacity: 0;
+      transform: translate(-6px, -6px);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .library-end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 6rem;
+    padding-bottom: 2rem;
+    text-align: center;
+  }
+  /* With the world: the canvas sits behind, the DOM faces turn transparent once drawn. */
+  .library-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    display: block;
+    pointer-events: none;
+  }
+  /* Content above the canvas; the fixed layers (canvas, wash, dome, cursor ring) keep their own place. */
+  .library-page[data-library-world="gl"] > :not(.library-canvas, .library-head, .library-wash, .library-dome, .library-cursor) {
+    position: relative;
+    z-index: 1;
+  }
+  .library-page[data-library-world="gl"] .library-head {
+    background: transparent;
+    backdrop-filter: none;
+  }
+  .library-page[data-library-world="gl"] .library-head :is(h1, [role="search"] + p) {
+    text-shadow: 0 0 18px var(--bg), 0 0 4px var(--bg);
+  }
+  .library-page[data-library-world="gl"] .library-sheet {
+    transition: none;
+  }
+  .library-page[data-library-world="gl"] .library-item[data-flipped] .library-sheet {
+    transform: none;
+  }
+  /* Shelf ↔ field: the head and the DOM controls leave with the scene and return with the new room. */
+  .library-head,
+  .library-page > nav,
+  .library-open,
+  .library-end,
+  .library-detail {
+    transition:
+      opacity var(--dur-slow) var(--ease-std),
+      transform 600ms var(--ease-std);
+  }
+  .library-page[data-transition$="-out"] :is(.library-head, .library-open, .library-end, .library-detail, .library-page > nav) {
+    opacity: 0;
+    transform: translateX(-3rem);
+  }
+  .library-page[data-transition="close-out"] :is(.library-head, .library-open, .library-end, .library-detail, .library-page > nav) {
+    transform: translateX(3rem);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .library-page[data-transition] :is(.library-head, .library-open, .library-end, .library-detail, .library-page > nav) {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /*
+   * A term's page (library-term.tsx): letters rise out of their words, the
+   * rest follows, blocks come in as they scroll into view, and the cover
+   * unveils (the world draws it as water instead when it runs). Transform
+   * and opacity only; still with reduced motion.
+   */
+  .library-detail {
+    position: relative;
+    max-width: 46rem;
+    margin: 0 auto;
+  }
+  .library-detail-back {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+  }
+  .library-detail-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 2.5rem;
+    text-align: center;
+  }
+  .library-detail-title {
+    font-size: clamp(2.6rem, 1rem + 5vw, 5.6rem);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .library-word {
+    display: inline-flex;
+    overflow: hidden;
+    padding-bottom: 0.1em;
+    vertical-align: bottom;
+  }
+  .library-letter {
+    display: inline-block;
+  }
+  .library-detail-aliases {
+    font-size: 0.95rem;
+    color: var(--muted);
+  }
+  .library-detail-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .library-detail-cover {
+    position: relative;
+    aspect-ratio: 5 / 2;
+    margin: 0 0 3rem;
+    overflow: hidden;
+    border-radius: 18px;
+    background: var(--paper);
+  }
+  .library-detail-cover > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .library-detail-cover[data-world-drawn] {
+    background: transparent;
+  }
+  .library-detail-cover[data-world-drawn] > * {
+    opacity: 0;
+  }
+  .library-detail-cover-veil {
+    display: none;
+  }
+  .library-detail-body {
+    font-size: 1.04rem;
+  }
+  .library-detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 2.75rem;
+  }
+  .library-detail-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 2.5rem;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .library-detail .library-letter {
+      animation: library-rise 900ms var(--ease-std) both;
+      animation-delay: calc(240ms + var(--i, 0) * 26ms);
+    }
+    .library-detail-hero > :not(h1) {
+      animation: library-fade-up 700ms var(--ease-std) 620ms both;
+    }
+    .library-detail-cover-veil {
+      position: absolute;
+      inset: 0;
+      display: block;
+      background: var(--paper);
+      animation: library-unveil 1100ms var(--ease-std) 380ms both;
+    }
+    .library-detail [data-reveal],
+    .library-detail-body .markdown > * {
+      opacity: 0;
+      transform: translateY(18px);
+      transition:
+        opacity 700ms var(--ease-std),
+        transform 800ms var(--ease-std);
+    }
+    .library-detail [data-revealed],
+    .library-detail-body .markdown > [data-revealed] {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes library-rise {
+    from {
+      transform: translateY(105%) rotate(6deg);
+    }
+  }
+  @keyframes library-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+  @keyframes library-unveil {
+    to {
+      transform: translateX(101%);
+    }
+  }
+
+  /* The pull to the next term, and the dome that rises and floods (next-threshold.tsx). */
+  .library-next {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    min-height: 100svh;
+    margin-top: 4rem;
+    color: var(--text);
+    text-align: center;
+    text-decoration: none;
+  }
+  .library-next:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -6px;
+    border-radius: var(--r-panel);
+  }
+  .library-next-label {
+    display: block;
+    overflow: hidden;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .library-next-label > span,
+  .library-next-title {
+    will-change: transform;
+  }
+  .library-next-title {
+    font-size: clamp(2.2rem, 1rem + 4vw, 4.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+  .library-next-path,
+  .library-next-hint {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .library-next-hint {
+    margin-top: 1.25rem;
+  }
+  .library-dome {
+    position: fixed;
+    right: -25vw;
+    bottom: 0;
+    left: -25vw;
+    z-index: 35;
+    height: 118vh;
+    border-radius: 50% 50% 0 0 / 22% 22% 0 0;
+    background: var(--dome-colour, var(--surface-2));
+    pointer-events: none;
+    transform: translateY(100%);
+    will-change: transform;
+  }
+
+  /* The shelf ↔ field wash when the world isn't running (moved with transform and opacity only). */
+  .library-wash {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
+  }
+  .library-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    width: 34px;
+    height: 34px;
+    margin: -17px 0 0 -17px;
+    border: 1.5px solid color-mix(in srgb, var(--text) 65%, transparent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity var(--dur-base) var(--ease-std),
+      background-color var(--dur-base) var(--ease-std),
+      border-color var(--dur-base) var(--ease-std);
+    will-change: transform;
+  }
+  .library-cursor[data-mode="card"] {
+    border-color: color-mix(in srgb, var(--paper) 85%, transparent);
+    background: color-mix(in srgb, var(--paper) 16%, transparent);
+  }
+  .library-item[data-folded] .library-open {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .library-item[data-world-drawn] :is(.library-front, .library-back) {
+    opacity: 0;
+  }
+  .library-filter {
+    position: fixed;
+    inset: auto;
+    top: 12rem;
+    left: 50%;
+    width: min(22rem, calc(100vw - 2rem));
+    max-height: min(60dvh, 28rem);
+    margin: 0;
+    overflow-y: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 24px 60px -20px color-mix(in srgb, var(--text) 30%, transparent);
+    translate: -50% 0;
+  }
+  .library-filter::backdrop {
+    background: transparent;
+  }
+  @media (max-width: 40rem) {
+    .library-filter {
+      top: auto;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      border-radius: var(--r-panel) var(--r-panel) 0 0;
+      translate: none;
     }
   }
 

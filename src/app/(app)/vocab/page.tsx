@@ -2,14 +2,11 @@ import type { Metadata } from "next";
 import { DomainOnboarding } from "@/components/vocab/domain-onboarding";
 import { VocabBrowser } from "@/components/vocab/vocab-browser";
 import { requireUser } from "@/lib/auth";
-import { getProfile, getSubjectsAndTopics } from "@/lib/queries";
+import { getProfile, getSubjectsAndTopics, VOCAB_TERM_COLUMNS } from "@/lib/queries";
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
 import type { VocabDomain, VocabTerm } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Kosakata" };
-
-const TERM_COLUMNS =
-  "id, term, aliases, definition, learned_on, domain_id, domain_source, domain_scores, subject_id, syllabus_item_id, note_id, embedded_at, created_at, updated_at";
 
 function one(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
@@ -27,7 +24,7 @@ export default async function VocabPage({
   const [termsRes, domainsRes, profile, { subjects, topics }] = await Promise.all([
     supabase
       .from("vocab_terms")
-      .select(TERM_COLUMNS)
+      .select(VOCAB_TERM_COLUMNS)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1000),

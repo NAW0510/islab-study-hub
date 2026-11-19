@@ -25,7 +25,7 @@ export function MobileMenu({ email, weekMarker, weekPeriod }: ShellProps) {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-bg/90 backdrop-blur md:hidden print:!hidden">
+    <header data-shell-header className="sticky top-0 z-20 border-b border-border bg-bg/90 backdrop-blur md:hidden print:!hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         <Brand />
         <div className="flex items-center gap-2">
