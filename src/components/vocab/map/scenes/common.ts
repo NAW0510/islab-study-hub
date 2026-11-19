@@ -17,6 +17,7 @@ import {
   type Texture,
 } from "three";
 import type { VocabDomain } from "@/lib/types";
+import type { IntroKind } from "@/lib/vocab/map/intro";
 import type { Layout3dData } from "@/lib/vocab/map3d-model";
 import type { BoundaryLevel, MapPoint } from "@/lib/vocab/map-model";
 import { asDomainColor } from "@/lib/vocab/seed-domains";
@@ -97,10 +98,32 @@ export interface ViewScene {
   groupLabels(): readonly GroupLabel[];
   /** Where the camera looks from at the start and after "Kembali ke awal". */
   frame(): { target: Vector3; position: Vector3 };
+  /**
+   * The view's intro (optional): called every frame of it with t from 0 to 1,
+   * and with 1 when it is skipped. At t = 1 the scene must look exactly as it
+   * does without an intro. The shell moves the camera and the veil.
+   */
+  intro?(t: number, kind: IntroKind): void;
   dispose(): void;
 }
 
 export const colorVar = (domain: VocabDomain | null) => (domain ? `var(--${asDomainColor(domain.color)})` : "var(--domain-none)");
+
+/**
+ * Fades every material under `object` to `share` of the opacity it had when
+ * first faded (remembered on the material), for intros.
+ */
+export function fadeTree(object: Object3D, share: number) {
+  object.traverse((child) => {
+    const mesh = child as Object3D & { material?: Material | Material[] };
+    const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
+    for (const m of materials) {
+      if (m.userData.baseOpacity === undefined) m.userData.baseOpacity = m.opacity;
+      m.opacity = (m.userData.baseOpacity as number) * share;
+      if (!m.transparent && share < 1) m.transparent = true;
+    }
+  });
+}
 
 /** Frees every geometry, material and texture under `object`, and empties it. */
 export function disposeTree(object: Object3D) {

@@ -18,7 +18,15 @@ export type MapPoint = {
   map_x: number | null;
   map_y: number | null;
   map_placed: "layout" | "knn" | null;
+  /**
+   * Extra domains (one term, many domains), oldest first. Optional so older
+   * cached data and fixtures still type-check; read it with extrasOf().
+   */
+  extra_domain_ids?: string[] | null;
 };
+
+/** A map point's extra domains, never undefined. */
+export const extrasOf = (p: Pick<MapPoint, "extra_domain_ids">): string[] => p.extra_domain_ids ?? [];
 
 export type BoundaryLevel = "bidang" | "cabang" | "none";
 
@@ -33,6 +41,33 @@ export function fieldOf(domainId: string | null, domains: ReadonlyMap<string, Vo
 export function groupOf(point: Pick<MapPoint, "domain_id">, level: BoundaryLevel, domains: ReadonlyMap<string, VocabDomain>) {
   if (level === "none" || !point.domain_id) return null;
   return level === "bidang" ? fieldOf(point.domain_id, domains) : (domains.get(point.domain_id) ?? null);
+}
+
+/**
+ * Every group a point belongs to at the given level: its primary domain's
+ * first, then its extra domains' (one term, many domains), without repeats.
+ */
+export function groupsOf(
+  point: Pick<MapPoint, "domain_id" | "extra_domain_ids">,
+  level: BoundaryLevel,
+  domains: ReadonlyMap<string, VocabDomain>,
+): VocabDomain[] {
+  const groups: VocabDomain[] = [];
+  for (const id of [point.domain_id, ...extrasOf(point)]) {
+    const group = groupOf({ domain_id: id }, level, domains);
+    if (group && !groups.some((g) => g.id === group.id)) groups.push(group);
+  }
+  return groups;
+}
+
+/** The names of a point's extra domains ("Juga di: …"), as paths like "Katolik › Agama". */
+export function extraDomainNames(point: Pick<MapPoint, "extra_domain_ids">, domains: ReadonlyMap<string, VocabDomain>): string[] {
+  return extrasOf(point).flatMap((id) => {
+    const d = domains.get(id);
+    if (!d) return [];
+    const parent = d.parent_id ? domains.get(d.parent_id) : undefined;
+    return [parent ? `${d.name} › ${parent.name}` : d.name];
+  });
 }
 
 /** Points with a position, learned up to the end of `week`, whose field is not hidden. */

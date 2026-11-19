@@ -36,6 +36,11 @@ export type ViewDefinition = {
   autoRotateSpeed: number;
   /** Canvas background: Tailwind classes using design tokens only. */
   background: string;
+  /**
+   * The view's intro (lib/vocab/map/intro.ts): how long the full one lasts,
+   * whether it rises out of black, and how much farther the camera starts.
+   */
+  intro: { fullMs: number; veil: "black" | "none"; dolly: number };
   /** What the view shows and how to read it (info panel). */
   info: string;
   /** Credit for borrowed material, shown in the info panel. */
@@ -56,6 +61,8 @@ export const VIEWS_3D = [
     moving: true,
     autoRotateSpeed: 0.25,
     background: "bg-[radial-gradient(ellipse_at_center,var(--surface),var(--bg)_70%)]",
+    // Fade to black, then the galaxies grow slowly out of the dark.
+    intro: { fullMs: 3600, veil: "black", dolly: 2.4 },
     info: "Tiap bidang adalah galaksi dengan lubang hitam di pusatnya, dan tiap cabang sebuah matahari. Planet adalah istilah inti di cabangnya; bulan mengorbit planet yang paling mirip maknanya; batuan adalah istilah yang hubungannya longgar atau belum punya domain. Nama lima bidang terbesar tampil samar; bidang lain muncul saat kamu menyorot atau memilih salah satu istilahnya. Saat “Putar otomatis” aktif, semuanya bergerak di orbitnya.",
     describe: (id, data, terms) => {
       const role = data.roles.get(id);
@@ -73,6 +80,8 @@ export const VIEWS_3D = [
     theme: "light",
     autoRotateSpeed: 0.6,
     background: SOFT_BACKGROUND,
+    // Spins from small to big and lands with a little overshoot.
+    intro: { fullMs: 2600, veil: "none", dolly: 1.3 },
     info: "Tiap bidang menempati lobus otaknya sendiri (nama lima bidang terbesar tampil samar; bidang lain muncul saat kamu menyorot atau memilih salah satu istilahnya), dan tiap istilah menyalakan satu neuron di dekat istilah yang mirip maknanya. Garis tipis menghubungkan istilah dengan dua istilah termiripnya. Neuron abu-abu masih “tidur”: merekalah yang memberi bentuk otak sampai istilahmu sekitar 350, setelah itu istilahmu sendiri yang membentuknya. Mulai 1.500 istilah, neuron bertambah 500 setiap kali kapasitasnya terlewati.",
     credit: {
       lead: "Bentuk otak:",
@@ -94,6 +103,8 @@ export const VIEWS_3D = [
     boundaries: true,
     autoRotateSpeed: 0.7,
     background: SOFT_BACKGROUND,
+    // The frame grows, then the terms bloom out of the middle to their places.
+    intro: { fullMs: 2400, veil: "none", dolly: 1.6 },
     info: "Titik yang berdekatan memang mirip maknanya. Jarak antarkelompok yang berjauhan tidak bisa dibaca secara presisi, karena UMAP menjaga struktur lokal, bukan jarak global.",
     create: () => new CubeScene(),
   },

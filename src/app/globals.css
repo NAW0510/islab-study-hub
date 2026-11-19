@@ -1398,6 +1398,164 @@ html:has(dialog.mobile-menu[open]) {
   }
 }
 
+/*
+ * Outside the component layer on purpose: the full-screen stage must win over
+ * the map's own utility classes (relative, h-[…], rounded) on the same elements.
+ */
+/*
+ * Peta Otak, full screen (components/vocab/map/map-stage.tsx): the canvas
+ * covers the main column; the rest floats over it as glass. The page lets
+ * the pointer through except on its panels and controls.
+ */
+.map-immersive {
+  position: relative;
+  pointer-events: none;
+}
+/* A 3D scene's own scheme (brain-map-3d.tsx): the head and panels over it follow it
+   (the stage is a theme-scope, so its tokens resolve in this scheme). */
+.map-immersive[data-scheme="dark"] {
+  color-scheme: dark;
+  color: var(--text);
+}
+.map-immersive[data-scheme="light"] {
+  color-scheme: light;
+  color: var(--text);
+}
+.map-immersive :is(.card, header, nav, form, button, input, select, a, label, [role="group"], [role="search"], dl) {
+  pointer-events: auto;
+}
+.map-immersive .card {
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(1.15);
+}
+.map-immersive .map-canvas {
+  position: fixed;
+  inset: var(--stage-top, 0px) 0 0 var(--stage-left, 0px);
+  z-index: 0;
+  height: auto;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+.map-immersive .map-canvas.theme-scope {
+  background-color: var(--bg);
+}
+/* Panels above the canvas. Never the map's own root: a stacking context there would trap the fixed canvas over the head. */
+.map-immersive :is(.map-head, .map-ui, .card:not(.map-canvas, .map-week)) {
+  position: relative;
+  z-index: 1;
+}
+/* The canvas's own zoom buttons: on the right edge, clear of the head and the legend. */
+.map-immersive .map-zoom {
+  top: 50%;
+  right: 1rem;
+  left: auto;
+  translate: 0 -50%;
+}
+.map-immersive .map-week {
+  position: fixed;
+  z-index: 2;
+  bottom: 1rem;
+  left: calc(var(--stage-left, 0px) + 1rem);
+  width: min(36rem, calc(100vw - var(--stage-left, 0px) - 2rem));
+}
+@media (max-width: 47.99rem) {
+  .map-immersive .map-stats {
+    display: none;
+  }
+}
+
+/*
+ * Peta Otak intros (lib/vocab/map/intro.ts). The page's panels come in as
+ * the page opens: the title's letters rise out of their word (after
+ * labmgm.org), the panels glide up. The 2D map's own intro (data-intro on
+ * its svg): the map approaches, region outlines draw themselves, their fill
+ * comes in, the terms appear Week by Week (per-dot delays), labels last.
+ * The 3D views play theirs in the scenes. Reduced motion: none of it.
+ */
+.map-word {
+  display: inline-flex;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+}
+.map-letter {
+  display: inline-block;
+  white-space: pre;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .map-letter {
+    animation: map-letter 0.7s var(--ease-std) calc(var(--i) * 32ms) both;
+  }
+  .map-immersive .map-head > * > :not(h1),
+  .map-immersive .map-head > :last-child {
+    animation: map-rise 0.5s var(--ease-std) 0.18s both;
+  }
+  .map-immersive .map-ui > *,
+  .map-immersive .map-week {
+    animation: map-rise 0.55s var(--ease-std) 0.3s both;
+  }
+  .map2d[data-intro] .map2d-zoom {
+    transform-box: view-box;
+    transform-origin: center;
+    animation: map2d-approach 1.4s var(--ease-std) both;
+  }
+  .map2d[data-intro] .map2d-region {
+    stroke-dasharray: 1;
+    animation:
+      map2d-draw 1.2s var(--ease-std) 0.15s both,
+      map2d-fill 0.9s ease-out 0.7s both;
+  }
+  .map2d[data-intro] .map2d-labels {
+    animation: vt-fade-in 0.5s ease-out 1.7s both;
+  }
+  .map2d[data-intro="short"] .map2d-zoom {
+    animation-duration: 0.6s;
+  }
+  .map2d[data-intro="short"] .map2d-region {
+    animation-duration: 0.5s, 0.4s;
+    animation-delay: 0s, 0.1s;
+  }
+  .map2d[data-intro="short"] .map2d-labels {
+    animation-duration: 0.3s;
+    animation-delay: 0.4s;
+  }
+}
+@keyframes map-letter {
+  from {
+    opacity: 0;
+    transform: translateY(0.7em);
+  }
+}
+@keyframes map-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes map2d-approach {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+@keyframes map2d-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes map2d-fill {
+  from {
+    fill-opacity: 0;
+  }
+}
+
+
 @utility no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar {

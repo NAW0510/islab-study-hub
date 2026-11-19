@@ -5,7 +5,7 @@ import { Maximize2 } from "lucide-react";
 import { weekNumberFor } from "@/lib/report-template";
 import type { VocabTerm } from "@/lib/types";
 import { excerpt } from "@/lib/utils";
-import type { DomainIndex } from "@/lib/vocab/format";
+import { extraDomainIds, type DomainIndex } from "@/lib/vocab/format";
 import { DomainChip } from "./domain-chip";
 
 /**
@@ -30,6 +30,7 @@ export function VocabCard({
 }) {
   const [flipped, setFlipped] = useState(false);
   const domain = term.domain_id ? (domains.get(term.domain_id) ?? null) : null;
+  const extras = extraDomainIds(term).length;
   const definition = term.definition.trim() ? excerpt(term.definition, 420) : "";
 
   return (
@@ -56,7 +57,14 @@ export function VocabCard({
             ) : term.domain_source === "pending" ? (
               <span className="chip chip-tone tone-none">Menunggu domain</span>
             ) : (
-              <DomainChip domain={domain} domains={domains} />
+              <>
+                <DomainChip domain={domain} domains={domains} />
+                {extras > 0 && (
+                  <span className="chip ml-1.5 shrink-0 bg-surface-2 text-muted" title="Juga milik domain lain">
+                    +{extras}
+                  </span>
+                )}
+              </>
             )}
           </span>
         </span>

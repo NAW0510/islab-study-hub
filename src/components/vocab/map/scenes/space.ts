@@ -5,7 +5,9 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   Group,
+  Line,
   LineBasicMaterial,
+  LineDashedMaterial,
   LineLoop,
   Mesh,
   MeshBasicMaterial,
@@ -22,7 +24,9 @@ import {
 } from "three";
 import { mulberry32 } from "@/lib/vocab/layout/prng";
 import { termGroups } from "@/lib/vocab/map3d-model";
-import { bodyPositions, spaceLayout, type Body, type SpaceLayout } from "@/lib/vocab/space-model";
+import { extrasOf } from "@/lib/vocab/map-model";
+import { easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
+import { bodyPositions, closedSpline, routeControls, spaceLayout, type Body, type Route, type SpaceLayout } from "@/lib/vocab/space-model";
 import {
   canvasTexture,
   colorVar,
@@ -162,12 +166,17 @@ function faceAlong(mesh: Mesh, normal: Vector3) {
 
 type Kind = "planet" | "moon" | "rock";
 
+/** Points along a bridge's dashed route. */
+const ROUTE_SAMPLES = 160;
+
 /**
  * "Luar angkasa": every field a galaxy around a black hole, every branch a
  * sun, every term a planet, moon or rock on its orbit. Always on the dark canvas.
  */
 export class SpaceScene implements ViewScene {
   readonly root = new Group();
+  /** Everything but the background stars, so the intro can grow it out of the dark. */
+  private readonly content = new Group();
   private readonly stars: Points;
   private readonly sky = new Group();
   private readonly bodies: Record<Kind, Points>;
@@ -199,6 +208,10 @@ export class SpaceScene implements ViewScene {
   /** Scene time of the last tick, so a rebuild keeps everything where it was. */
   private now = 0;
   private swirls: Texture[] = [];
+  /** What the layout was computed from: the 3D data and every term's extra domains. */
+  private extrasKey = "";
+  /** The route of each visible term in many domains, redrawn as its suns move. */
+  private routes: { hosts: string[]; route: Route; line: Line }[] = [];
 
   constructor() {
     // Background stars: decoration far behind everything.
@@ -225,19 +238,31 @@ export class SpaceScene implements ViewScene {
     };
     this.bodies = { planet: layer("planet"), moon: layer("moon"), rock: layer("rock") };
     this.marks = new HighlightLayer(this.tex.glow, SIZE.mark);
-    this.root.add(this.stars, this.sky, this.paths, this.bodies.planet, this.bodies.moon, this.bodies.rock, this.marks.root);
+    this.content.add(this.sky, this.paths, this.bodies.planet, this.bodies.moon, this.bodies.rock, this.marks.root);
+    this.root.add(this.stars, this.content);
   }
 
   build(input: SceneInput) {
     const { data, points, visible, domains, color } = input;
 
     // The layout depends on all terms (not on the week slider or legend), so it stays put while they change.
-    if (this.layoutFor !== data || !this.layout) {
+    const extrasKey = points.map((p) => (extrasOf(p).length ? `${p.id}:${extrasOf(p).join(",")}` : "")).join("|");
+    if (this.layoutFor !== data || this.extrasKey !== extrasKey || !this.layout) {
       const terms = points
         .filter((p) => data.coords.has(p.id))
-        .map((p) => ({ id: p.id, ...termGroups(p.domain_id, domains), at: data.coords.get(p.id) as [number, number, number] }));
+        .map((p) => ({
+          id: p.id,
+          ...termGroups(p.domain_id, domains),
+          at: data.coords.get(p.id) as [number, number, number],
+          // One term, many domains: a bridge between the suns of all its domains.
+          extras: extrasOf(p).flatMap((id) => {
+            const g = termGroups(id, domains);
+            return g.fieldId && g.branchKey ? [{ fieldId: g.fieldId, branchKey: g.branchKey }] : [];
+          }),
+        }));
       this.layout = spaceLayout(terms, data.roles);
       this.layoutFor = data;
+      this.extrasKey = extrasKey;
     }
     const layout = this.layout;
     const shown = new Set(visible.map((p) => p.id));
@@ -253,6 +278,12 @@ export class SpaceScene implements ViewScene {
       while (parent && parent.kind !== "sun" && parent.parent) parent = byKey.get(parent.parent);
       if (parent?.kind === "sun") liveSuns.add(parent.key);
       if (b.fieldId) liveFields.set(b.fieldId, (liveFields.get(b.fieldId) ?? 0) + 1);
+      // A bridge lights every sun (and galaxy) it loops around.
+      for (const host of b.hosts ?? []) {
+        const h = byKey.get(host);
+        if (h?.kind === "sun") liveSuns.add(h.key);
+        if (h?.fieldId && !liveFields.has(h.fieldId)) liveFields.set(h.fieldId, 0);
+      }
     }
 
     disposeTree(this.sky);
@@ -384,6 +415,29 @@ export class SpaceScene implements ViewScene {
     }
     this.visibleIds = [...this.order.planet, ...this.order.moon, ...this.order.rock];
     this.visibleSet = new Set(this.visibleIds);
+
+    // Routes of the bridges: a dashed loop, each petal in the colour of the field it goes around.
+    this.routes = [];
+    for (const b of bodies) {
+      if (!b.hosts || !b.route || !b.termId || !shown.has(b.termId)) continue;
+      const tints = b.hosts.map((h) => {
+        const host = byKey.get(h);
+        return color(colorVar(host?.fieldId ? (domains.get(host.fieldId) ?? null) : null)).lerp(STARLIGHT, 0.35);
+      });
+      const colours: number[] = [];
+      for (let i = 0; i <= ROUTE_SAMPLES; i++) {
+        const c = tints[Math.min(tints.length - 1, Math.floor((i / ROUTE_SAMPLES) * tints.length))];
+        colours.push(c.r, c.g, c.b);
+      }
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new Float32BufferAttribute(new Float32Array((ROUTE_SAMPLES + 1) * 3), 3));
+      geometry.setAttribute("color", new Float32BufferAttribute(colours, 3));
+      const line = new Line(geometry, new LineDashedMaterial({ vertexColors: true, dashSize: 0.035, gapSize: 0.025, transparent: true, opacity: 0.75, depthWrite: false }));
+      line.renderOrder = 3;
+      line.frustumCulled = false;
+      this.sky.add(line);
+      this.routes.push({ hosts: b.hosts, route: b.route, line });
+    }
     this.place(this.now);
   }
 
@@ -413,6 +467,19 @@ export class SpaceScene implements ViewScene {
     for (const { parent, object } of this.pathOwners) {
       const p = at.get(parent);
       if (p) object.position.set(p[0], p[1], p[2]);
+    }
+    // The routes follow their suns, which orbit their galaxies.
+    for (const { hosts, route, line } of this.routes) {
+      const ends = hosts.map((h) => at.get(h));
+      if (!ends.every((e): e is [number, number, number] => Boolean(e))) continue;
+      const controls = routeControls(ends, route.normal);
+      const attribute = line.geometry.getAttribute("position");
+      for (let i = 0; i <= ROUTE_SAMPLES; i++) {
+        const p = closedSpline(controls, i / ROUTE_SAMPLES);
+        attribute.setXYZ(i, p[0], p[1], p[2]);
+      }
+      attribute.needsUpdate = true;
+      line.computeLineDistances();
     }
   }
 
@@ -490,6 +557,22 @@ export class SpaceScene implements ViewScene {
 
   groupLabels() {
     return [...fieldLabels(this.galaxyLabels, this.focusFields), ...this.sunLabels];
+  }
+
+  /**
+   * Full: the stars come out of the black one by one, then the galaxies,
+   * tiny and far, grow slowly while turning a quarter of a spiral, and the
+   * bodies light up. Short: a small grow and fade.
+   */
+  intro(t: number, kind: IntroKind) {
+    const full = kind === "full";
+    const grow = easeOutCubic(segment(t, full ? 0.14 : 0, 1));
+    const from = full ? 0.035 : 0.86;
+    this.content.scale.setScalar(from + (1 - from) * grow);
+    this.content.rotation.y = (1 - grow) * (full ? 1.7 : 0.25);
+    (this.stars.material as PointsMaterial).opacity = 0.75 * segment(t, 0, full ? 0.45 : 0.3);
+    const light = segment(t, full ? 0.3 : 0, full ? 0.75 : 0.5);
+    for (const kindOf of ["planet", "moon", "rock"] as const) (this.bodies[kindOf].material as PointsMaterial).opacity = light;
   }
 
   frame() {

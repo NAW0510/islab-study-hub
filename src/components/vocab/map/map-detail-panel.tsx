@@ -9,7 +9,7 @@ import { callAction } from "@/lib/call-action";
 import { weekMarker, weekNumberFor } from "@/lib/report-template";
 import type { VocabTerm } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { DOMAIN_SOURCE_LABELS, type DomainIndex } from "@/lib/vocab/format";
+import { DOMAIN_SOURCE_LABELS, extraDomainIds, type DomainIndex } from "@/lib/vocab/format";
 import { DomainChip } from "../domain-chip";
 
 const Markdown = dynamic(() => import("../../markdown").then((m) => m.Markdown), {
@@ -87,6 +87,9 @@ export function MapDetailPanel({
           <>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
               <DomainChip domain={domain} domains={domains} />
+              {extraDomainIds(term).map((id) => (
+                <DomainChip key={id} domain={domains.get(id) ?? null} domains={domains} />
+              ))}
               <span>{DOMAIN_SOURCE_LABELS[term.domain_source]}</span>
             </div>
             <p className="mt-2 text-xs text-muted">

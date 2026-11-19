@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confidenceFromStored, decide, rankDomains, scoreDomain, type DomainSimilarity } from "./vocab-classify.ts";
+import { alsoFits, confidenceFromStored, decide, rankDomains, scoreDomain, type DomainSimilarity } from "./vocab-classify.ts";
 import { VOCAB_CONFIG } from "./vocab-config.ts";
 
 const ML = "ml";
@@ -129,5 +129,47 @@ describe("confidenceFromStored", () => {
     expect(confidenceFromStored(null, parentOf)).toBe("rendah");
     expect(confidenceFromStored([], parentOf)).toBe("rendah");
     expect(confidenceFromStored([{ domain_id: STAT, score: 0.1 }], parentOf)).toBe("rendah");
+  });
+});
+
+describe("alsoFits", () => {
+  const AGAMA = "agama";
+  const ISLAM = "islam";
+  const KATOLIK = "katolik";
+  const KRISTEN = "kristen";
+  const parentOf = (id: string) => ([ISLAM, KATOLIK, KRISTEN].includes(id) ? AGAMA : id === DL ? ML : null);
+  const allah = [
+    { domain_id: ISLAM, score: 0.52 },
+    { domain_id: KRISTEN, score: 0.5 },
+    { domain_id: KATOLIK, score: 0.49 },
+  ];
+
+  it("suggests the domains that fit as well as the term's own", () => {
+    expect(alsoFits(allah, [ISLAM], parentOf)).toEqual([KRISTEN, KATOLIK]);
+  });
+
+  it("skips domains the term already has", () => {
+    expect(alsoFits(allah, [ISLAM, KATOLIK], parentOf)).toEqual([KRISTEN]);
+  });
+
+  it("works from whichever domain is the primary one", () => {
+    expect(alsoFits(allah, [KATOLIK], parentOf)).toEqual([ISLAM, KRISTEN]);
+  });
+
+  it("does not suggest a field of a branch the term has, or a branch of its field", () => {
+    expect(alsoFits([{ domain_id: DL, score: 0.6 }, { domain_id: ML, score: 0.59 }], [DL], parentOf)).toEqual([]);
+    expect(alsoFits([{ domain_id: ML, score: 0.6 }, { domain_id: DL, score: 0.59 }], [ML], parentOf)).toEqual([]);
+  });
+
+  it("leaves out domains too far from the best score, or too weak", () => {
+    const config = { AUTO_MIN_SCORE: 0.3, MULTI_SUGGEST_MARGIN: 0.05 };
+    expect(alsoFits([{ domain_id: STAT, score: 0.6 }, { domain_id: MATH, score: 0.54 }], [STAT], parentOf, config)).toEqual([]);
+    expect(alsoFits([{ domain_id: STAT, score: 0.32 }, { domain_id: MATH, score: 0.29 }], [STAT], parentOf, config)).toEqual([]);
+    expect(alsoFits([{ domain_id: STAT, score: 0.6 }, { domain_id: MATH, score: 0.55 }], [STAT], parentOf, config)).toEqual([MATH]);
+  });
+
+  it("suggests nothing without scores or without a domain to start from", () => {
+    expect(alsoFits(null, [ISLAM], parentOf)).toEqual([]);
+    expect(alsoFits(allah, [], parentOf)).toEqual([]);
   });
 });

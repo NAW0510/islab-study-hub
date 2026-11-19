@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { VOCAB_CONFIG } from "../../../supabase/functions/_shared/vocab-config.ts";
 import { requireUser } from "../auth";
+import { missingExtraDomains, VOCAB_TERM_COLUMNS } from "../queries";
 import type { ActionResult, VocabTerm } from "../types";
 import { todayISO } from "../utils";
 import { parseBulk } from "../vocab/parse-bulk";
@@ -184,6 +185,53 @@ export async function setTermDomain(id: string, domainId: string | null): Promis
   revalidatePath("/", "layout");
 }
 
+/**
+ * Several domains at once for a pending term (one term, many domains): the
+ * first becomes the primary one, the rest are extras. All the user's choice.
+ */
+export async function assignTermDomains(id: string, domainIds: string[]): Promise<ActionResult> {
+  const unique = [...new Set(domainIds)];
+  if (unique.length === 0) return { error: "Pilih minimal satu domain." };
+  const { supabase } = await requireUser();
+  const [primary, ...extras] = unique;
+  const { error } = await supabase.from("vocab_terms").update({ domain_id: primary, domain_source: "manual" }).eq("id", id);
+  if (error) return vocabDbError(error);
+  if (extras.length > 0) {
+    const { error: extraError } = await supabase
+      .from("vocab_term_domains")
+      .upsert(extras.map((domainId) => ({ term_id: id, domain_id: domainId })), { onConflict: "term_id,domain_id", ignoreDuplicates: true });
+    if (extraError) return vocabDbError(extraError);
+  }
+  revalidatePath("/", "layout");
+}
+
+/** Attach one more domain to a term ("Juga cocok di …", or picked by hand). */
+export async function addTermDomain(id: string, domainId: string): Promise<ActionResult> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("vocab_term_domains").insert({ term_id: id, domain_id: domainId });
+  if (error) {
+    if (error.code === "23505") return { error: "Domain itu sudah terpasang di istilah ini." };
+    return vocabDbError(error);
+  }
+  revalidatePath("/", "layout");
+}
+
+/** Take an extra domain off a term (its primary domain stays). */
+export async function removeTermDomain(id: string, domainId: string): Promise<ActionResult> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("vocab_term_domains").delete().eq("term_id", id).eq("domain_id", domainId);
+  if (error) return vocabDbError(error);
+  revalidatePath("/", "layout");
+}
+
+/** Swap: an extra domain becomes the primary one, the old primary becomes an extra. */
+export async function makePrimaryDomain(id: string, domainId: string): Promise<ActionResult> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("make_primary_vocab_domain", { p_term_id: id, p_domain_id: domainId });
+  if (error) return vocabDbError(error);
+  revalidatePath("/", "layout");
+}
+
 export async function deleteTerm(id: string): Promise<ActionResult> {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("vocab_terms").update({ deleted_at: new Date().toISOString() }).eq("id", id);
@@ -212,19 +260,12 @@ export async function nearestTerms(id: string): Promise<{ error: string } | { te
 /** Full term plus its nearest neighbours, for the brain map's detail panel (the map itself only loads snippets). */
 export async function termDetail(id: string): Promise<{ error: string } | { term: VocabTerm; neighbours: NearestTerm[] }> {
   const { supabase } = await requireUser();
-  const [termRes, nearRes] = await Promise.all([
-    supabase
-      .from("vocab_terms")
-      .select(
-        "id, term, aliases, definition, learned_on, domain_id, domain_source, domain_scores, subject_id, syllabus_item_id, note_id, embedded_at, created_at, updated_at",
-      )
-      .eq("id", id)
-      .is("deleted_at", null)
-      .single(),
-    supabase.rpc("match_vocab_terms", { p_term_id: id, p_count: 6 }),
-  ]);
+  const one = (columns: string) => supabase.from("vocab_terms").select(columns).eq("id", id).is("deleted_at", null).single();
+  const [firstTry, nearRes] = await Promise.all([one(VOCAB_TERM_COLUMNS), supabase.rpc("match_vocab_terms", { p_term_id: id, p_count: 6 })]);
+  // Until the extra-domains migration reaches the database, read the term without them.
+  const termRes = missingExtraDomains(firstTry.error) ? await one("*") : firstTry;
   if (termRes.error) return dbError(termRes.error);
-  return { term: termRes.data as VocabTerm, neighbours: (nearRes.data ?? []) as NearestTerm[] };
+  return { term: termRes.data as unknown as VocabTerm, neighbours: (nearRes.data ?? []) as NearestTerm[] };
 }
 
 /** Embeds everything that is still "belum diproses" (after a failure or wrong key). */

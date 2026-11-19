@@ -86,6 +86,7 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Sub-tab bersama: Daftar · Peta Otak · Domain.
 - Tampilan **Daftar | Kartu** (`?view=kartu`): kartu bolak-balik, depan istilah + domain, belakang ringkasan definisi.
 - Tautan langsung: `/vocab?term=<id>` membuka detail istilah, `/vocab?topic=<id>` menyaring istilah satu topik.
+- **Satu istilah, banyak domain** (branch `feat/istilah-multi-domain`): domain utama tetap di `vocab_terms.domain_id`, domain tambahan di tabel `vocab_term_domains` (RLS owner-only, trigger pemilik/domain aktif/bukan domain utama, RPC `make_primary_vocab_domain`; gabung/hapus domain dan centroid saran ikut menghitungnya). Klasifikasi tetap memilih satu domain; domain lain yang skornya hampir sama (`MULTI_SUGGEST_MARGIN`) hanya disarankan sebagai "Juga cocok di", dan kamu yang memasangnya.
 
 ### Perpustakaan (`/vocab/perpustakaan`, prototipe Tahap A)
 - Halaman DOM lengkap (kepala lengket dengan cari + Filter bidang, sungai kartu bersampul pola Bauhaus per istilah, balik ke definisi, ujung daftar) yang selalu jadi sumber kebenaran.
@@ -114,6 +115,8 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Semua dihitung di browser (Web Worker) dan disimpan di `localStorage`, dengan sidik jari istilah + domain + versi model. Tidak ada tabel atau RPC baru.
 - Label: lima bidang terbesar tampil 60%; bidang dari istilah yang disorot tampil penuh; tanpa angka jumlah.
 - Menambah visualisasi 3D baru: satu kelas `ViewScene` + satu entri registry (lihat `docs/DESIGN_SYSTEM.md`).
+- Istilah multi-domain tampil sebagai **irisan** di keempat peta: wilayah 2D yang bertumpuk (cincin + sulur), planet yang mengorbit beberapa matahari/lubang hitam, neuron di perbatasan lobus, dan titik bercincin yang ikut di wilayah semua domainnya di Kubus.
+- Semua tampilan Peta Otak **layar penuh** (seperti Perpustakaan) dengan **intro** per tampilan: penuh sekali per sesi, singkat sesudahnya, bisa dilewati dengan input apa pun.
 
 ## 5. Model data (Supabase / Postgres)
 
@@ -165,6 +168,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) sudah di `main`.
 - 🔄 Fase 4 (integrasi Kosakata, tampilan Kartu, sisa redesign) di branch `feat/fase-4-integrasi`, menunggu QA dan merge.
 - 🔄 Restyle Bauhaus (arah labmgm.org) di branch `feat/restyle-bauhaus` (di atas `feat/perpustakaan-kosakata`). Tahap 1 (token, bentuk, tema, fondasi transisi, shell, dashboard, login) disetujui; Tahap 2 (semua halaman lain dan transisinya) selesai, menunggu QA.
+- 🔄 Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro di branch `feat/istilah-multi-domain` (di atas `feat/restyle-bauhaus`). Migrasi `20261118120000_vocab_multi_domain.sql` baru diterapkan di stack **lokal**; remote menunggu konfirmasi. Sampai migrasinya ada di remote, app tetap jalan di data asli (tanpa domain tambahan).
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.

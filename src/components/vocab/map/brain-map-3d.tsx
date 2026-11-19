@@ -12,6 +12,7 @@ import type { VocabDomain } from "@/lib/types";
 import { cn, formatDate, normalizeSearch, todayISO } from "@/lib/utils";
 import { domainIndex, domainPath } from "@/lib/vocab/format";
 import { placeLabels } from "@/lib/vocab/labels";
+import { easeInOutCubic, INTRO_MS, INTRO_SEEN_KEY, introKind, seenViews, segment, type IntroKind } from "@/lib/vocab/map/intro";
 import { pickNearest, visible3d, type Layout3dData, type Projected } from "@/lib/vocab/map3d-model";
 import { fieldOf, firstSentence, mapStats, MIN_TERMS_FOR_MAP, type BoundaryLevel, type MapPoint } from "@/lib/vocab/map-model";
 import { EmptyState } from "../../ui";
@@ -19,6 +20,7 @@ import { useToast } from "../../toast";
 import { MapDetailPanel } from "./map-detail-panel";
 import { colorVar, type SceneInput, type Theme, type ViewScene } from "./scenes/common";
 import { defaultView, VIEW_KEYS, viewDefinition, VIEWS_3D, type View3d } from "./scenes/registry";
+import { measureSafeArea, NO_INSETS, type SafeArea } from "./safe-area";
 import { useLayout3d } from "./use-layout-3d";
 
 type Props = { points: MapPoint[]; domains: VocabDomain[]; programStart: string };
@@ -83,6 +85,23 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const probeRef = useRef<HTMLSpanElement>(null);
   const stageRef = useRef<Stage | null>(null);
   const sceneRef = useRef<{ view: View3d; scene: ViewScene } | null>(null);
+  /**
+   * The intro playing, if any (lib/vocab/map/intro.ts): when it started, how
+   * long it lasts, and where the camera lands. Any input skips to its end.
+   */
+  const introRef = useRef<{
+    kind: IntroKind;
+    start: number;
+    duration: number;
+    veil: "black" | "none";
+    dolly: number;
+    target: Vector3;
+    position: Vector3;
+  } | null>(null);
+  const veilRef = useRef<HTMLDivElement>(null);
+  /** The part of the canvas the floating panels leave free (full screen). */
+  const safeRef = useRef<SafeArea>(NO_INSETS);
+  const labelLayerRef = useRef<HTMLDivElement>(null);
   const labelEls = useRef(new Map<string, HTMLSpanElement>());
   const labelsRef = useRef<LabelSpec[]>([]);
   const panelOpenRef = useRef(false);
@@ -125,6 +144,17 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   const stats = useMemo(() => mapStats(visible, { programStart, currentWeek, domains: domainIdx }), [visible, programStart, currentWeek, domainIdx]);
   const searchHit = normalizeSearch(query.trim());
 
+  // The head and the glass panels float over the scene, so they take its scheme
+  // (Luar angkasa is always dark), not the app's.
+  useEffect(() => {
+    const stage = hostRef.current?.closest<HTMLElement>("[data-map-stage]");
+    if (!stage) return;
+    stage.dataset.scheme = theme;
+    return () => {
+      delete stage.dataset.scheme;
+    };
+  }, [theme]);
+
   // ── The three.js stage (created once) ───────────────────────────────────
   useEffect(() => {
     const host = hostRef.current;
@@ -145,12 +175,13 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     stageRef.current = stage;
 
     const resize = () => {
+      safeRef.current = measureSafeArea(host);
       const { width, height } = host.getBoundingClientRect();
       if (width === 0 || height === 0) return;
       stage.width = width;
       stage.height = height;
       renderer.setSize(width, height, false);
-      applyViewOffset(stage, panelOpenRef.current);
+      applyViewOffset(stage, panelOpenRef.current, safeRef.current);
       setHostSize((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
     };
     // Fires once right after observe(), then on every size change.
@@ -193,6 +224,22 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
           }
         }
       }
+      const intro = introRef.current;
+      if (intro && current) {
+        const t = Math.min(1, (now - intro.start) / Math.max(1, intro.duration));
+        current.intro?.(t, intro.kind);
+        // The camera comes in from farther away and settles on the view's frame.
+        const k = 1 + (intro.dolly - 1) * (1 - easeInOutCubic(segment(t, 0, 0.95)));
+        controls.target.copy(intro.target);
+        camera.position.copy(intro.target).addScaledVector(intro.position.clone().sub(intro.target), k);
+        if (veilRef.current) veilRef.current.style.opacity = intro.veil === "black" ? String(1 - segment(t, 0.04, 0.4)) : "0";
+        if (labelLayerRef.current) labelLayerRef.current.style.opacity = String(segment(t, 0.78, 1));
+        stage.dirty = true;
+        if (t >= 1) {
+          introRef.current = null;
+          host.dataset.intro = "done";
+        }
+      }
       const moved = controls.update(delta);
       if (moved || stage.dirty) {
         renderer.render(scene, camera);
@@ -202,8 +249,20 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
     };
     frameId = requestAnimationFrame(tick);
 
+    // An intro never stands in the way: the first touch, scroll or key jumps to its end.
+    const skip = () => {
+      const intro = introRef.current;
+      if (intro) intro.start = performance.now() - intro.duration;
+    };
+    window.addEventListener("pointerdown", skip, { passive: true });
+    window.addEventListener("wheel", skip, { passive: true });
+    window.addEventListener("keydown", skip);
+
     return () => {
       cancelAnimationFrame(frameId);
+      window.removeEventListener("pointerdown", skip);
+      window.removeEventListener("wheel", skip);
+      window.removeEventListener("keydown", skip);
       observer.disconnect();
       controls.dispose();
       sceneRef.current?.scene.dispose();
@@ -258,6 +317,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         stage.scene.remove(current.scene.root);
         current.scene.dispose();
       }
+      const switching = current !== null;
       current = { view, scene: viewDefinition(view).create() };
       sceneRef.current = current;
       stage.scene.add(current.scene.root);
@@ -269,6 +329,40 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       stage.controls.minDistance = position.distanceTo(target) * 0.12;
       stage.controls.maxDistance = position.distanceTo(target) * 3;
       stage.controls.saveState();
+
+      // The intro: full once per view and browser session, short after that or when switching.
+      let seen = new Set<string>();
+      try {
+        seen = seenViews(sessionStorage.getItem(INTRO_SEEN_KEY));
+      } catch {
+        // storage blocked: every visit is a first one
+      }
+      const kind = introKind({ seen: seen.has(view), switching, reducedMotion: reducedMotion() });
+      const spec = viewDefinition(view).intro;
+      if (kind === "instant") {
+        current.scene.intro?.(1, kind);
+        introRef.current = null;
+        if (hostRef.current) hostRef.current.dataset.intro = "done";
+      } else {
+        introRef.current = {
+          kind,
+          start: performance.now(),
+          duration: kind === "full" ? spec.fullMs : INTRO_MS.short,
+          veil: kind === "full" ? spec.veil : "none",
+          dolly: kind === "full" ? spec.dolly : 1 + (spec.dolly - 1) * 0.2,
+          target: target.clone(),
+          position: position.clone(),
+        };
+        current.scene.intro?.(0, kind);
+        if (hostRef.current) hostRef.current.dataset.intro = kind;
+        if (kind === "full") {
+          try {
+            sessionStorage.setItem(INTRO_SEEN_KEY, JSON.stringify([...seen, view]));
+          } catch {
+            // storage blocked: fine
+          }
+        }
+      }
     } else {
       current.scene.build(sceneInput);
     }
@@ -322,7 +416,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   useEffect(() => {
     panelOpenRef.current = Boolean(selectedId);
     const stage = stageRef.current;
-    if (stage) applyViewOffset(stage, panelOpenRef.current);
+    if (stage) applyViewOffset(stage, panelOpenRef.current, safeRef.current);
   }, [selectedId]);
 
   // Labels: group names (regions, galaxies, suns, lobes) plus selected, hovered, searched and newest terms.
@@ -471,7 +565,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   // ── States without a space ──────────────────────────────────────────────
   if (points.length < MIN_TERMS_FOR_MAP) {
     return (
-      <EmptyState
+      <EmptyState
         title="Peta butuh beberapa istilah dulu"
         description={`Peta Otak terbentuk dari kedekatan makna antaristilah, jadi butuh minimal 5 istilah. Sekarang baru ada ${points.length}.`}
         action={
@@ -484,7 +578,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   }
   if (!webgl) {
     return (
-      <EmptyState
+      <EmptyState
         title="Browser ini tidak bisa menampilkan 3D"
         description="Tampilan 3D butuh WebGL, yang tidak tersedia atau dimatikan di browser ini. Tampilan 2D tetap bisa dipakai."
         action={
@@ -517,7 +611,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
   return (
     <div className="space-y-3">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="map-ui flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-btn border border-border-strong bg-surface p-0.5" role="group" aria-label="Tampilan 3D">
           {VIEWS_3D.map(({ key, label, Icon }) => (
             <button
@@ -623,7 +717,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       )}
 
       <div className="grid gap-3 lg:grid-cols-[13rem_1fr]">
-        <div className="contents lg:flex lg:flex-col lg:gap-3">
+        <div className="map-ui contents lg:flex lg:flex-col lg:gap-3">
           {legend.length > 0 && (
             <ul className="card order-1 flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible" aria-label="Legenda bidang">
               {legend.map((f) => {
@@ -650,7 +744,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
               })}
             </ul>
           )}
-          <dl className="card order-3 grid grid-cols-2 gap-x-4 gap-y-2 p-3 text-xs lg:grid-cols-1">
+          <dl className="map-stats card order-3 grid grid-cols-2 gap-x-4 gap-y-2 p-3 text-xs lg:grid-cols-1">
             <Stat label="Istilah tampil" value={stats.total} />
             <Stat label="Cabang ilmu aktif" value={stats.activeDomains} />
             <Stat label="Baru minggu ini" value={stats.thisWeek} />
@@ -662,7 +756,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         <div
           ref={hostRef}
           className={cn(
-            "theme-scope card relative order-2 h-[min(70dvh,44rem)] min-h-96 touch-none overflow-hidden text-text select-none",
+            "map-canvas theme-scope card relative order-2 h-[min(70dvh,44rem)] min-h-96 touch-none overflow-hidden text-text select-none",
             theme === "dark" ? "scheme-dark" : "scheme-light",
             definition.background,
           )}
@@ -675,8 +769,11 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         >
           <span ref={probeRef} aria-hidden="true" className="hidden" />
 
+          {/* The intro's veil: the Luar angkasa rises out of black (transform-free, opacity only). */}
+          <div ref={veilRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1] bg-paper-ink opacity-0" />
+
           {/* Labels: positioned every frame from the 3D scene */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div ref={labelLayerRef} className="pointer-events-none absolute inset-0 z-[2] overflow-hidden" aria-hidden="true">
             {labelList.map((l) => (
               <span
                 key={l.key}
@@ -693,7 +790,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
             ))}
           </div>
 
-          <div className="absolute top-2 left-2 z-10 rounded-control border border-border bg-surface">
+          <div className="map-zoom absolute top-2 left-2 z-10 rounded-control border border-border bg-surface">
             <button type="button" className="icon-btn" aria-label="Kembali ke tampilan awal" onClick={resetView}>
               <Maximize className="size-4" />
             </button>
@@ -755,7 +852,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
       </div>
 
       {/* Week slider */}
-      <div className="card flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+      <div className="map-week card flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <button
           type="button"
           className="btn btn-secondary btn-sm"
@@ -808,20 +905,29 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
  * (a sheet) on phones. The camera sees a larger virtual canvas of which only
  * the visible part is drawn.
  */
-function applyViewOffset(stage: Stage, panelOpen: boolean) {
+function applyViewOffset(stage: Stage, panelOpen: boolean, safe: SafeArea = NO_INSETS) {
   const { camera, width: w, height: h } = stage;
   if (w === 0 || h === 0) return;
-  if (!panelOpen) {
+  const wide = window.matchMedia("(min-width: 768px)").matches;
+  const panel = panelOpen && wide ? Math.min(PANEL_WIDTH, w / 2) : 0;
+  const sheet = panelOpen && !wide ? Math.round(h * SHEET_SHARE) : 0;
+  // Where the picture's middle should be: the middle of what the panels leave free.
+  const cx = (safe.left + w - panel - safe.right) / 2;
+  const cy = (safe.top + h - sheet - safe.bottom) / 2;
+  if (Math.abs(cx - w / 2) < 0.5 && Math.abs(cy - h / 2) < 0.5) {
     camera.aspect = w / h;
+    camera.zoom = 1;
     camera.clearViewOffset();
-  } else if (window.matchMedia("(min-width: 768px)").matches) {
-    const p = Math.min(PANEL_WIDTH, w / 2);
-    camera.aspect = (w + p) / h;
-    camera.setViewOffset(w + p, h, p, 0, w, h);
   } else {
-    const s = Math.round(h * SHEET_SHARE);
-    camera.aspect = w / (h + s);
-    camera.setViewOffset(w, h + s, 0, s, w, h);
+    // A larger virtual canvas centred there, of which only the visible part is drawn.
+    const vw = cx >= w / 2 ? 2 * cx : 2 * (w - cx);
+    const vh = cy >= h / 2 ? 2 * cy : 2 * (h - cy);
+    camera.aspect = vw / vh;
+    camera.setViewOffset(vw, vh, cx >= w / 2 ? 0 : vw - w, cy >= h / 2 ? 0 : vh - h, w, h);
+    // Framed for the height the head and the Week bar leave free, as the scenes
+    // were framed for their old card; an opening panel or sheet only moves it.
+    const freeH = Math.max(160, h - safe.top - safe.bottom);
+    camera.zoom = Math.min(1, freeH / vh);
   }
   camera.updateProjectionMatrix();
   stage.dirty = true;

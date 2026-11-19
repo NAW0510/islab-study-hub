@@ -22,7 +22,7 @@ export type ShellProps = {
 };
 
 /** Pages that want the whole screen: the sidebar folds into a rail of numbers there. */
-const IMMERSIVE = ["/vocab/perpustakaan"];
+const IMMERSIVE = ["/vocab/perpustakaan", "/vocab/map"];
 
 /**
  * The current page's shape. It is named for view transitions, so on

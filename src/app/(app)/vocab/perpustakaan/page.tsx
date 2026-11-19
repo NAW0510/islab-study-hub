@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LibraryPage } from "@/components/vocab/library/library-page";
 import { requireUser } from "@/lib/auth";
-import { getProfile, getSubjectsAndTopics, VOCAB_TERM_COLUMNS } from "@/lib/queries";
+import { getProfile, getSubjectsAndTopics, loadVocabTerms } from "@/lib/queries";
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
 import type { VocabDomain, VocabTerm } from "@/lib/types";
 
@@ -21,17 +21,12 @@ export default async function LibraryRoute({
 
   // The same light read as the Daftar page; search, fields, rooms and term pages all run in the browser.
   const [termsRes, domainsRes, profile, { subjects, topics }] = await Promise.all([
-    supabase
-      .from("vocab_terms")
-      .select(VOCAB_TERM_COLUMNS)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1000),
+    loadVocabTerms(supabase),
     supabase.from("vocab_domains").select("*").is("deleted_at", null).order("name"),
     getProfile(supabase),
     getSubjectsAndTopics(supabase),
   ]);
-  const terms = (termsRes.data ?? []) as VocabTerm[];
+  const terms = (termsRes.data ?? []) as unknown as VocabTerm[];
 
   // Titles of the notes the terms point to, for the term pages' links.
   const noteIds = [...new Set(terms.map((t) => t.note_id).filter((id): id is string => Boolean(id)))];

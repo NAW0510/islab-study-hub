@@ -8,7 +8,7 @@ import { weekNumberFor } from "@/lib/report-template";
 import type { SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
 import { useUrlFilters } from "@/lib/use-url-filters";
 import { excerpt, normalizeSearch } from "@/lib/utils";
-import { domainIndex, domainPath } from "@/lib/vocab/format";
+import { domainIndex, domainPath, termDomainIds, type DomainIndex } from "@/lib/vocab/format";
 import { asDomainColor, type DomainColor } from "@/lib/vocab/seed-domains";
 import { EmptyState } from "../../ui";
 import { VocabTabs } from "../vocab-tabs";
@@ -23,8 +23,24 @@ type Filters = { q?: string; domain?: string };
 /** "Tanpa domain" as a field of its own on the shelf. */
 const NONE = "none";
 
+/** A domain's colour is its field's (a branch takes its field's colour). */
+const colorOfDomain = (d: VocabDomain, domains: DomainIndex): DomainColor =>
+  asDomainColor((d.parent_id ? domains.get(d.parent_id) : d)?.color);
+
 type Field = { id: string; name: string; color: DomainColor; count: number; branches: VocabDomain[] };
-type TermCard = LibraryCardData & { field: string; branch: string | null; hay: string; page: TermPageData };
+/**
+ * `field`/`branch` come from the primary domain (colour, cover, the "own"
+ * room); `fields`/`branches` list every domain's field and branch, so a term
+ * in many domains stands in every room it belongs to.
+ */
+type TermCard = LibraryCardData & {
+  field: string;
+  branch: string | null;
+  fields: string[];
+  branches: string[];
+  hay: string;
+  page: TermPageData;
+};
 type View = { field: string | null; term: string | null };
 
 /**
@@ -117,8 +133,14 @@ export function LibraryPage({
     const list: TermCard[] = terms.map((t) => {
       const own = t.domain_id ? domainIdx.get(t.domain_id) : undefined;
       const field = fieldMap.get(own ? (own.parent_id ?? own.id) : NONE) ?? none;
-      field.count += 1;
+      // Every domain's field counts the term once (one term, many domains).
+      const all = termDomainIds(t)
+        .map((id) => domainIdx.get(id))
+        .filter((d): d is VocabDomain => Boolean(d));
+      const fieldIds = [...new Set([field.id, ...all.map((d) => d.parent_id ?? d.id)])].filter((id) => fieldMap.has(id));
+      for (const id of fieldIds) (fieldMap.get(id) as Field).count += 1;
       const path = t.domain_id ? domainPath(t.domain_id, domainIdx) || "Tanpa domain" : "Tanpa domain";
+      const others = all.filter((d) => d.id !== t.domain_id).map((d) => ({ path: domainPath(d.id, domainIdx), color: colorOfDomain(d, domainIdx) }));
       const week = weekNumberFor(programStart, t.learned_on);
       const subject = t.subject_id ? subjectById.get(t.subject_id) : undefined;
       const topic = t.syllabus_item_id ? topicById.get(t.syllabus_item_id) : undefined;
@@ -131,6 +153,8 @@ export function LibraryPage({
         definition: t.definition.trim() ? excerpt(t.definition, 360) : "",
         field: field.id,
         branch: own?.parent_id ? own.id : null,
+        fields: fieldIds,
+        branches: all.filter((d) => d.parent_id).map((d) => d.id),
         hay: normalizeSearch(`${t.term} ${t.aliases.join(" ")} ${t.definition.slice(0, 5000)}`),
         page: {
           id: t.id,
@@ -140,6 +164,7 @@ export function LibraryPage({
           learnedOn: t.learned_on,
           week,
           path,
+          others,
           color: field.color,
           fieldId: field.id,
           status: !t.embedded_at && t.domain_source === "pending" ? "unprocessed" : t.domain_source === "pending" ? "pending" : null,
@@ -174,11 +199,12 @@ export function LibraryPage({
 
   const words = normalizeSearch(f.q ?? "").split(/\s+/).filter(Boolean);
   const matches = (c: TermCard) => words.every((w) => c.hay.includes(w));
-  const branchOk = (c: TermCard) => !f.domain || (f.domain === "umum" ? c.branch === null : c.branch === f.domain);
-  const listed = field ? cards.filter((c) => c.field === field.id && branchOk(c) && matches(c)) : words.length > 0 ? cards.filter(matches) : [];
+  const branchOk = (c: TermCard) =>
+    !f.domain || (f.domain === "umum" ? c.branch === null && c.branches.length === 0 : c.branches.includes(f.domain));
+  const listed = field ? cards.filter((c) => c.fields.includes(field.id) && branchOk(c) && matches(c)) : words.length > 0 ? cards.filter(matches) : [];
 
   // The term after this one, in the order the reader came through (the room, the search, else the term's field).
-  const sequence = termCard ? (listed.some((c) => c.id === termCard.id) ? listed : cards.filter((c) => c.field === termCard.field)) : [];
+  const sequence = termCard ? (listed.some((c) => c.id === termCard.id) ? listed : cards.filter((c) => c.fields.includes(termCard.field))) : [];
   const nextCard = termCard && sequence.length > 1 ? sequence[(sequence.findIndex((c) => c.id === termCard.id) + 1) % sequence.length] : null;
 
   // ------------------------------------------------------------ transitions

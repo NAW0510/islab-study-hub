@@ -297,6 +297,42 @@ export type Database = {
           },
         ]
       }
+      vocab_term_domains: {
+        Row: {
+          created_at: string
+          domain_id: string
+          term_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain_id: string
+          term_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string
+          term_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vocab_term_domains_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "vocab_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vocab_term_domains_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "vocab_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vocab_terms: {
         Row: {
           aliases: string[]
@@ -482,6 +518,10 @@ export type Database = {
           term: string
         }[]
       }
+      make_primary_vocab_domain: {
+        Args: { p_domain_id: string; p_term_id: string }
+        Returns: undefined
+      }
       merge_vocab_domains: {
         Args: { p_from: string; p_into: string }
         Returns: number
@@ -532,6 +572,7 @@ export type Database = {
           aliases: string[]
           domain_id: string
           domain_source: string
+          extra_domain_ids: string[]
           has_embedding: boolean
           id: string
           learned_on: string

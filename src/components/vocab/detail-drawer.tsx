@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import { FormError } from "../action-form";
 import { DomainChip } from "./domain-chip";
 import { SubjectTopicFields } from "./subject-topic-fields";
+import { TermDomains } from "./term-domains";
 
 // The Markdown renderer (react-markdown + KaTeX) is heavy; load it only when a
 // drawer actually opens so the /vocab page itself stays light.
@@ -109,13 +110,16 @@ export function DetailDrawer({
         {!editing ? (
           <>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-              <DomainChip domain={domain} domains={domains} />
+              {/* With a domain, the Domain section below lists them all. */}
+              {!domain && <DomainChip domain={domain} domains={domains} />}
               <span>{DOMAIN_SOURCE_LABELS[term.domain_source]}</span>
               {(term.domain_source === "auto" || term.domain_source === "pending") && term.domain_scores && (
                 <span>· Keyakinan: {confidenceLabel(term, domains)}</span>
               )}
               {!term.embedded_at && <span className="chip chip-tone tone-warn">Belum diproses</span>}
             </div>
+
+            <TermDomains term={term} domains={domains} domainList={domainList} onChanged={onChanged} />
 
             <dl className="mt-4 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1.5 text-sm">
               <dt className="text-muted">Dipelajari</dt>
@@ -222,7 +226,7 @@ export function DetailDrawer({
               </div>
               <div>
                 <label className="label" htmlFor="ed-domain">
-                  Domain
+                  Domain utama
                 </label>
                 <select id="ed-domain" name="domain_id" defaultValue={term.domain_id ?? ""} className="input">
                   <option value="">— Tanpa domain (minta tebakan) —</option>

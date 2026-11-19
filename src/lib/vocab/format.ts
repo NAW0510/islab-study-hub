@@ -38,6 +38,26 @@ export function newTermsLine(terms: readonly string[]): string {
   return names.length === 0 ? "" : `- Istilah baru minggu ini (${names.length}): ${names.join(", ")}`;
 }
 
+/** A term's extra domains (one term, many domains), oldest first; empty when none or not loaded. */
+export function extraDomainIds(term: Pick<VocabTerm, "extra_domains">): string[] {
+  return [...(term.extra_domains ?? [])]
+    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.domain_id.localeCompare(b.domain_id))
+    .map((x) => x.domain_id);
+}
+
+/** Every domain of a term: the primary one first, then the extras. */
+export function termDomainIds(term: Pick<VocabTerm, "domain_id" | "extra_domains">): string[] {
+  return [...(term.domain_id ? [term.domain_id] : []), ...extraDomainIds(term).filter((id) => id !== term.domain_id)];
+}
+
+/**
+ * Does a term belong to `domainId`, or to one of its branches? (Filters,
+ * Perpustakaan rooms and counts look at every domain of a term.)
+ */
+export function inDomain(term: Pick<VocabTerm, "domain_id" | "extra_domains">, domainId: string, domains: DomainIndex): boolean {
+  return termDomainIds(term).some((id) => id === domainId || domains.get(id)?.parent_id === domainId);
+}
+
 /** The top suggested domains for a pending term, best first, resolved to rows. */
 export function suggestionsFor(term: Pick<VocabTerm, "domain_scores">, domains: DomainIndex, count = 3): VocabDomain[] {
   return [...(term.domain_scores ?? [])]

@@ -15,10 +15,19 @@ export type VocabTab = (typeof TABS)[number]["key"];
  * Sub-navigation shared by the Kosakata pages: an underlined row, or (on
  * the Perpustakaan, over its world) a floating glass pill.
  */
-export function VocabTabs({ active, variant = "line" }: { active: VocabTab; variant?: "line" | "pill" }) {
+export function VocabTabs({
+  active,
+  variant = "line",
+  inline = false,
+}: {
+  active: VocabTab;
+  variant?: "line" | "pill";
+  /** The pill inside a row of controls (the Peta Otak head) instead of centred on its own line. */
+  inline?: boolean;
+}) {
   if (variant === "pill") {
     return (
-      <nav aria-label="Bagian Kosakata" className="mb-6 flex justify-center">
+      <nav aria-label="Bagian Kosakata" className={inline ? "flex max-w-full min-w-0" : "mb-6 flex justify-center"}>
         <div className="segmented segmented-glass max-w-full overflow-x-auto no-scrollbar">
           {TABS.map((tab) => (
             <Link

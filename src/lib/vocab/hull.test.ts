@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paddedHull, regionFor, withoutOutliers } from "./hull";
+import { bridgeFor, nearestPoint, paddedHull, placeGuests, regionFor, withoutOutliers } from "./hull";
 import { placeLabels, type LabelBox } from "./labels";
 import type { Point } from "./layout/normalize";
 
@@ -108,5 +108,39 @@ describe("placeLabels", () => {
   it("honours the maximum", () => {
     const labels = Array.from({ length: 10 }, (_, i) => box(`l${i}`, i * 200, 0, 10 - i));
     expect(placeLabels(labels, 3)).toEqual(["l0", "l1", "l2"]);
+  });
+});
+
+describe("one term in many domains (the overlap)", () => {
+  const members: Point[] = [
+    [0, 0],
+    [0.1, 0],
+    [0, 0.1],
+    [0.1, 0.1],
+    [0.05, 0.05],
+  ];
+
+  it("finds the nearest member", () => {
+    expect(nearestPoint([0.3, 0.05], members)?.point).toEqual([0.1, 0]);
+    expect(nearestPoint([0, 0], [])).toBeNull();
+  });
+
+  it("takes a nearby guest inside the outline, even where it would be an outlier", () => {
+    const { pinned, bridges } = placeGuests(members, [[0.25, 0.05]]);
+    expect(pinned).toEqual([[0.25, 0.05]]);
+    expect(bridges).toEqual([]);
+    const region = regionFor(members, (p) => p, pinned);
+    expect(region?.count).toBe(6);
+  });
+
+  it("reaches a far guest with a tendril instead of stretching the region", () => {
+    const { pinned, bridges } = placeGuests(members, [[0.9, -0.8]]);
+    expect(pinned).toEqual([]);
+    expect(bridges).toEqual([[[0.1, 0], [0.9, -0.8]]]);
+    expect(bridgeFor([0.1, 0], [0.9, -0.8])).toMatch(/^M.*Z$/);
+  });
+
+  it("a guest with no members to reach from stands as its own small region", () => {
+    expect(placeGuests([], [[0.5, 0.5]]).pinned).toEqual([[0.5, 0.5]]);
   });
 });

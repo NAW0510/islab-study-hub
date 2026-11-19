@@ -1,11 +1,29 @@
 import { BufferGeometry, Color, Float32BufferAttribute, Group, LineBasicMaterial, LineSegments, Points, PointsMaterial, Vector3 } from "three";
-import { scaffoldOpacity } from "@/lib/vocab/brain-model";
+import { borderSlots, scaffoldOpacity } from "@/lib/vocab/brain-model";
 import { LAYOUT_3D_CONFIG } from "@/lib/vocab/layout/config";
 import { termGroups } from "@/lib/vocab/map3d-model";
-import { colorVar, discTexture, disposeTree, fieldLabels, HighlightLayer, setPoints, type FieldLabel, type Highlight, type SceneInput, type ViewScene } from "./common";
+import { easeOutBack, easeOutCubic, segment, type IntroKind } from "@/lib/vocab/map/intro";
+import { extrasOf, groupsOf } from "@/lib/vocab/map-model";
+import {
+  colorVar,
+  discTexture,
+  disposeTree,
+  fadeTree,
+  fieldLabels,
+  HighlightLayer,
+  radialTexture,
+  setPoints,
+  type FieldLabel,
+  type Highlight,
+  type SceneInput,
+  type ViewScene,
+} from "./common";
 
 /** Dot sizes at the starting capacity (BRAIN_BASE_NEURONS); they shrink as the brain gets more neurons. */
-const SIZE = { scaffold: 0.03, lit: 0.085, mark: 0.17 } as const;
+const SIZE = { scaffold: 0.03, lit: 0.085, mark: 0.17, halo: 0.2 } as const;
+/** Segments of a bridging synapse's curve, and how far it bows outward from the brain's centre. */
+const ARC_SEGMENTS = 14;
+const ARC_BOW = 0.18;
 /** The smallest the dots get, as a share of SIZE, however many neurons there are. */
 const MIN_DOT_SCALE = 0.45;
 /** How much of its field's colour a sleeping neuron in that field's lobe takes; more on legend hover. */
@@ -24,6 +42,11 @@ export class BrainScene implements ViewScene {
   private readonly scaffold = new Points(new BufferGeometry(), new PointsMaterial({ vertexColors: true, transparent: true, depthWrite: false, size: SIZE.scaffold }));
   private readonly lit = new Points(new BufferGeometry(), new PointsMaterial({ vertexColors: true, transparent: true, depthWrite: false, size: SIZE.lit }));
   private readonly synapses = new Group();
+  /** Terms in many domains (one term, many domains): a ring of light around their neuron. */
+  private readonly ringTexture = radialTexture([[0, 0], [0.5, 0], [0.6, 1], [0.74, 1], [0.84, 0], [1, 0]]);
+  private readonly halos = new Points(new BufferGeometry(), new PointsMaterial({ vertexColors: true, transparent: true, depthWrite: false, size: SIZE.halo }));
+  /** Curved synapses from a bridging neuron to the nearest neuron in each of its fields' lobes. */
+  private readonly bridges = new Group();
   private readonly marks: HighlightLayer;
   private positions = new Map<string, Vector3>();
   private ids: string[] = [];
@@ -40,7 +63,9 @@ export class BrainScene implements ViewScene {
     this.scaffold.renderOrder = 1;
     this.lit.renderOrder = 4;
     this.marks = new HighlightLayer(this.texture, SIZE.mark);
-    this.root.add(this.scaffold, this.synapses, this.lit, this.marks.root);
+    (this.halos.material as PointsMaterial).map = this.ringTexture;
+    this.halos.renderOrder = 3;
+    this.root.add(this.scaffold, this.synapses, this.bridges, this.halos, this.lit, this.marks.root);
   }
 
   build(input: SceneInput) {
@@ -54,13 +79,17 @@ export class BrainScene implements ViewScene {
       return this.fieldColour.get(key) as Color;
     };
 
+    // Terms of several fields light a neuron on the border between those fields' lobes.
+    const fieldsOf = new Map(visible.filter((p) => extrasOf(p).length > 0).map((p) => [p.id, groupsOf(p, "bidang", domains).map((g) => g.id)]));
+    const border = borderSlots(brain, [...fieldsOf].map(([id, fieldIds]) => ({ id, fieldIds })));
+
     // Lit neurons: the visible terms on their slots.
     this.positions = new Map();
     const litSlots = new Set<number>();
     const litColours: Color[] = [];
     const litAt: Vector3[] = [];
     for (const p of visible) {
-      const slot = brain.termSlot.get(p.id);
+      const slot = border.get(p.id) ?? brain.termSlot.get(p.id);
       if (slot === undefined) continue;
       litSlots.add(slot);
       const at = new Vector3(...brain.slots[slot]);
@@ -113,6 +142,60 @@ export class BrainScene implements ViewScene {
       const lines = new LineSegments(geometry, new LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false }));
       lines.renderOrder = 2;
       this.synapses.add(lines);
+    }
+
+    // One term, many domains: a ring of light in the colour of its other domain's field, and
+    // for terms across fields, a bowed synapse to the nearest neuron of each of those lobes.
+    disposeTree(this.bridges);
+    const haloAt: Vector3[] = [];
+    const haloColours: Color[] = [];
+    const arcEnds: number[] = [];
+    const arcColours: number[] = [];
+    const fieldOfTerm = new Map(visible.map((p) => [p.id, termGroups(p.domain_id, domains).fieldId]));
+    for (const [id, fields] of fieldsOf) {
+      const at = this.positions.get(id);
+      if (!at) continue;
+      const extra = fields.find((f) => f !== fieldOfTerm.get(id)) ?? fields[0];
+      haloAt.push(at);
+      haloColours.push(colourOf(extra ?? null));
+      if (!border.has(id)) continue;
+      for (const field of fields) {
+        let nearest: Vector3 | null = null;
+        let best = Infinity;
+        for (const [other, f] of fieldOfTerm) {
+          const to = other !== id && f === field ? this.positions.get(other) : undefined;
+          const d = to ? to.distanceToSquared(at) : Infinity;
+          if (to && d < best) {
+            best = d;
+            nearest = to;
+          }
+        }
+        if (!nearest) continue;
+        const c = colourOf(field);
+        const control = at.clone().add(nearest).multiplyScalar(0.5);
+        control.addScaledVector(control.clone().normalize(), ARC_BOW);
+        let prev = at;
+        for (let k = 1; k <= ARC_SEGMENTS; k++) {
+          const t = k / ARC_SEGMENTS;
+          const point = new Vector3()
+            .addScaledVector(at, (1 - t) * (1 - t))
+            .addScaledVector(control, 2 * (1 - t) * t)
+            .addScaledVector(nearest, t * t);
+          arcEnds.push(prev.x, prev.y, prev.z, point.x, point.y, point.z);
+          arcColours.push(c.r, c.g, c.b, c.r, c.g, c.b);
+          prev = point;
+        }
+      }
+    }
+    setPoints(this.halos, haloAt, haloColours);
+    (this.halos.material as PointsMaterial).size = SIZE.halo * scale;
+    if (arcEnds.length) {
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new Float32BufferAttribute(arcEnds, 3));
+      geometry.setAttribute("color", new Float32BufferAttribute(arcColours, 3));
+      const arcs = new LineSegments(geometry, new LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false }));
+      arcs.renderOrder = 3;
+      this.bridges.add(arcs);
     }
 
     // Labels: each field's name over the middle of its lobes.
@@ -185,6 +268,23 @@ export class BrainScene implements ViewScene {
     return fieldLabels(this.labels.filter((l) => l.count > 0), this.focusFields);
   }
 
+  /**
+   * Full: the brain spins from small to big (two turns, landing with a small
+   * overshoot), the neurons light up, then the synapses come in. Short: a
+   * quick grow and a quarter turn.
+   */
+  intro(t: number, kind: IntroKind) {
+    const full = kind === "full";
+    const size = easeOutBack(segment(t, 0, full ? 0.82 : 1));
+    const from = full ? 0.05 : 0.85;
+    this.root.scale.setScalar(from + (1 - from) * size);
+    this.root.rotation.y = (1 - easeOutCubic(segment(t, 0, full ? 0.9 : 1))) * (full ? Math.PI * 4 : 0.5);
+    fadeTree(this.lit, segment(t, full ? 0.3 : 0, full ? 0.7 : 0.6));
+    fadeTree(this.halos, segment(t, full ? 0.5 : 0.2, full ? 0.85 : 0.8));
+    fadeTree(this.synapses, segment(t, full ? 0.6 : 0.3, 1));
+    fadeTree(this.bridges, segment(t, full ? 0.65 : 0.3, 1));
+  }
+
   frame() {
     // Three-quarter view from the front left, slightly above (the model is centred on its bounding box):
     // both hemispheres, the fissure and the cerebellum show.
@@ -195,5 +295,6 @@ export class BrainScene implements ViewScene {
     this.marks.dispose();
     disposeTree(this.root);
     this.texture.dispose();
+    this.ringTexture.dispose();
   }
 }
