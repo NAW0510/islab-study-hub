@@ -317,6 +317,8 @@ function texture(canvas: HTMLCanvasElement) {
 // ------------------------------------------------------------------ the scene
 
 export async function createHologram(opts: HologramOptions): Promise<Hologram> {
+  const stamp = (name: string) => performance.mark(`atlas:${name}`);
+  stamp("create");
   const { host, backdrop, data } = opts;
   const canvas = document.createElement("canvas");
   canvas.className = "atlas-canvas";
@@ -348,7 +350,9 @@ export async function createHologram(opts: HologramOptions): Promise<Hologram> {
 
   const book = new THREE.Group();
   scene.add(book);
+  stamp("renderer");
   const spreadTex = keep(texture(drawSpread(data, colors, opts.aspect)));
+  stamp("spread");
   const rightTex = spreadTex.clone();
   rightTex.repeat.set(0.5, 1);
   rightTex.offset.set(0.5, 0);
@@ -444,6 +448,7 @@ export async function createHologram(opts: HologramOptions): Promise<Hologram> {
   const mapRise = new THREE.Group(); // grows out of the pages
   mapGroup.add(mapRise);
 
+  stamp("book");
   const count = data.countries.length;
   const indexOf = new Map(data.countries.map((c, i) => [c.code, i]));
   const { segmentCountry } = opts.mesh;
@@ -557,6 +562,7 @@ export async function createHologram(opts: HologramOptions): Promise<Hologram> {
   pin.visible = false;
   mapRise.add(pin);
 
+  stamp("map");
   // ---------------------------------------------------------------- beam and dust
   const restTop = new THREE.Vector3(BOOK.REST[0], BOOK.REST[1] + T * restScale, BOOK.REST[2]);
   const topCorners = [
@@ -911,7 +917,8 @@ export async function createHologram(opts: HologramOptions): Promise<Hologram> {
 
   const renderFrame = (now: number) => {
     frameId = requestAnimationFrame(renderFrame);
-    const dt = Math.min(0.1, (now - last) / 1000);
+    // Long frames (a hidden tab, the first uploads) never skip the opening ahead.
+    const dt = Math.min(phase === "open" ? 1 / 30 : 0.1, (now - last) / 1000);
     last = now;
     clock += dt;
     fillUniforms.uTime.value = clock;
@@ -1060,6 +1067,7 @@ export async function createHologram(opts: HologramOptions): Promise<Hologram> {
 
     renderer.render(scene, camera);
     if (!started) {
+      stamp("first-frame");
       started = true;
       opts.onStarted();
     }
@@ -1077,11 +1085,13 @@ export async function createHologram(opts: HologramOptions): Promise<Hologram> {
   camera.position.copy(camPos);
   camera.lookAt(camTarget);
   for (const o of [beam, dust, mapRise]) o.visible = true;
+  stamp("scene");
   try {
     await renderer.compileAsync(scene, camera);
   } catch {
     // Older drivers: compile on first use.
   }
+  stamp("compiled");
   last = performance.now();
   frameId = requestAnimationFrame(renderFrame);
 

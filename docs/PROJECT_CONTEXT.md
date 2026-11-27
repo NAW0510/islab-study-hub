@@ -78,36 +78,46 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Login email + password. **Pendaftaran publik dimatikan**, akun dibuat manual di dashboard Supabase.
 - Logout lewat `/auth/signout`.
 
-### Kosakata (`/vocab`, sejak Fase 2)
+### Ruang Studi (`/studi`)
+Menu 04 di navbar (menggantikan Kosakata sejak 27 Nov 2026; spesifikasi di docs/SPEC_RUANG_STUDI.md). Membuka langsung Perpustakaan. Baris kedua navbar: **Perpustakaan · Istilah Teknis · Bahasa**. Rute lama `/vocab*` dialihkan ke rute baru, termasuk query-nya.
+
+### Istilah Teknis (`/studi/istilah`, dulu Kosakata, sejak Fase 2)
 - Glosarium pribadi: istilah + definisi (Markdown + LaTeX), alias, tanggal belajar (dengan nomor Week), kaitan ke subjek/topik.
 - Klasifikasi domain otomatis: Edge Function `vocab-embed` meng-embed teks lewat Voyage AI (`voyage-4`, 512 dimensi, pgvector), membandingkannya dengan prototipe domain + centroid istilah yang sudah disetujui, lalu memutuskan `auto` atau `pending` (ambang di `supabase/functions/_shared/vocab-config.ts`; kalibrasi di docs/VOCAB_CALIBRATION.md). Status `confirmed`/`manual` tidak pernah ditimpa (dijamin di SQL).
 - Tabel `vocab_domains` (maks dua tingkat, soft delete) dan `vocab_terms` (soft delete, kolom peta untuk Fase 3), RLS owner-only, RPC batch security invoker.
 - UI: tambah cepat, tempel banyak (satu batch embedding), banner tinjau, saran domain sekali klik, drawer detail dengan istilah terdekat, kelola domain (gabung/hapus/klasifikasi ulang).
-- Sub-tab bersama di baris kedua navbar: Daftar · Perpustakaan · Peta Otak · Domain.
+- Halaman di baris kedua navbar: Daftar · Peta Otak · Domain (`/studi/istilah`, `/studi/istilah/peta`, `/studi/istilah/domain`).
 - Tampilan **Daftar | Kartu** (`?view=kartu`): kartu bolak-balik, depan istilah + domain, belakang ringkasan definisi.
-- Tautan langsung: `/vocab?term=<id>` membuka detail istilah, `/vocab?topic=<id>` menyaring istilah satu topik.
+- Tautan langsung: `/studi/istilah?term=<id>` membuka detail istilah, `/studi/istilah?topic=<id>` menyaring istilah satu topik.
 - **Satu istilah, banyak domain**: domain utama tetap di `vocab_terms.domain_id`, domain tambahan di tabel `vocab_term_domains` (RLS owner-only, trigger pemilik/domain aktif/bukan domain utama, RPC `make_primary_vocab_domain`; gabung/hapus domain dan centroid saran ikut menghitungnya). Klasifikasi tetap memilih satu domain; domain lain yang skornya hampir sama (`MULTI_SUGGEST_MARGIN`) hanya disarankan sebagai "Juga cocok di", dan kamu yang memasangnya.
 
-### Perpustakaan (`/vocab/perpustakaan`, prototipe Tahap A)
+### Perpustakaan (`/studi`, prototipe Tahap A)
+- Rak buku: **Istilah Teknis** (`?buku=istilah`: rak bidang → ruang → halaman istilah) dan **Bahasa** (`?buku=bahasa`: atlas hologram).
 - Halaman DOM lengkap (kepala lengket dengan cari + Filter bidang, sungai kartu bersampul pola Bauhaus per istilah, balik ke definisi, ujung daftar) yang selalu jadi sumber kebenaran.
 - Dunia WebGL di belakangnya bila perangkat mampu: lembar kartu yang bergelombang dan terlipat di bawah kepala, lensa (barel, pecahan warna di pojok, motion blur scroll, grain), kursor + kawanan kertas, perpustakaan prosedural siang/malam. Dimuat belakangan (import dinamis), dengan tata kelola kualitas dan cadangan ke DOM.
 - Tiga tingkat dalam satu halaman: rak bidang → ruang bidang (`?bidang=`) → halaman istilah (`?istilah=`) dengan hero, sampul air, definisi, istilah terdekat, kaitan, dan tarikan "Istilah berikutnya". Transisi geser + sapuan warna bidang; tombol back mengikuti.
 - Kode: `src/components/vocab/library/` dan `src/lib/vocab/library/` (angka di `config.ts`). Belum: gelombang ganti tema (Tahap C), buku/halaman melayang dan glif malam.
 
-### Integrasi Kosakata (Fase 4, spec §9)
+### Bahasa (`/studi/bahasa` dan buku Bahasa di Perpustakaan)
+- Diksi per bahasa: kata, cara baca, arti (ditulis sendiri, tanpa terjemahan otomatis), contoh kalimat, catatan, negara khas (variasi regional), tanggal belajar (Week). Tambah, ubah lewat dialog, hapus dengan "Urungkan"; filter bahasa di baris kedua navbar.
+- Bahasa: 22 bahasa bawaan dengan negaranya (`src/lib/study/languages.ts`) atau bahasa sendiri (mis. Bali → Indonesia); nama, kode ISO 639, warna (palet `--domain-*`), dan negara bisa diubah. Bahasa yang masih punya diksi tidak bisa dihapus.
+- Buku Bahasa di Perpustakaan: lembarnya terangkat menjadi buku yang terbuka, lalu peta dunia hologram tersusun di atasnya; negara yang punya diksi menyala dalam warna bahasanya. Klik negara: kamera terbang ke sana dan panel menampilkan diksinya, dengan tambah cepat. Tanpa WebGL2 atau dengan reduced motion: peta SVG datar. Pola: docs/DESIGN_SYSTEM.md › Pola atlas Bahasa.
+- Data peta: Natural Earth 1:50m (public domain), dibangun oleh `scripts/build-atlas.mjs` ke `src/lib/study/atlas/`.
+
+### Integrasi Istilah Teknis (Fase 4, spec §9)
 - **Dashboard**: kartu "Istilah" (total + baru minggu ini) dan strip marquee 20 istilah terbaru (CSS saja; berhenti saat hover/fokus/Jeda; diam dengan reduced motion).
 - **Laporan Mingguan**: isi otomatis menambahkan "Istilah baru minggu ini (n): …" ke *What did you learn or discover?* dari istilah dengan `learned_on` di periode Week. Pertanyaan template dan ekspor tidak berubah.
 - **Catatan**: chip "Istilah terkait" (istilah dengan `note_id` catatan itu).
 - **Silabus**: "n istilah" di baris topik.
 
-### Peta Otak (`/vocab/map`, sejak Fase 3)
+### Peta Otak (`/studi/istilah/peta`, sejak Fase 3)
 - Tiap istilah satu titik berwarna bidangnya; wilayah per bidang atau cabang (padded hull, pencilan tidak ikut membentuk wilayah); label yang saling menghindar.
 - Tata letak: PCA untuk 3–14 istilah, UMAP (`umap-js`, di Web Worker) mulai 15 istilah. Dimulai dari PCA atau dari peta sekarang, dengan gravitasi lemah ke tengah dan jangkar ke posisi lama saat susun ulang, lalu Procrustes menjaga orientasi. Semua angka di `src/lib/vocab/layout/config.ts`.
 - Istilah baru ditempatkan oleh `vocab-embed` di rata-rata berbobot 5 tetangga terdekat yang sudah berposisi (`map_placed = 'knn'`); banner menyarankan susun ulang setelah cukup banyak.
 - Interaksi: tooltip, panel detail/bottom sheet dengan 6 istilah terdekat dari embedding asli, cari, legenda, slider Week + "Putar", seret titik (d3-force), zoom.
 - RPC: `vocab_map_points` (ringan, tanpa vektor), `vocab_embeddings`, `save_vocab_layout`, `vocab_knn_neighbors`, `save_vocab_placements`.
 
-### Peta Otak 3D (`/vocab/map/3d`)
+### Peta Otak 3D (`/studi/istilah/peta/3d`)
 - Tiga tampilan di balik satu sakelar, terdaftar di `src/components/vocab/map/scenes/registry.ts`:
   - **Luar angkasa** (selalu gelap): galaksi per bidang dengan lubang hitam (event horizon, cincin foton, cakram akresi), matahari per cabang, dan istilah sebagai planet/bulan/batuan dengan orbit Kepler. Perannya dihitung dari embedding, per cabang.
   - **Otak** (selalu terang): neuron di permukaan luar model "Brain" karya dgallichan (CC BY 4.0), dipanggang dengan `scripts/bake-brain-points.mjs`. Lobus dibagi ke bidang menurut ukurannya. Kapasitas 1.500 neuron, bertambah 500 setiap kali terlewati.
@@ -130,6 +140,8 @@ Semua tabel: `id uuid`, `user_id` (default `auth.uid()`), `created_at`, `updated
 | `resources` | `title`, `type`, `url` **atau** `storage_path`, `status`, `notes` | → `subjects`, → `syllabus_items` (set null) |
 | `profiles` | `full_name`, `group_number`, `group_name`, `mentor_name`, `program_start` | PK = `user_id` |
 | `weekly_reports` | `week_number` (0–52), `period_start/end`, 4 kolom `learning_*`, 4 kolom `project_*`, `links`, `status`, `sent_at`, `share_token` | unik (`user_id`, `week_number`) |
+| `study_languages` | `name`, `code` (ISO 639), `countries text[]` (alpha-2), `color`, `deleted_at` | unik (`user_id`, nama) di antara yang aktif |
+| `study_words` | `word`, `reading`, `meaning`, `example`, `notes`, `region` (alpha-2), `learned_on`, `deleted_at` | → `study_languages` (milik pengguna yang sama, dijaga trigger); unik (bahasa, kata) di antara yang aktif |
 
 Storage: bucket privat `documents`, policy berdasarkan folder `<user_id>/`.
 
@@ -165,12 +177,13 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
 - ✅ Fase 2 (Kosakata MVP) selesai dan sudah di `main`; fungsi `vocab-embed` aktif di remote dengan Voyage asli (7/7 kasus klasifikasi benar).
 - ✅ Fase 3 (Peta Otak 2D) selesai dan sudah di `main`; migrasi `vocab_map` dan `vocab-embed` v2 di remote.
-- ✅ Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) sudah di `main`.
+- ✅ Peta Otak 3D (sekarang `/studi/istilah/peta/3d`: Luar angkasa · Otak · Kubus) sudah di `main`.
 - ✅ Fase 4 (integrasi Kosakata, tampilan Kartu, sisa redesign) sudah di `main` (PR #8, #9).
-- ✅ Perpustakaan (`/vocab/perpustakaan`) sudah di `main` (PR #10).
+- ✅ Perpustakaan (sekarang `/studi`) sudah di `main` (PR #10).
 - ✅ Restyle Bauhaus (arah labmgm.org) untuk semua halaman dan transisinya sudah di `main` (PR #11).
 - ✅ Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro sudah di `main` (PR #12). Migrasi `20261118120000_vocab_multi_domain.sql` sudah diterapkan di remote; riwayat migrasi lokal dan remote sinkron.
 - ✅ Navbar atas menggantikan sidebar, sudah di `main` (PR #13): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab, sakelar tampilan dan alat Peta Otak, transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan.
+- 🔄 Ruang Studi (branch `feat/ruang-studi`): Kosakata menjadi Istilah Teknis di dalam Ruang Studi, Perpustakaan dengan rak buku, halaman Bahasa, dan atlas hologram di buku Bahasa. Migrasi `20261127120000_study_languages.sql` baru di stack **lokal**; remote menunggu konfirmasi. Sampai migrasinya ada di remote, Bahasa tampil kosong dengan pemberitahuan (tidak rusak).
 - 🔜 Fase 5 (eksplorasi, opsional): tampilan 3D sudah ada; butir lain di spec §10 dipilih nanti. Kalibrasi ambang klasifikasi menunggu ±30 istilah nyata.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.

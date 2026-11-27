@@ -3,16 +3,18 @@
 Platform pribadi untuk mencatat perjalanan belajar Machine Learning & Data Science di IS Lab:
 
 - **Subjek & Silabus**: kelompokkan materi per bidang, tempel silabus (satu topik per baris), lalu tandai progres per topik (belum mulai, sedang dipelajari, selesai) beserta target tanggal.
-- **Kosakata**: glosarium pribadi istilah teknis (`/vocab`). Kamu menulis istilah + definisinya sendiri; sistem meng-embed teksnya (Voyage AI, lewat Edge Function `vocab-embed`) lalu menebak bidang/cabang ilmunya. Tebakan bisa dikonfirmasi atau diubah, dan pilihanmu tidak pernah ditimpa. Mendukung tempel banyak (satu istilah per baris), pencarian instan, istilah terdekat berdasarkan makna, dan tampilan **Kartu** bolak-balik (depan istilah, belakang definisi). Istilah juga muncul di dashboard, laporan mingguan, catatan, dan silabus.
-- **Perpustakaan** (`/vocab/perpustakaan`): istilah sebagai lembar kertas bersampul pola Bauhaus yang mengalir di sebuah perpustakaan 3D (three.js): kartu bergelombang, terlipat ke kabut saat di-scroll, dan bisa dibalik ke definisinya. Tanpa WebGL2 atau dengan reduced motion, halaman yang sama tampil sebagai daftar biasa. Konsepnya terinspirasi halaman [Articles MGM Laboratory](https://labmgm.org/articles); kodenya ditulis sendiri.
-- **Peta Otak**: semua istilah Kosakata sebagai satu peta (`/vocab/map`). Istilah yang maknanya dekat letaknya berdekatan, tiap bidang punya wilayah, dan slider Week memutar ulang bagaimana peta tumbuh. Tata letaknya (UMAP) dihitung di browser saat kamu menekan "Susun ulang"; istilah baru langsung ditaruh dekat istilah sejenis tanpa menyusun ulang.
-- **Peta Otak 3D** (`/vocab/map/3d`, sakelar **2D · 3D**): istilah yang sama dalam tiga tampilan yang bisa diputar.
+- **Ruang Studi** (`/studi`): satu tempat untuk belajar istilah dan bahasa. Membuka langsung **Perpustakaan** berisi buku-buku: **Istilah Teknis** dan **Bahasa**. Rute lama `/vocab*` dialihkan otomatis.
+- **Istilah Teknis** (dulu Kosakata): glosarium pribadi istilah teknis (`/studi/istilah`). Kamu menulis istilah + definisinya sendiri; sistem meng-embed teksnya (Voyage AI, lewat Edge Function `vocab-embed`) lalu menebak bidang/cabang ilmunya. Tebakan bisa dikonfirmasi atau diubah, dan pilihanmu tidak pernah ditimpa. Mendukung tempel banyak (satu istilah per baris), pencarian instan, istilah terdekat berdasarkan makna, dan tampilan **Kartu** bolak-balik (depan istilah, belakang definisi). Istilah juga muncul di dashboard, laporan mingguan, catatan, dan silabus.
+- **Perpustakaan** (`/studi`): buku dan istilah sebagai lembar kertas bersampul pola Bauhaus yang mengalir di sebuah perpustakaan 3D (three.js): kartu bergelombang, terlipat ke kabut saat di-scroll, dan bisa dibalik ke definisinya. Tanpa WebGL2 atau dengan reduced motion, halaman yang sama tampil sebagai daftar biasa. Konsepnya terinspirasi halaman [Articles MGM Laboratory](https://labmgm.org/articles); kodenya ditulis sendiri.
+- **Bahasa** (`/studi/bahasa`): diksi dari bahasa yang kamu pelajari (kata, cara baca, arti dengan kata-katamu sendiri, contoh, negara khas), dengan 22 bahasa bawaan atau bahasa sendiri. Di Perpustakaan, buku Bahasa terangkat dari raknya, terbuka, dan memunculkan **peta dunia hologram**: negara yang punya diksi menyala dalam warna bahasanya, dan mengklik negara membuat kamera terbang ke sana dan menampilkan diksinya. Tanpa WebGL2 atau dengan reduced motion, atlasnya peta datar biasa.
+- **Peta Otak**: semua istilah teknis sebagai satu peta (`/studi/istilah/peta`). Istilah yang maknanya dekat letaknya berdekatan, tiap bidang punya wilayah, dan slider Week memutar ulang bagaimana peta tumbuh. Tata letaknya (UMAP) dihitung di browser saat kamu menekan "Susun ulang"; istilah baru langsung ditaruh dekat istilah sejenis tanpa menyusun ulang.
+- **Peta Otak 3D** (`/studi/istilah/peta/3d`, sakelar **2D · 3D**): istilah yang sama dalam tiga tampilan yang bisa diputar.
   - **Luar angkasa**: tiap bidang sebuah galaksi dengan lubang hitam, tiap cabang sebuah matahari; istilah menjadi planet, bulan, atau batuan menurut perannya, lengkap dengan orbitnya.
   - **Otak**: bentuk otak sungguhan dari neuron, di mana tiap istilah menyalakan satu neuron di lobus bidangnya.
   - **Kubus**: titik di ruang makna 3D.
 - **Catatan**: tulis materi yang sudah dipelajari dengan Markdown + rumus LaTeX (`$x^2$`, `$$…$$`), tabel, dan blok kode. Catatan bisa dihubungkan ke subjek/topik dan diberi tag. Tersedia pencarian dan filter.
 - **Sumber Belajar**: simpan link YouTube (judul dan thumbnail diambil otomatis), artikel, kursus, atau upload dokumen (PDF, slide, notebook) ke Supabase Storage.
-- **Laporan Mingguan**: Weekly Progress sesuai template Guidebook Mentee IS Lab (4 pertanyaan Learning Progress + 4 poin Project Progress untuk weekly meeting). Nomor Week dihitung otomatis dari timeline program, isian bisa diambil otomatis dari aktivitas minggu itu (termasuk baris "Istilah baru minggu ini" dari Kosakata), lalu bisa diekspor ke **PDF** dan **Word (.docx)**, disalin dalam format chat WhatsApp, atau dibagikan lewat **link publik** (tanpa login, bisa dimatikan kapan saja).
+- **Laporan Mingguan**: Weekly Progress sesuai template Guidebook Mentee IS Lab (4 pertanyaan Learning Progress + 4 poin Project Progress untuk weekly meeting). Nomor Week dihitung otomatis dari timeline program, isian bisa diambil otomatis dari aktivitas minggu itu (termasuk baris "Istilah baru minggu ini" dari Istilah Teknis), lalu bisa diekspor ke **PDF** dan **Word (.docx)**, disalin dalam format chat WhatsApp, atau dibagikan lewat **link publik** (tanpa login, bisa dimatikan kapan saja).
 - **Dashboard**: ringkasan progres (termasuk jumlah istilah dan yang baru minggu ini), strip istilah terbaru, topik yang sedang dipelajari, target yang terlambat, catatan terbaru, antrian belajar, dan pengingat laporan minggu ini.
 - **Login wajib**: semua halaman terkunci. Pendaftaran publik dimatikan, jadi akun hanya dibuat lewat dashboard Supabase.
 
@@ -57,9 +59,9 @@ npm run build
 
 Test ditaruh di samping file yang dites, dengan akhiran `.test.ts` (contoh: `src/lib/report-template.test.ts`).
 
-### Kosakata: API key Voyage
+### Istilah Teknis: API key Voyage
 
-Fitur Kosakata butuh API key [Voyage AI](https://dashboard.voyageai.com) (ada kuota gratis yang besar).
+Fitur Istilah Teknis butuh API key [Voyage AI](https://dashboard.voyageai.com) (ada kuota gratis yang besar).
 Key ini **hanya** disimpan sebagai secret Edge Function — jangan pernah menaruhnya di `.env.local`:
 
 ```bash
@@ -67,7 +69,7 @@ npx supabase secrets set VOYAGE_API_KEY=key-kamu
 ```
 
 Deploy fungsinya dengan `npx supabase functions deploy vocab-embed`. Tanpa key yang benar, istilah tetap
-tersimpan sebagai "belum diproses" dan bisa diproses ulang dari halaman Kosakata.
+tersimpan sebagai "belum diproses" dan bisa diproses ulang dari halaman Istilah Teknis.
 
 ### Pengembangan melawan stack lokal
 
@@ -165,3 +167,5 @@ Bentuk otak di Peta Otak 3D (tampilan **Otak**) berasal dari model 3D
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Modelnya disederhanakan menjadi 5.000 titik di
 permukaan luarnya (`src/lib/vocab/brain-points.ts`, dibuat dengan `scripts/bake-brain-points.mjs`);
 berkas mesh-nya sendiri tidak disertakan di repo ini.
+
+Batas negara di atlas Bahasa berasal dari [Natural Earth](https://www.naturalearthdata.com/) (1:50m Admin 0 Countries, public domain), disederhanakan oleh `scripts/build-atlas.mjs` menjadi `src/lib/study/atlas/countries.json`.

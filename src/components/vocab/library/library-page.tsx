@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -11,8 +10,8 @@ import { useUrlFilters } from "@/lib/use-url-filters";
 import { excerpt, normalizeSearch } from "@/lib/utils";
 import { domainIndex, domainPath, termDomainIds, type DomainIndex } from "@/lib/vocab/format";
 import { asDomainColor, type DomainColor } from "@/lib/vocab/seed-domains";
-import { preloadAtlas } from "../../study/atlas/atlas-load";
-import type { AtlasClosing } from "../../study/atlas/language-atlas";
+import { loadAtlasUi, preloadAtlas } from "../../study/atlas/atlas-load";
+import type { AtlasClosing, LanguageAtlas as LanguageAtlasComponent } from "../../study/atlas/language-atlas";
 import { EmptyState } from "../../ui";
 import { FilterSheet, type FilterOption } from "./filter-sheet";
 import { LibraryCard, type LibraryCardData } from "./library-card";
@@ -22,8 +21,6 @@ import { useLibraryWorld } from "./world-host";
 
 type Filters = { q?: string; domain?: string };
 
-/** The Bahasa book's atlas loads with the book (warmed on the way there by preloadAtlas), not with the shelf. */
-const LanguageAtlas = dynamic(() => import("../../study/atlas/language-atlas").then((m) => m.LanguageAtlas), { ssr: false });
 
 /** "Tanpa domain" as a field of its own on the shelf. */
 const NONE = "none";
@@ -118,7 +115,20 @@ export function LibraryPage({
   const [closing, setClosing] = useState<AtlasClosing | null>(null);
   const [liftedFrom, setLiftedFrom] = useState<DOMRect | null>(null);
   const [lifted, setLifted] = useState(false);
+  // Set by the click itself, so the book starts at once instead of waiting for the router to take the URL.
+  const [opening, setOpening] = useState(false);
   const atlasOpen = wanted.book === "bahasa";
+  // The atlas's UI arrives with the book, not with the shelf (atlas-load.ts): warmed on the way, kept here once loaded.
+  const [Atlas, setAtlas] = useState<typeof LanguageAtlasComponent | null>(null);
+  const warmAtlas = useCallback(() => {
+    preloadAtlas();
+    void loadAtlasUi()
+      .then((m) => setAtlas(() => m.LanguageAtlas))
+      .catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (atlasOpen) warmAtlas();
+  }, [atlasOpen, warmAtlas]);
   const searchRef = useRef<HTMLInputElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -315,6 +325,7 @@ export function LibraryPage({
       const toShelf = !target.book;
       const back = scrolls.current[keyOf(target)];
       const id = requestAnimationFrame(() => {
+        setOpening(false);
         setShown(target);
         worldRef.current?.setTheme(nextTheme ? `var(--${nextTheme.color})` : null);
         worldRef.current?.setRoute(target.term ? "detail" : "list");
@@ -443,8 +454,11 @@ export function LibraryPage({
     if (book === "istilah") return follow({ book, field: null, term: null })(event);
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
+    performance.mark("atlas:click");
     // The sheet lifts off the shelf: the atlas's book starts on its rect, and the world stops drawing it.
     setLiftedFrom(event.currentTarget.getBoundingClientRect());
+    setOpening(true);
+    warmAtlas();
     go({ book: "bahasa", field: null, term: null });
   };
   const pickCountry = useCallback((code: string | null) => {
@@ -473,13 +487,13 @@ export function LibraryPage({
   );
   const onLifted = useCallback(() => setLifted(true), []);
 
-  // On the books shelf, warm the atlas (its shapes and the hologram) for a book opened without warning.
+  // On the books shelf, warm the atlas (its UI, shapes and the hologram) for a book opened without warning.
   useEffect(() => {
     if (shown.book) return;
     const idle = typeof window.requestIdleCallback === "function";
-    const id = idle ? window.requestIdleCallback(preloadAtlas, { timeout: 3000 }) : window.setTimeout(preloadAtlas, 1500);
+    const id = idle ? window.requestIdleCallback(warmAtlas, { timeout: 3000 }) : window.setTimeout(warmAtlas, 1500);
     return () => (idle ? window.cancelIdleCallback(id) : window.clearTimeout(id));
-  }, [shown.book]);
+  }, [shown.book, warmAtlas]);
   const branchOptions: FilterOption[] = field
     ? [
         { key: null, label: "Semua cabang", count: field.count },
@@ -589,7 +603,7 @@ export function LibraryPage({
                   card={card}
                   href={`?buku=${book}`}
                   onOpen={openBook(book)}
-                  onIntent={book === "bahasa" ? preloadAtlas : undefined}
+                  onIntent={book === "bahasa" ? warmAtlas : undefined}
                   lifted={book === "bahasa" && lifted}
                 />
               ))
@@ -652,8 +666,8 @@ export function LibraryPage({
         </footer>
       )}
 
-      {(atlasOpen || closing) && (
-        <LanguageAtlas
+      {Atlas && (atlasOpen || opening || closing) && (
+        <Atlas
           languages={languages.languages}
           words={languages.words}
           programStart={programStart}

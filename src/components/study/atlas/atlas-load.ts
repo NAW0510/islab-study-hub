@@ -11,6 +11,20 @@ import { decodeAtlas, type AtlasData, type RawAtlas } from "@/lib/study/atlas/ge
 let data: Promise<AtlasData> | null = null;
 let engine: Promise<typeof import("./hologram")> | null = null;
 let mesh: Promise<{ data: AtlasData; mesh: import("./atlas-mesh").AtlasMesh }> | null = null;
+let ui: Promise<typeof import("./language-atlas")> | null = null;
+
+/**
+ * The atlas's own UI (language-atlas.tsx). Loaded by hand rather than through
+ * next/dynamic: a Suspense boundary holds new content back for about 300 ms
+ * after its fallback, which the book's lift-off cannot afford.
+ */
+export function loadAtlasUi(): Promise<typeof import("./language-atlas")> {
+  ui ??= import("./language-atlas").catch((error) => {
+    ui = null;
+    throw error;
+  });
+  return ui;
+}
 
 export function loadAtlasData(): Promise<AtlasData> {
   data ??= import("@/lib/study/atlas/countries.json")
@@ -46,7 +60,7 @@ export function preloadAtlas() {
   const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
   if (connection?.saveData) return;
   void loadAtlasData().catch(() => undefined);
-  void import("./language-atlas").catch(() => undefined);
+  void loadAtlasUi().catch(() => undefined);
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   void loadHologram().catch(() => undefined);
   void loadAtlasMesh().catch(() => undefined);

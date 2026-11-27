@@ -31,6 +31,7 @@ const CORE: { name: string; label: string; role: string }[] = [
   { name: "--primary", label: "Aksi utama", role: "Tombol utama" },
   { name: "--accent", label: "Aksen", role: "Tautan, fokus, progres" },
   { name: "--accent-soft", label: "Aksen lembut", role: "Sorotan" },
+  { name: "--holo", label: "Hologram", role: "Cahaya atlas Bahasa (gambar saja, bukan teks)" },
 ];
 
 const CONTRAST_PAIRS: [string, string, string][] = [

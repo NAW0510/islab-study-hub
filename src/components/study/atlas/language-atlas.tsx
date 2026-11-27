@@ -106,11 +106,16 @@ export function LanguageAtlas({
 
   // ------------------------------------------------------------ mode and data
   useEffect(() => {
-    const decided = decideWorldMode({
-      reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-      noWorld: new URLSearchParams(window.location.search).has("noworld"),
-      ...probeWebGL2(),
-    });
+    performance.mark("atlas:mount");
+    // The library under the book has already asked the device (world-host.tsx); a direct visit asks here.
+    const known = document.querySelector<HTMLElement>("[data-library-page]")?.dataset.libraryWorld;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const decided =
+      known === "gl" && !reducedMotion
+        ? "gl"
+        : known === "dom"
+          ? "dom"
+          : decideWorldMode({ reducedMotion, noWorld: new URLSearchParams(window.location.search).has("noworld"), ...probeWebGL2() });
     let cancelled = false;
     // The mode is settled when the shapes arrive: nothing draws before them anyway.
     loadAtlasData()
@@ -170,9 +175,11 @@ export function LanguageAtlas({
     let cancelled = false;
     const reader = colorReader(root);
     readerRef.current = reader;
+    performance.mark("atlas:loading");
     Promise.all([loadHologram(), loadAtlasMesh()])
       .then(async ([{ createHologram }, built]) => {
         if (cancelled) return;
+        performance.mark("atlas:loaded");
         const sheet = document.querySelector<HTMLElement>('[data-term-id="buku-bahasa"] .library-sheet');
         const size = from ? { width: from.width, height: from.height } : sheet ? sheet.getBoundingClientRect() : SHEET;
         const title = document.querySelector(".library-title");
@@ -182,6 +189,7 @@ export function LanguageAtlas({
           body: meta ? getComputedStyle(meta).fontFamily : getComputedStyle(document.body).fontFamily,
         };
         const { main, deep } = coverColors(reader, "domain-9");
+        performance.mark("atlas:cover");
         const face = drawFront(
           { id: "buku-bahasa", term: "Bahasa", meta: coverMeta, definition: "", main, deep },
           uiColors(reader),
