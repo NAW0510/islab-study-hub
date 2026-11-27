@@ -30,7 +30,7 @@ export function TermMarquee({ terms }: { terms: MarqueeTerm[] }) {
       <li key={t.id} className="flex shrink-0 items-center gap-7">
         <Shape kind={SHAPES[i % SHAPES.length]} color={COLORS[i % COLORS.length]} className="size-3.5" />
         <Link
-          href={`/vocab?term=${t.id}`}
+          href={`/studi/istilah?term=${t.id}`}
           tabIndex={copy ? -1 : undefined}
           className="display inline-flex min-h-13 items-center text-[clamp(1.375rem,1.1rem+1vw,1.875rem)] whitespace-nowrap text-text hover:text-accent focus-visible:rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
         >

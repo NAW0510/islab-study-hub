@@ -7,7 +7,8 @@ import { RollText } from "@/components/roll-text";
 import { Shape } from "@/components/shape";
 import { SlideGroup } from "@/components/slide-group";
 import { MapViewSwitch } from "@/components/vocab/map/map-view-switch";
-import { VocabTabs } from "@/components/vocab/vocab-tabs";
+import { StudyTabs } from "@/components/study/study-tabs";
+import { TermsTabs } from "@/components/vocab/vocab-tabs";
 import { APP_NAME } from "@/lib/constants";
 import { BrandMark } from "./brand-mark";
 import { LocalClock } from "./local-clock";
@@ -120,7 +121,15 @@ export function Navbar({ email, weekMarker, weekPeriod }: ShellProps) {
 
       <div className="navbar-sub" data-open={sub ? "" : undefined}>
         <div className="navbar-sub-row no-scrollbar">
-          {sub?.vocab && <VocabTabs active={sub.vocab} />}
+          {sub?.study && <StudyTabs active={sub.study} compact={Boolean(sub.map)} />}
+          {sub?.terms && (
+            <>
+              <span className="navbar-sep" aria-hidden="true">
+                /
+              </span>
+              <TermsTabs active={sub.terms} />
+            </>
+          )}
           {sub?.map && <MapViewSwitch active={sub.map} />}
           {/* Switches that hold the page's own state (Daftar/Kartu, the 3D views, a subject's tabs). */}
           <div id={NAV_SLOT_ID} className="navbar-slot" />

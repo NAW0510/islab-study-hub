@@ -246,5 +246,5 @@ const count = (key, value) => sources.filter((r) => r[key] === value).length;
 console.log(
   `Total ${sources.length} istilah: ${count("domain_source", "manual")} manual, ${count("domain_source", "auto")} otomatis, ` +
     `${count("domain_source", "pending")} menunggu domain. ${placed} ditempatkan di peta lewat kNN, ` +
-    `${count("map_placed", null)} belum punya posisi (tekan "Susun peta" di /vocab/map).`,
+    `${count("map_placed", null)} belum punya posisi (tekan "Susun peta" di /studi/istilah/peta).`,
 );

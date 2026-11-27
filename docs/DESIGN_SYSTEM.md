@@ -64,7 +64,7 @@ Hanya untuk status, dan selalu bersama label teks dan bentuknya.
 
 ### Palet kategorikal
 
-Untuk warna subjek sekarang dan domain Kosakata nanti.
+Untuk warna subjek, bidang Istilah Teknis, dan bahasa di Ruang Studi.
 
 | Token | Nama | Terang | Gelap | Bentuk di chip | Kunci subjek di database |
 |---|---|---|---|---|---|
@@ -84,6 +84,8 @@ Aturan pakai:
 - **Urutannya bagian dari palet.** Warna yang bersebelahan dipilih supaya tetap terbedakan bagi penyandang buta warna (jarak warna diuji untuk protanopia dan deuteranopia, di kedua mode). Kalau butuh warna baru, tambahkan di ujung dan validasi ulang; jangan menukar urutan.
 - Tiga warna di mode terang (toska, kuning, merah muda) kontrasnya di bawah 3 : 1 terhadap putih. Karena itu warna kategorikal **selalu didampingi label teks**, tidak pernah berdiri sendiri.
 - Di Peta Otak, semua titik bisa saling bersebelahan, jadi warna saja tidak cukup untuk lebih dari tiga bidang. Batas wilayah, label, dan legenda selalu ada (lihat pola Peta Otak di bawah).
+
+**Hologram**: `--holo` (`#0a7ca6` terang, `#62d5f4` gelap) adalah cahaya atlas Bahasa: garis peta, isi negara yang belum menyala, berkas cahaya, debu. Hanya untuk gambar, bukan teks.
 
 ## Tipografi
 
@@ -130,7 +132,7 @@ Bentuk: `circle`, `square`, `triangle`, `plus`, `x`, `spark`, `half`, `quarter`,
 | Dashboard | lingkaran | biru |
 | Subjek & Silabus | persegi | hijau |
 | Catatan | segitiga | merah |
-| Kosakata | plus | kuning |
+| Ruang Studi | plus | kuning |
 | Sumber Belajar | setengah cakram | biru |
 | Laporan Mingguan | × | merah |
 
@@ -159,8 +161,10 @@ Transisi hanya di titik penting, dan dibuat supaya **tidak terasa sebagai transi
 |---|---|---|
 | Pindah bagian | Halaman lama memudar 120 ms, halaman baru naik 8 px dalam 200 ms | `src/app/(app)/template.tsx` (`vt-page-out`/`vt-page-in`) |
 | Halaman aktif di nav | Pil kertas meluncur mendatar ke link baru (`SlideGroup`, transform), bentuk bagiannya ikut berpindah dan berubah bentuk di jalan | `navbar.tsx`, nama `nav-active`, kelas `vt-morph` |
-| Antarhalaman Kosakata | Daftar ↔ Perpustakaan ↔ Peta Otak ↔ Domain: crossfade cepat di tempat, pil tab meluncur di baris kedua navbar | `src/app/(app)/vocab/template.tsx` (`vt-swap`) |
-| Masuk Perpustakaan | Sungai ditahan di atas kertas sejak paint pertama sementara dunia menggambar tanpa terlihat; lalu kanvas memudar masuk dan lembar naik. Paling lama 1,2 detik; lewat dari itu kartu DOM tampil dan dunia yang terlambat ber-crossfade masuk. Engine mulai dimuat saat link Perpustakaan disorot/difokus/ditekan, atau saat idle di halaman Kosakata lain | `world-host.tsx`, `world-preload.ts`, `entrance` di `library/config.ts` |
+| Antarbagian Ruang Studi | Perpustakaan ↔ Istilah Teknis ↔ Bahasa, dan Daftar ↔ Peta Otak ↔ Domain: crossfade cepat di tempat, pil tab meluncur di baris kedua navbar | `src/app/(app)/studi/template.tsx`, `studi/istilah/template.tsx` (`vt-swap`) |
+| Masuk Perpustakaan | Sungai ditahan di atas kertas sejak paint pertama sementara dunia menggambar tanpa terlihat; lalu kanvas memudar masuk dan lembar naik. Paling lama 1,2 detik; lewat dari itu kartu DOM tampil dan dunia yang terlambat ber-crossfade masuk. Engine mulai dimuat saat link Perpustakaan disorot/difokus/ditekan, atau saat idle di halaman Ruang Studi lain | `world-host.tsx`, `world-preload.ts`, `entrance` di `library/config.ts` |
+| Buka buku Bahasa | Lembar Bahasa terangkat dari rak dan menjadi buku (sampulnya adalah muka lembar itu), merebah sementara kabut perpustakaan menutup, terbuka di punggungnya dengan halaman yang berbalik, lalu peta hologram tersusun dari bawah ke atas di berkas cahaya. Rak tetap tampil sampai kabut menutup; klik/gulir/tombol apa pun langsung ke ujung. Rinciannya di "Pola atlas Bahasa" | `study/atlas/hologram.ts`, `language-atlas.tsx`, `library-page.tsx` |
+| Tutup buku Bahasa | Peta turun ke halaman, sampul menutup, buku terbang kembali ke lembarnya di rak sementara kabut terbuka; lembar baru tampil lagi saat buku mendarat | `hologram.ts` (`close`) |
 | Keluar dari dunia | Kanvas Perpustakaan (`library-world`) atau Peta Otak (`map-world`) surut ke kertas (memudar + mengecil 1,5%, 320 ms) di bawah halaman baru yang naik di depannya. Antara dua tampilan dunia yang sama (2D ↔ 3D, halaman di dalam Perpustakaan) yang hidup langsung tetap | `globals.css` › view transitions |
 | Memuat | Skeleton tak terlihat bila < 250 ms; bila sempat tampil, ia larut di atas halaman yang datang | `(app)/loading.tsx` (`vt-skeleton-out`) |
 | Dialog | Muncul sedikit dari bawah dan lebih kecil (160 ms), menutup lebih cepat (120 ms), backdrop ikut | `.dialog` (`@starting-style`) |
@@ -168,9 +172,9 @@ Transisi hanya di titik penting, dan dibuat supaya **tidak terasa sebagai transi
 | Ganti tema | Mode baru membuka sebagai lingkaran dari tombol, di atas mode lama | `theme-toggle.tsx`, `data-vt="theme"` |
 | Daftar → detail | Judul kartu berpindah menjadi judul halaman (dan kembali saat back): subjek (`subject-<id>`) dan catatan (`note-<id>`) | `SharedTitle`, `PageHeader titleName` |
 | Tab di halaman | Garis bawah meluncur ke tab baru, panel crossfade di tempat | `UrlTabs` (`url-tabs-marker`, `SwapMotion`) |
-| Antarhalaman Kosakata | Garis bawah tab meluncur ke halaman Kosakata berikutnya | `VocabTabs` (`vocab-tabs-marker`) |
+| Antarhalaman Ruang Studi | Pil tab meluncur ke bagian atau halaman berikutnya | `StudyTabs`, `TermsTabs` (`SlideGroup`) |
 | Daftar ↔ Kartu | Tampilan lama memudar, yang baru muncul di tempat yang sama | `ViewSwap` dengan `key` per tampilan |
-| Tambah / hapus / urutkan | Item baru naik ke tempatnya, yang dihapus memudar ("Urungkan" mengembalikannya dengan cara yang sama), yang lain meluncur. Daftar panjang (Kosakata) tidak meluncur, supaya satu istilah baru tidak menggerakkan ratusan | `ListItemMotion` (`glide` untuk daftar pendek): silabus, sumber, istilah |
+| Tambah / hapus / urutkan | Item baru naik ke tempatnya, yang dihapus memudar ("Urungkan" mengembalikannya dengan cara yang sama), yang lain meluncur. Daftar panjang (Istilah Teknis, Bahasa) tidak meluncur, supaya satu istilah baru tidak menggerakkan ratusan | `ListItemMotion` (`glide` untuk daftar pendek): silabus, sumber, istilah |
 | Masuk Peta Otak | Intro per tampilan: penuh sekali per sesi, singkat sesudahnya dan saat ganti tampilan, langsung selesai oleh klik/gulir/tombol apa pun. Rinciannya di "Intro Peta Otak" | `src/lib/vocab/map/intro.ts`, `brain-map.tsx`, `brain-map-3d.tsx`, `scenes/*.ts` |
 
 Pengecualian dari aturan "hanya transform/opacity": animasi ukuran grup bawaan View Transitions (snapshot, bukan layout) dan `clip-path` gelombang tema.
@@ -188,7 +192,7 @@ Pengecualian dari aturan "hanya transform/opacity": animasi ukuran grup bawaan V
 | `EmptyState` (`components/ui.tsx`) | Lembar putus-putus dengan tiga bentuk kecil yang bergoyang pelan (`shapes` memilih bentuk bagiannya), judul, satu baris bantuan, aksi |
 | `components/motion.tsx` | `SharedTitle`, `ListItemMotion`, `ViewSwap`, `SwapMotion`, `SlidingMarker`: pembungkus `<ViewTransition>` dengan kelas `vt-*` di atas |
 | `navbar`, `nav-link`, `nav-number`, `nav-shape` | Navbar atas (`components/shell/navbar.tsx`), di semua halaman, `sticky`. Baris 1: tanda, enam bagian bernomor (mulai 1024 px; di bawahnya tombol "Menu" ke menu layar penuh), Week, jam (mulai 1280 px), tema, akun. Baris 2 hanya bila ada isinya (lihat Sub-tab). Kaca buram di halaman biasa, hampir bening di Perpustakaan dan Peta Otak; solid bila "reduce transparency". Link aktif (`aria-current="page"`) duduk di atas pil kertas terangkat dengan bentuk bagiannya; setiap link menyimpan ruang untuk bentuknya, dan `html` memakai `scrollbar-gutter: stable`, jadi navbar tidak pernah bergeser antara halaman panjang dan halaman layar penuh |
-| `SlideGroup` (`components/slide-group.tsx`) | Baris pilihan dengan satu pil kertas terangkat (`slide-thumb`) yang meluncur ke pilihan aktif lewat transform, di bawah labelnya. Sebelum terukur, item aktif menggambar pilnya sendiri. Dipakai di link navbar, tab Kosakata, 2D/3D, tampilan 3D, Daftar/Kartu, tab Subjek |
+| `SlideGroup` (`components/slide-group.tsx`) | Baris pilihan dengan satu pil kertas terangkat (`slide-thumb`) yang meluncur ke pilihan aktif lewat transform, di bawah labelnya. Sebelum terukur, item aktif menggambar pilnya sendiri. Dipakai di link navbar, bagian Ruang Studi, halaman Istilah Teknis, 2D/3D, tampilan 3D, Daftar/Kartu, filter bahasa, tab Subjek |
 | `NavSlot` (`components/shell/nav-slot.tsx`) | Portal ke baris kedua navbar: `place="start"` (bawaan) untuk sakelar yang memegang state halaman di samping tab (Daftar/Kartu, tampilan 3D, tab Subjek); `place="end"` untuk alat halaman di ujung kanan (cari, Batas, Gelap/Terang, Putar otomatis, info Peta Otak) |
 | `AccountMenu` (`components/shell/parts.tsx`) | Inisial akun dalam lingkaran di navbar, membuka popover native berisi email + "Keluar" |
 | `ThemeToggle` (`components/shell/theme-toggle.tsx`) | Tombol terang/gelap dengan gelombang |
@@ -208,7 +212,7 @@ Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`]
 
 ### Kartu bolak-balik (`flip-card`)
 
-`VocabCard` (`src/components/vocab/vocab-card.tsx`), tampilan Kartu di Kosakata:
+`VocabCard` (`src/components/vocab/vocab-card.tsx`), tampilan Kartu di Istilah Teknis:
 
 | Unsur | Aturan |
 |---|---|
@@ -232,8 +236,8 @@ Warna subjek dan status dipetakan ke kelas-kelas ini di [`src/lib/constants.ts`]
 ### Sub-tab
 
 Sub-tab dan sakelar tampilan tinggal di **baris kedua navbar**, bukan di halaman:
-- `VocabTabs` (Daftar · Perpustakaan · Peta Otak · Domain) di semua halaman Kosakata dan `MapViewSwitch` (2D/3D) di Peta Otak, dari rute (`subNavFor`). Navbar tetap terpasang, jadi pilnya meluncur antarhalaman.
-- Lewat `NavSlot`: Daftar/Kartu (`vocab-browser.tsx`), Luar angkasa/Otak/Kubus (`brain-map-3d.tsx`), dan tab Subjek beserta jumlahnya (`UrlTabs`, `?tab=`). Rute subjek membuka baris itu sejak render server (`slotOnly`), jadi navbar tidak membesar terlambat.
+- Dari rute (`subNavFor`): `StudyTabs` (Perpustakaan · Istilah Teknis · Bahasa, dengan ikon) di semua halaman Ruang Studi, lalu `/` dan `TermsTabs` (Daftar · Peta Otak · Domain) di halaman Istilah Teknis, dan `MapViewSwitch` (2D/3D) di Peta Otak. Di Peta Otak yang barisnya penuh, `StudyTabs` menyusut jadi ikon (label kata mulai 1536 px). Navbar tetap terpasang, jadi pilnya meluncur antarhalaman.
+- Lewat `NavSlot`: Daftar/Kartu (`vocab-browser.tsx`), Luar angkasa/Otak/Kubus (`brain-map-3d.tsx`), filter bahasa di halaman Bahasa (`language-browser.tsx`), dan tab Subjek beserta jumlahnya (`UrlTabs`, `?tab=`). Rute subjek membuka baris itu sejak render server (`slotOnly`), jadi navbar tidak membesar terlambat.
 - Di ujung kanan (`NavSlot place="end"`): alat Peta Otak dari `map-chrome.tsx`, yaitu cari ringkas (melebar saat dipakai), Batas, Gelap/Terang (Kubus), Putar otomatis (pil kertas terangkat saat aktif), dan info. Label kata baru tampil di layar lebar (`ResponsiveLabel`: tampilan 3D mulai 1280 px, Gelap/Terang dan Putar otomatis mulai 1536 px); di bawahnya ikon dengan tooltip dan label untuk pembaca layar. Baris kedua `position: relative`, jadi label tersembunyi pun ikut tergulir di dalamnya.
 - Baris kedua muncul halus saat dibuka dan hilang seketika saat ditutup. Di layar sempit bisa digeser ke samping.
 
@@ -307,14 +311,14 @@ Mengikuti protokol kedatangan MGM: kunjungan baru mendapat intro penuh, kunjunga
 
 ### Pola Perpustakaan (`src/components/vocab/library/`)
 
-Kosakata › Perpustakaan: tiap istilah selembar kertas di sungai, dan perpustakaan WebGL di belakangnya. Konsepnya terinspirasi halaman Articles [MGM Laboratory](https://labmgm.org/articles) (yang meniru unseen.co); kodenya ditulis sendiri.
+Ruang Studi › Perpustakaan (`/studi`): buku-buku sebagai lembar kertas di sungai, dan perpustakaan WebGL di belakangnya. Di buku Istilah Teknis tiap istilah selembar kertas; buku Bahasa membuka atlas (pola berikutnya). Konsepnya terinspirasi halaman Articles [MGM Laboratory](https://labmgm.org/articles) (yang meniru unseen.co); kodenya ditulis sendiri.
 
 | Unsur | Aturan |
 |---|---|
-| Dua tingkat | **Rak**: satu lembar per bidang (sampul warna bidang, jumlah istilah dan cabang); mencari di rak menampilkan istilah dari semua bidang. **Ruang** (`?bidang=<id>`): istilah bidang itu, termasuk istilah yang bidang itu hanya domain tambahannya, dan Filter memilih cabang. Masuk/keluar: adegan bergeser, sapuan warna bidang yang dilembutkan ke kabut, daftar ditukar di bawah sapuan, lembar baru meluncur masuk; tombol back browser memutar arah sebaliknya dan posisi scroll rak dipulihkan |
+| Tingkat | **Rak buku**: Istilah Teknis dan Bahasa (`?buku=`), sampul warna buku. **Rak bidang** (`?buku=istilah`): satu lembar per bidang (sampul warna bidang, jumlah istilah dan cabang); mencari di rak menampilkan istilah dari semua bidang. **Ruang** (`?bidang=<id>`): istilah bidang itu, termasuk istilah yang bidang itu hanya domain tambahannya, dan Filter memilih cabang. Masuk/keluar: adegan bergeser, sapuan warna bidang yang dilembutkan ke kabut, daftar ditukar di bawah sapuan, lembar baru meluncur masuk; tombol back browser memutar arah sebaliknya dan posisi scroll rak dipulihkan |
 | Halaman istilah | `?istilah=<id>` (klik lembar; balik kartu pindah ke ikon kecil di pojok). Hero: Week + tanggal, istilah besar yang hurufnya naik dari dalam katanya, alias, chip bidang. Sampul 5:2, definisi (Markdown + KaTeX, dimuat dinamis), istilah terdekat (`match_vocab_terms`), kaitan subjek/topik/catatan, "Edit di Daftar". Blok muncul saat masuk layar; dengan reduced motion semuanya diam. Di dunia: lensa mati, kamera tenang, kabut jauh lebih tebal (`uDetail`) agar teks terbaca, dan sampul digambar sebagai lembar air (gelombang memunculkan gambar dengan buih, riak dari pointer, cipratan saat klik; `world/cover.ts`). Tanpa dunia: tirai kertas yang bergeser |
 | Istilah berikutnya | Di ujung halaman istilah (`next-threshold.tsx`): hanya input setelah sampai bawah yang dihitung (gulir 2 tinggi layar, seret 400 px, atau tombol Bawah/PageDown/Spasi/End), surut 1 detik setelah diam. Progres menaikkan kubah warna bidang istilah berikutnya dan membawa namanya ke atas; di 100 % (atau klik/Enter) kubah membanjiri layar dan halaman berganti di bawahnya. Urutannya mengikuti daftar asal (ruang, hasil cari, atau bidang istilah). Tombol back langsung kembali ke ruang |
-| Navbar | Hampir bening di atas dunia (tint 14%, blur 3 px, halo teks), seperti header MGM di atas perpustakaannya. Dengan "reduce transparency" (Windows: Transparency effects mati) navbar solid yang memudar ke bawah tanpa garis tegas. Tab Kosakata di baris kedua navbar |
+| Navbar | Hampir bening di atas dunia (tint 14%, blur 3 px, halo teks), seperti header MGM di atas perpustakaannya. Dengan "reduce transparency" (Windows: Transparency effects mati) navbar solid yang memudar ke bawah tanpa garis tegas. Bagian Ruang Studi di baris kedua navbar |
 | Masuk | Sungai ditahan di atas kertas sejak paint pertama (`data-library-world` belum `gl`/`dom`), dunia menggambar tanpa terlihat sampai kartu yang tampil bertekstur (`onReady`, paling lama `entrance.READY_MAX`), lalu `reveal`: kanvas memudar masuk 0,6 detik, lembar naik bergiliran, lensa kunjungan pertama "settle" dari saat itu. Batas tahan `entrance.HOLD_MS` waktu terlihat; lewat dari itu kartu DOM tampil (`data-library-shown`) dan dunia yang terlambat ber-crossfade (`data-library-late`: muka DOM memudar keluar, kanvas masuk). Failsafe CSS 3 detik bila tidak ada script. Engine dimuat saat ada niat (`preloadLibraryWorld`) |
 | Keluar | Kanvas punya `view-transition-name: library-world`: saat meninggalkan Perpustakaan ia surut ke kertas di bawah halaman baru |
 | Sumber kebenaran | Halaman DOM lengkap tanpa WebGL: kepala lengket (judul, cari, Filter), sungai kartu, ujung daftar. Tombol/tautan kartu tetap pemilik fokus, area klik, dan nama aksesibel. Tanpa dunia, transisi memakai sapuan DOM (`.library-wash`, transform + opacity) |
@@ -328,6 +332,26 @@ Kosakata › Perpustakaan: tiap istilah selembar kertas di sungai, dan perpustak
 | Perpustakaan | Prosedural, satuan U = 1/9 tinggi layar: rak tiga lantai di antara pilar ramping, galeri berbalustrade, tangga geser, lengkung melintang runcing, jendela besar bertracery (lancet + rose, siang putih-emas, malam biru dengan bulan) dengan halo dan sinar, lentera berayun, lantai berbatu dengan sungai cahaya, kabut dan debu. Satu shader bahan bersama: ambient tinggi di siang hari, cahaya kunci lembut, ceruk rak lebih gelap, rim bulan di malam hari, genangan cahaya lentera, kabut tinggi + jarak dengan selubung minimum dan cahaya jendela yang menyebar di kabut. Buku pucat di siang hari, gelap di malam hari (`world/palette.ts`). Di ruang bidang semuanya condong tipis ke warna bidang. Siang/malam mengikuti `prefers-color-scheme` dan meluncur halus |
 | Warna | Warna UI dibaca dari token lewat elemen probe. Warna benda di dunia (kabut, batu, cahaya) konstanta di `world/palette.ts` |
 | Penyetelan | Semua angka di `src/lib/vocab/library/config.ts`, dengan alasannya. `?worldtier=medium|low` mengunci tingkat kualitas, `?noworld` mematikan dunia |
+
+### Pola atlas Bahasa (`src/components/study/atlas/`)
+
+Ruang Studi › Perpustakaan › buku Bahasa (`?buku=bahasa`, `&negara=JP`): peta dunia tempat negara yang punya diksi menyala dalam warna bahasanya. Hologramnya terinspirasi suasana MGM; kodenya ditulis sendiri.
+
+| Unsur | Aturan |
+|---|---|
+| Buka | Waktu dari klik (`open` di `src/lib/study/atlas/config.ts`): kabut menutup 0–0,5 dtk, buku terangkat dan merebah 0–0,8 dtk (mengecil ke ukuran istirahat agar bentangannya ±78 % lebar peta), sampul membuka 0,55–1,5 dtk, empat halaman lepas berbalik dan melengkung, berkas cahaya 1,35 dtk, peta tersusun dari bawah 1,55–2,8 dtk, kamera dari buku ke peta 1,15–3,15 dtk, negara menyala barat ke timur mulai 2,35 dtk (UI muncul bersamanya). Input apa pun langsung ke ujung |
+| Kesinambungan | Buku mulai tepat di rect lembar Bahasa (`poseOnRect`: kedalaman dari tinggi rect, orientasi menghadap kamera), dengan muka lembar dari `drawFront` yang sama dengan dunia sebagai sampulnya. Lembar disembunyikan (`data-lifted`) setelah frame pertama buku tergambar, bukan saat klik. Rak tetap tampil sampai kabut menutup penuh; lalu dunia perpustakaan berhenti menggambar (`setPaused`) |
+| Hologram | Peta ekuirektangular 84° U–57° S miring di atas buku. Isi negara tembus pandang (garis pindai naik, pita cahaya turun, kedip halus), garis batas `LineSegments2` 1,1 px, graticule 15°, bingkai bersudut, kerucut cahaya dan debu dari halaman. Gelap: campuran aditif; terang: campuran biasa dengan alpha ×1,25, seperti cetak biru di atas kertas |
+| Negara | Hover: garis tebal + label kecil di pointer. Pilih (klik, daftar bawah, `?negara=`): kamera terbang 1,35 dtk ke kotak fokus daratan utamanya (dari skrip build: Prancis tanpa Guyana, AS tanpa Alaska; minimal 6°), yang lain meredup, cincin pin di titik label yang ukurannya tetap di layar. Esc: keluar dari negara, lalu dari buku |
+| UI | DOM, sama di semua mode: kepala + legenda bahasa di kiri (hover menyorot negaranya), negara yang menyala sebagai pil di bawah, panel negara di kanan (diksi per bahasa + "Tambah diksi di sini"). Gambar berpusat di ruang yang tersisa (`setInsets`, lewat `setViewOffset`), termasuk navbar saat ada negara terpilih |
+| HP | Panel jadi lembar bawah (≤ 58 dvh), kepala dan pil disembunyikan saat negara terpilih, negara diangkat ke atas lembar. Peta penuh mundur sampai lebarnya muat di layar potret |
+| Tanpa hologram | Reduced motion, `?noworld`, tanpa WebGL2, atau renderer perangkat lunak: peta SVG datar (`atlas-svg.tsx`) dengan kabut yang memudar, tanpa animasi buku |
+| Tutup | Kebalikan dalam 1,3 dtk ke rect lembar yang sedang ditampilkan rak (kamera kembali ke pose buku dulu agar rect cocok); ke tingkat lain, buku memudar di tempat |
+| Pemuatan | UI atlas, bentuk negara (212 KB, ±83 KB gzip), triangulasi (`atlas-mesh.ts`), dan three.js dimuat saat lembar Bahasa disorot/difokus/ditekan atau saat idle di rak buku (`preloadAtlas`, `loadAtlasUi`). UI atlas dipasang langsung dari klik dan dimuat tanpa Suspense (batas Suspense menahan isi baru ±300 ms setelah fallback). Mode diambil dari keputusan dunia Perpustakaan, tanpa membuat konteks WebGL baru. Program shader dikompilasi sebelum frame pertama (`compileAsync`). Hasilnya: buku terangkat ±0,3 dtk setelah klik (build produksi, GPU), selama itu lembar memberi riak tekan. Penanda `atlas:*` (`performance.mark`) mengukur tiap tahap di panel Performance |
+| Data peta | Natural Earth 1:50m Admin 0 (public domain), dibangun oleh `scripts/build-atlas.mjs`. Kredit "Peta: Natural Earth" tampil di atlas |
+| Penyetelan | Semua angka di `src/lib/study/atlas/config.ts` |
+
+Halaman Bahasa (`/studi/bahasa`, `src/components/study/`): daftar diksi sebagai kartu (kata besar, cara baca, arti, contoh, chip bahasa dan negara khas, Week), filter bahasa di baris kedua navbar, form tambah di atas, ubah lewat dialog, hapus dengan "Urungkan". "Kelola bahasa" berisi 22 bahasa bawaan (`src/lib/study/languages.ts`) atau bahasa sendiri, dengan pemilih negara yang bisa dicari.
 
 ## Yang sengaja tidak ikut berubah
 

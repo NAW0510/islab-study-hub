@@ -155,7 +155,7 @@ export type LayoutParams = {
 };
 
 /**
- * Peta Otak 3D (`/vocab/map/3d`): angka yang khusus untuk ruang tiga dimensi.
+ * Peta Otak 3D (`/studi/istilah/peta/3d`): angka yang khusus untuk ruang tiga dimensi.
  * Selebihnya (jumlah tetangga UMAP, MIN_DIST, SPREAD, ambang PCA/UMAP,
  * jumlah tetangga untuk titik awal) sama dengan peta 2D dan dibaca dari
  * LAYOUT_CONFIG di atas, supaya kedua peta menceritakan kedekatan yang sama.

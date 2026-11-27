@@ -124,8 +124,8 @@ export function MapDetailPanel({
               )}
             </div>
 
-            <Link href={`/vocab?q=${encodeURIComponent(term.term)}`} className="btn btn-secondary btn-sm mt-4 self-start">
-              Buka di Kosakata <ArrowUpRight className="size-3.5" />
+            <Link href={`/studi/istilah?q=${encodeURIComponent(term.term)}`} className="btn btn-secondary btn-sm mt-4 self-start">
+              Buka di Daftar <ArrowUpRight className="size-3.5" />
             </Link>
           </>
         )

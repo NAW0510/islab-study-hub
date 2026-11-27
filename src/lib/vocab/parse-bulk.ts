@@ -29,7 +29,7 @@ export type BulkResult = {
 export const BULK_WARNING_LABELS: Record<BulkWarning, string> = {
   "definisi-kosong": "Tanpa definisi: klasifikasi jadi lemah",
   "duplikat-di-tempelan": "Muncul dua kali di tempelan",
-  "sudah-ada": "Sudah ada di Kosakata",
+  "sudah-ada": "Sudah ada di Istilah Teknis",
   "terlalu-panjang": `Istilah lebih dari ${TERM_MAX_LENGTH} karakter`,
 };
 

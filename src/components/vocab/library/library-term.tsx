@@ -156,7 +156,7 @@ export function LibraryTerm({
         ) : (
           <p className="text-muted" data-reveal>
             Belum ada definisi.{" "}
-            <Link href={`/vocab?term=${term.id}`} className="text-accent hover:text-accent-hover">
+            <Link href={`/studi/istilah?term=${term.id}`} className="text-accent hover:text-accent-hover">
               Tulis dengan katamu sendiri
             </Link>
           </p>
@@ -178,7 +178,7 @@ export function LibraryTerm({
               return (
                 <li key={n.id}>
                   <a
-                    href={open ? `?istilah=${n.id}` : `/vocab?term=${n.id}`}
+                    href={open ? `?istilah=${n.id}` : `/studi/istilah?term=${n.id}`}
                     onClick={open ?? undefined}
                     className={cn("chip chip-tone min-h-9 hover:opacity-80 pointer-coarse:min-h-11", DOMAIN_TONE_CLASS[colorOf(n.domain_id)])}
                     title={`Kemiripan ${Math.round(n.similarity * 100)}%`}
@@ -207,7 +207,7 @@ export function LibraryTerm({
             )}
             {term.topic && (
               <li>
-                <Link href={`/vocab?topic=${term.topic.id}`} className="inline-flex min-h-9 items-center gap-2 hover:text-accent">
+                <Link href={`/studi/istilah?topic=${term.topic.id}`} className="inline-flex min-h-9 items-center gap-2 hover:text-accent">
                   <Target className="size-4 text-muted" aria-hidden="true" /> {term.topic.title}
                 </Link>
               </li>
@@ -224,7 +224,7 @@ export function LibraryTerm({
       )}
 
       <div className="library-detail-actions" data-reveal>
-        <Link href={`/vocab?term=${term.id}`} className="btn btn-secondary">
+        <Link href={`/studi/istilah?term=${term.id}`} className="btn btn-secondary">
           <Pencil className="size-4" aria-hidden="true" /> Edit di Daftar
         </Link>
       </div>

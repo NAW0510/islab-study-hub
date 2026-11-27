@@ -583,7 +583,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         title="Peta butuh beberapa istilah dulu"
         description={`Peta Otak terbentuk dari kedekatan makna antaristilah, jadi butuh minimal 5 istilah. Sekarang baru ada ${points.length}.`}
         action={
-          <Link href="/vocab" className="btn btn-primary">
+          <Link href="/studi/istilah" className="btn btn-primary">
             <Plus className="size-4" /> Tambah istilah
           </Link>
         }
@@ -596,7 +596,7 @@ export default function BrainMap3D({ points, domains, programStart }: Props) {
         title="Browser ini tidak bisa menampilkan 3D"
         description="Tampilan 3D butuh WebGL, yang tidak tersedia atau dimatikan di browser ini. Tampilan 2D tetap bisa dipakai."
         action={
-          <Link href="/vocab/map" className="btn btn-primary">
+          <Link href="/studi/istilah/peta" className="btn btn-primary">
             Buka tampilan 2D
           </Link>
         }

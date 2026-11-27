@@ -212,7 +212,7 @@ export default async function DashboardPage() {
           mark={<Shape kind="half" color="paper" className="size-[0.8125rem]" />}
         />
         <Stat
-          href="/vocab"
+          href="/studi/istilah"
           label="Istilah"
           value={termCount}
           hint={`${termsThisWeek} baru minggu ini`}
@@ -233,7 +233,7 @@ export default async function DashboardPage() {
             action={
               <div className="flex items-center gap-1">
                 <TermMarqueePause />
-                <ChapterLink href="/vocab">Kosakata</ChapterLink>
+                <ChapterLink href="/studi/istilah">Istilah Teknis</ChapterLink>
               </div>
             }
           />

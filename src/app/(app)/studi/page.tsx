@@ -3,15 +3,17 @@ import { LibraryPage } from "@/components/vocab/library/library-page";
 import { requireUser } from "@/lib/auth";
 import { getProfile, getSubjectsAndTopics, loadVocabTerms } from "@/lib/queries";
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
+import { loadStudy } from "@/lib/study/queries";
 import type { VocabDomain, VocabTerm } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Perpustakaan · Kosakata" };
+export const metadata: Metadata = { title: "Perpustakaan · Ruang Studi" };
 
 function one(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
 }
 
-export default async function LibraryRoute({
+/** Ruang Studi: straight into the Perpustakaan (its books, Istilah Teknis' shelf, the Bahasa atlas). */
+export default async function StudyRoute({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -20,11 +22,12 @@ export default async function LibraryRoute({
   const sp = await searchParams;
 
   // The same light read as the Daftar page; search, fields, rooms and term pages all run in the browser.
-  const [termsRes, domainsRes, profile, { subjects, topics }] = await Promise.all([
+  const [termsRes, domainsRes, profile, { subjects, topics }, study] = await Promise.all([
     loadVocabTerms(supabase),
     supabase.from("vocab_domains").select("*").is("deleted_at", null).order("name"),
     getProfile(supabase),
     getSubjectsAndTopics(supabase),
+    loadStudy(supabase),
   ]);
   const terms = (termsRes.data ?? []) as unknown as VocabTerm[];
 
@@ -45,6 +48,7 @@ export default async function LibraryRoute({
       notes={notes}
       programStart={profile?.program_start ?? DEFAULT_PROGRAM_START}
       initial={initial}
+      languages={{ languages: study.languages, words: study.words }}
     />
   );
 }

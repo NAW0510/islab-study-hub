@@ -114,6 +114,38 @@ export interface VocabTerm {
   updated_at: string;
 }
 
+// ── Ruang Studi › Bahasa (mirrors the study_languages migration) ─────────────
+
+export interface StudyLanguage {
+  id: string;
+  name: string;
+  /** ISO 639 code (ja, en, ban), or null for a language of one's own. */
+  code: string | null;
+  /** ISO 3166-1 alpha-2 codes of the countries its words light up on the atlas. */
+  countries: string[];
+  /** Palette token: "domain-1" … "domain-10". */
+  color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudyWord {
+  id: string;
+  language_id: string;
+  word: string;
+  /** How it reads: romaji, pinyin, a transliteration. */
+  reading: string | null;
+  /** Written by the user; never translated automatically. */
+  meaning: string;
+  example: string | null;
+  notes: string | null;
+  /** One country only (a regional word); null: every country of its language. */
+  region: string | null;
+  learned_on: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type ReportStatus = "draft" | "sent";
 
 export interface Profile {

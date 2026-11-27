@@ -160,7 +160,7 @@ function SyllabusRow({
             <Library className="size-3.5" />
             {counts?.resources ?? 0} sumber
           </Link>
-          <Link href={`/vocab?topic=${item.id}`} className="inline-flex items-center gap-1 hover:text-text">
+          <Link href={`/studi/istilah?topic=${item.id}`} className="inline-flex items-center gap-1 hover:text-text">
             <BookA className="size-3.5" />
             {counts?.terms ?? 0} istilah
           </Link>

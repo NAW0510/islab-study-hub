@@ -42,7 +42,7 @@ async function invokeEmbed(
 }
 
 function vocabDbError(error: { code?: string; message: string }): { error: string } {
-  if (error.code === "23505") return { error: "Istilah atau nama itu sudah ada di Kosakata." };
+  if (error.code === "23505") return { error: "Istilah atau nama itu sudah ada di Istilah Teknis." };
   // Trigger messages (ownership, hierarchy) are written for people; show them as they are.
   if (error.code === "23514" || error.code === "23503") return { error: error.message };
   return dbError(error);

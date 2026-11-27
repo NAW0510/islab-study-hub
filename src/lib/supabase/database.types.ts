@@ -167,6 +167,98 @@ export type Database = {
           },
         ]
       }
+      study_languages: {
+        Row: {
+          code: string | null
+          color: string
+          countries: string[]
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code?: string | null
+          color?: string
+          countries?: string[]
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          code?: string | null
+          color?: string
+          countries?: string[]
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      study_words: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          example: string | null
+          id: string
+          language_id: string
+          learned_on: string
+          meaning: string
+          notes: string | null
+          reading: string | null
+          region: string | null
+          updated_at: string
+          user_id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          example?: string | null
+          id?: string
+          language_id: string
+          learned_on?: string
+          meaning?: string
+          notes?: string | null
+          reading?: string | null
+          region?: string | null
+          updated_at?: string
+          user_id?: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          example?: string | null
+          id?: string
+          language_id?: string
+          learned_on?: string
+          meaning?: string
+          notes?: string | null
+          reading?: string | null
+          region?: string | null
+          updated_at?: string
+          user_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_words_language_id_fkey"
+            columns: ["language_id"]
+            isOneToOne: false
+            referencedRelation: "study_languages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           color: string
@@ -507,6 +599,10 @@ export type Database = {
     Functions: {
       delete_vocab_domain: { Args: { p_id: string }; Returns: number }
       get_shared_report: { Args: { p_token: string }; Returns: Json }
+      make_primary_vocab_domain: {
+        Args: { p_domain_id: string; p_term_id: string }
+        Returns: undefined
+      }
       match_vocab_terms: {
         Args: { p_count?: number; p_term_id: string }
         Returns: {
@@ -517,10 +613,6 @@ export type Database = {
           similarity: number
           term: string
         }[]
-      }
-      make_primary_vocab_domain: {
-        Args: { p_domain_id: string; p_term_id: string }
-        Returns: undefined
       }
       merge_vocab_domains: {
         Args: { p_from: string; p_into: string }

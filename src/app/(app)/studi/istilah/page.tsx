@@ -6,7 +6,7 @@ import { getProfile, getSubjectsAndTopics, loadVocabTerms } from "@/lib/queries"
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
 import type { VocabDomain, VocabTerm } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Kosakata" };
+export const metadata: Metadata = { title: "Istilah Teknis" };
 
 function one(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
