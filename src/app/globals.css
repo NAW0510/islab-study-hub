@@ -1544,6 +1544,12 @@ html:has(dialog.mobile-menu[open]) {
   .navbar-slot {
     display: contents;
   }
+  /* Between the Ruang Studi's parts and Istilah Teknis' own pages. */
+  .navbar-sep {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
   /*
    * The page's tools at the far end of the second row (the Peta Otak's
    * search, boundaries, motion, info; vocab/map/map-chrome.tsx): compact

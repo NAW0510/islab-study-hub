@@ -8,7 +8,7 @@ import { CoverArt } from "./cover-art";
 
 export type LibraryCardData = {
   id: string;
-  /** The term, or the field's name on the shelf. */
+  /** The term, the field's name on the shelf, or a book's title. */
   term: string;
   /** "Deep Learning › Machine Learning · W8", or "24 istilah · 3 cabang" for a field. */
   meta: string;
@@ -19,7 +19,7 @@ export type LibraryCardData = {
 
 /**
  * One sheet in the Perpustakaan's river: the cover, a title and a line under
- * it on the front. The sheet is a link (a field's room, or a term's page);
+ * it on the front. The sheet is a link (a book, a field's room, or a term's page);
  * the page plays the transition (`onOpen`). A term's sheet also turns over
  * to its definition with the small "Balik" button in its corner (a toggle,
  * aria-pressed); only the visible face reaches screen readers.
@@ -37,7 +37,7 @@ export const LibraryCard = memo(function LibraryCard({
   card: LibraryCardData;
   href: string;
   onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
-  kind: "field" | "term";
+  kind: "book" | "field" | "term";
 }) {
   const [flipped, setFlipped] = useState(false);
   const isTerm = kind === "term";
@@ -45,7 +45,7 @@ export const LibraryCard = memo(function LibraryCard({
     <li
       className="library-item"
       data-library-card
-      data-kind={isTerm ? undefined : "field"}
+      data-kind={isTerm ? undefined : kind}
       data-term-id={card.id}
       data-color={card.color}
       data-flipped={(isTerm && flipped) || undefined}
@@ -67,7 +67,7 @@ export const LibraryCard = memo(function LibraryCard({
             <span className="library-rule" aria-hidden="true" />
           </span>
           <span className="library-back" aria-hidden={!flipped}>
-            <span className="eyebrow">{isTerm ? `Definisi · ${card.term}` : `Cabang · ${card.term}`}</span>
+            <span className="eyebrow">{isTerm ? `Definisi · ${card.term}` : kind === "book" ? `Isi · ${card.term}` : `Cabang · ${card.term}`}</span>
             <span className="library-definition">{card.definition || "Belum ada definisi."}</span>
           </span>
         </a>

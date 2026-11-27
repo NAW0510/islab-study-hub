@@ -627,7 +627,7 @@ export default function BrainMap({ points, domains, programStart, layoutParams }
         title="Peta butuh beberapa istilah dulu"
         description={`Peta Otak terbentuk dari kedekatan makna antaristilah, jadi butuh minimal 5 istilah. Sekarang baru ada ${advice.total}.`}
         action={
-          <Link href="/vocab" className="btn btn-primary">
+          <Link href="/studi/istilah" className="btn btn-primary">
             <Plus className="size-4" /> Tambah istilah
           </Link>
         }

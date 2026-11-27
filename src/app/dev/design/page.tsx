@@ -224,7 +224,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
 
       <Block
         title="Palet kategorikal"
-        note="Untuk subjek dan domain Kosakata. Urutannya sudah divalidasi agar warna bersebelahan tetap terbedakan bagi penyandang buta warna, dan tiap domain juga punya bentuk penanda sendiri. Teks di atasnya selalu tinta."
+        note="Untuk subjek dan domain Istilah Teknis. Urutannya sudah divalidasi agar warna bersebelahan tetap terbedakan bagi penyandang buta warna, dan tiap domain juga punya bentuk penanda sendiri. Teks di atasnya selalu tinta."
       >
         <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
           {DOMAIN_TOKENS.map((token, i) => (
@@ -441,7 +441,7 @@ function Specimen({ scheme, sample }: { scheme: Scheme; sample: Sample }) {
       </Block>
 
       <Block
-        title="Pola Kosakata"
+        title="Pola Istilah Teknis"
         note="Kontrol segmen, kartu bolak-balik (depan dan belakang), dan strip istilah terbaru. Strip berhenti saat disorot, difokus, atau dijeda."
       >
         <div className="space-y-5">

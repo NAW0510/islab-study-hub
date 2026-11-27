@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Search, X } from "lucide-react";
 import { weekNumberFor } from "@/lib/report-template";
@@ -40,14 +40,34 @@ type TermCard = LibraryCardData & {
   hay: string;
   page: TermPageData;
 };
-type View = { field: string | null; term: string | null };
+export type Book = "istilah" | "bahasa";
+type View = { book: Book | null; field: string | null; term: string | null };
+
+/** The books on the shelf, and their covers' colours. */
+const BOOK_COLOR: Record<Book, DomainColor> = { istilah: "domain-4", bahasa: "domain-9" };
+
+/** What the URL asks for. A room or a term without ?buku= (an older link) is in Istilah Teknis. */
+function readView(params: { get(name: string): string | null }): View {
+  const field = params.get("bidang");
+  const term = params.get("istilah");
+  const raw = params.get("buku");
+  const book: Book | null = raw === "bahasa" ? "bahasa" : raw === "istilah" || field || term ? "istilah" : null;
+  return book === "istilah" ? { book, field, term } : { book, field: null, term: null };
+}
+
+const depthOf = (v: View) => (v.term ? 3 : v.field ? 2 : v.book ? 1 : 0);
+
+/** What the Bahasa book's cover says; the atlas inside it comes with its own data. */
+export type LanguageShelf = { words: number; languages: string[] };
 
 /**
- * Kosakata › Perpustakaan. Three levels, all in one page so the WebGL world
- * lives on between them:
+ * Ruang Studi › Perpustakaan, all in one page so the WebGL world lives on
+ * between its levels:
  *
- *   the shelf   one sheet per field (its cover in the field's colour, how many
- *               terms and branches); searching here finds terms in every field;
+ *   the books   one sheet per book: Istilah Teknis and Bahasa (?buku=);
+ *   the shelf   ?buku=istilah: one sheet per field (its cover in the field's
+ *               colour, how many terms and branches); searching here finds
+ *               terms in every field;
  *   a room      ?bidang=<id>: that field's terms as sheets, newest first, in a
  *               library that takes the field's colour; Filter picks a branch;
  *   a term      ?istilah=<id>: the term's own page (library-term.tsx), with
@@ -67,6 +87,7 @@ export function LibraryPage({
   notes,
   programStart,
   initial,
+  languages,
 }: {
   terms: VocabTerm[];
   domains: VocabDomain[];
@@ -75,10 +96,12 @@ export function LibraryPage({
   notes: { id: string; title: string }[];
   programStart: string;
   initial: Filters;
+  languages: LanguageShelf;
 }) {
   const { filters: f, update } = useUrlFilters(initial);
   const params = useSearchParams();
-  const wanted: View = { field: params.get("bidang"), term: params.get("istilah") };
+  const router = useRouter();
+  const wanted = readView(params);
   const [shown, setShown] = useState<View>(wanted);
   const searchRef = useRef<HTMLInputElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
@@ -200,7 +223,10 @@ export function LibraryPage({
   const matches = (c: TermCard) => words.every((w) => c.hay.includes(w));
   const branchOk = (c: TermCard) =>
     !f.domain || (f.domain === "umum" ? c.branch === null && c.branches.length === 0 : c.branches.includes(f.domain));
-  const listed = field ? cards.filter((c) => c.fields.includes(field.id) && branchOk(c) && matches(c)) : words.length > 0 ? cards.filter(matches) : [];
+  // Searching is Istilah Teknis' (its shelf, a room); the books level has no search.
+  const inTerms = shown.book === "istilah";
+  const searching = inTerms && words.length > 0;
+  const listed = field ? cards.filter((c) => c.fields.includes(field.id) && branchOk(c) && matches(c)) : searching ? cards.filter(matches) : [];
 
   // The term after this one, in the order the reader came through (the room, the search, else the term's field).
   const sequence = termCard ? (listed.some((c) => c.id === termCard.id) ? listed : cards.filter((c) => c.fields.includes(termCard.field))) : [];
@@ -256,10 +282,10 @@ export function LibraryPage({
 
   // The URL leads; the shown view follows it through a transition.
   useEffect(() => {
-    if (wanted.field === shown.field && wanted.term === shown.term) return;
-    const keyOf = (v: View) => `${v.field ?? ""}/${v.term ?? ""}`;
+    if (wanted.book === shown.book && wanted.field === shown.field && wanted.term === shown.term) return;
+    const keyOf = (v: View) => `${v.book ?? ""}/${v.field ?? ""}/${v.term ?? ""}`;
     const from = keyOf(shown);
-    const target: View = { field: wanted.field, term: wanted.term };
+    const target: View = { book: wanted.book, field: wanted.field, term: wanted.term };
     const targetTerm = target.term ? byId.get(target.term) : null;
     const nextTheme = targetTerm ? fieldOf(targetTerm.field) : fieldOf(target.field);
     const swap = () => {
@@ -289,15 +315,20 @@ export function LibraryPage({
       return;
     }
 
-    const deeper = (target.term && !shown.term) || (!shown.field && !shown.term && Boolean(target.field)) || (target.term && shown.term);
+    const deeper = depthOf(target) > depthOf(shown) || Boolean(target.term && shown.term);
+    // Between the books and a book, the wash takes the book's colour; deeper in, the field's.
+    const bookLevel = Math.min(depthOf(target), depthOf(shown)) === 0;
+    const book = target.book ?? shown.book;
     const colourField = deeper ? (nextTheme ?? fieldOf(shown.field)) : (fieldOf(shown.term ? (byId.get(shown.term)?.field ?? null) : shown.field) ?? nextTheme);
-    play(deeper ? "open" : "close", `var(--${colourField?.color ?? "domain-none"})`, swap);
-  }, [wanted.field, wanted.term, shown, byId, fieldOf, play, world]);
+    const colour = bookLevel && book ? BOOK_COLOR[book] : (colourField?.color ?? "domain-none");
+    play(deeper ? "open" : "close", `var(--${colour})`, swap);
+  }, [wanted.book, wanted.field, wanted.term, shown, byId, fieldOf, play, world]);
 
   // ------------------------------------------------------------ navigation
   const go = (view: View, opts: { push?: boolean } = { push: true }) => {
     const url = new URL(window.location.href);
-    for (const key of ["bidang", "istilah"] as const) url.searchParams.delete(key);
+    for (const key of ["buku", "bidang", "istilah"] as const) url.searchParams.delete(key);
+    if (view.book) url.searchParams.set("buku", view.book);
     if (view.field) url.searchParams.set("bidang", view.field);
     if (view.term) url.searchParams.set("istilah", view.term);
     if (!view.term) {
@@ -321,11 +352,12 @@ export function LibraryPage({
       window.history.back();
       return;
     }
-    // Arrived straight on a term or a room: step up one level.
-    if (shown.term) go({ field: shown.field, term: null });
-    else go({ field: null, term: null });
+    // Arrived straight on a term, a room or a book: step up one level.
+    if (shown.term) go({ book: "istilah", field: shown.field, term: null });
+    else if (shown.field) go({ book: "istilah", field: null, term: null });
+    else go({ book: null, field: null, term: null });
   };
-  const openTerm = (id: string) => (byId.has(id) ? follow({ field: shown.field, term: id }) : null);
+  const openTerm = (id: string) => (byId.has(id) ? follow({ book: "istilah", field: shown.field, term: id }) : null);
   const commitNext = () => {
     if (!nextCard) return;
     byFlood.current = true;
@@ -342,6 +374,36 @@ export function LibraryPage({
     color: x.color,
     definition: x.branches.length ? x.branches.map((b) => b.name).join(", ") : "Belum ada cabang.",
   });
+  const fieldCount = fields.filter((x) => x.id !== NONE).length;
+  const bookCards: { book: Book; card: LibraryCardData }[] = [
+    {
+      book: "istilah",
+      card: {
+        id: "buku-istilah",
+        term: "Istilah Teknis",
+        meta: `${cards.length} istilah · ${fieldCount} bidang`,
+        color: BOOK_COLOR.istilah,
+        definition: fieldCount ? fields.filter((x) => x.id !== NONE).map((x) => x.name).join(", ") : "Belum ada bidang.",
+      },
+    },
+    {
+      book: "bahasa",
+      card: {
+        id: "buku-bahasa",
+        term: "Bahasa",
+        meta: `${languages.words} diksi · ${languages.languages.length} bahasa`,
+        color: BOOK_COLOR.bahasa,
+        definition: languages.languages.length ? languages.languages.join(", ") : "Belum ada bahasa.",
+      },
+    },
+  ];
+  const openBook = (book: Book) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (book === "istilah") return follow({ book, field: null, term: null })(event);
+    // The Bahasa book opens on its own page for now (its atlas comes in stage 3).
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    router.push("/studi/bahasa");
+  };
   const branchOptions: FilterOption[] = field
     ? [
         { key: null, label: "Semua cabang", count: field.count },
@@ -351,50 +413,52 @@ export function LibraryPage({
           : []),
       ]
     : [];
-  const filtering = Boolean(f.q || f.domain);
+  const filtering = inTerms && Boolean(f.q || f.domain);
   const onTermPage = Boolean(termCard);
-  const showingFields = !field && !onTermPage && words.length === 0;
-  const backLabel = field ? field.name : words.length > 0 ? "Hasil pencarian" : "Perpustakaan";
+  const showingBooks = !shown.book;
+  const showingFields = inTerms && !field && !onTermPage && words.length === 0;
+  const backLabel = field ? field.name : words.length > 0 ? "Hasil pencarian" : "Istilah Teknis";
+  const level = onTermPage ? "term" : field ? "room" : showingBooks ? "books" : "shelf";
 
   return (
-    <div
-      ref={pageRef}
-      className="library-page"
-      data-library-page
-      data-room={field ? field.id : undefined}
-      data-view={onTermPage ? "term" : field ? "room" : "shelf"}
-    >
+    <div ref={pageRef} className="library-page" data-library-page data-room={field ? field.id : undefined} data-view={level}>
       <div ref={headRef} className="library-head" data-library-head hidden={onTermPage}>
-        {field && (
+        {!showingBooks && (
           <div className="flex justify-center">
             <button type="button" onClick={back} className="btn btn-ghost btn-sm -mb-1">
-              ← Semua bidang
+              {field ? "← Semua bidang" : "← Semua buku"}
             </button>
           </div>
         )}
-        <h1 className="display text-center text-[clamp(2.5rem,1.6rem+4vw,4.5rem)] text-balance">{field ? field.name : "Perpustakaan"}</h1>
+        <h1 className="display text-center text-[clamp(2.5rem,1.6rem+4vw,4.5rem)] text-balance">
+          {field ? field.name : showingBooks ? "Perpustakaan" : "Istilah Teknis"}
+        </h1>
         <p className="mt-1 text-center text-sm text-muted">
           {field
             ? `${field.count} istilah${field.branches.length ? ` · ${field.branches.length} cabang` : ""}`
-            : "Pilih bidang untuk masuk ke ruangnya, atau cari istilah di semua bidang."}
+            : showingBooks
+              ? "Pilih buku untuk membukanya."
+              : "Pilih bidang untuk masuk ke ruangnya, atau cari istilah di semua bidang."}
         </p>
-        <div className="mx-auto mt-4 flex w-full max-w-xl gap-2" role="search">
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">{field ? `Cari istilah di ${field.name}` : "Cari istilah di semua bidang"}</span>
-            <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
-            <input
-              ref={searchRef}
-              type="search"
-              value={f.q ?? ""}
-              onChange={(e) => update({ q: e.target.value || undefined })}
-              placeholder={field ? `Cari di ${field.name}  ( / )` : "Cari istilah  ( / )"}
-              className="input h-11 rounded-btn pl-10"
-            />
-          </label>
-          {field && branchOptions.length > 2 && (
-            <FilterSheet options={branchOptions} active={f.domain ?? null} onPick={(key) => update({ domain: key ?? undefined })} />
-          )}
-        </div>
+        {inTerms && (
+          <div className="mx-auto mt-4 flex w-full max-w-xl gap-2" role="search">
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">{field ? `Cari istilah di ${field.name}` : "Cari istilah di semua bidang"}</span>
+              <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                type="search"
+                value={f.q ?? ""}
+                onChange={(e) => update({ q: e.target.value || undefined })}
+                placeholder={field ? `Cari di ${field.name}  ( / )` : "Cari istilah  ( / )"}
+                className="input h-11 rounded-btn pl-10"
+              />
+            </label>
+            {field && branchOptions.length > 2 && (
+              <FilterSheet options={branchOptions} active={f.domain ?? null} onPick={(key) => update({ domain: key ?? undefined })} />
+            )}
+          </div>
+        )}
         {filtering && (
           <p className="mt-3 flex items-center justify-center gap-3 text-sm text-muted" aria-live="polite">
             {listed.length} istilah ditemukan
@@ -417,11 +481,12 @@ export function LibraryPage({
         </LibraryTerm>
       )}
 
-      {!onTermPage &&
+      {inTerms &&
+        !onTermPage &&
         (terms.length === 0 ? (
           <EmptyState
             title="Rak masih kosong"
-            description="Tambahkan istilah di Kosakata › Daftar; setiap istilah menjadi satu lembar di sini."
+            description="Tambahkan istilah di Istilah Teknis › Daftar; setiap istilah menjadi satu lembar di sini."
           />
         ) : (
           !showingFields &&
@@ -431,39 +496,66 @@ export function LibraryPage({
         ))}
 
       {/* Always mounted, even when empty: the world watches this list. */}
-      <ul ref={riverRef} className="library-river" data-library-river aria-label={showingFields ? "Bidang" : "Lembar istilah"}>
+      <ul
+        ref={riverRef}
+        className="library-river"
+        data-library-river
+        aria-label={showingBooks ? "Buku" : showingFields ? "Bidang" : "Lembar istilah"}
+      >
         {onTermPage
           ? null
-          : showingFields
-            ? fields.map((x) => <LibraryCard key={x.id} kind="field" card={fieldCard(x)} href={`?bidang=${x.id}`} onOpen={follow({ field: x.id, term: null })} />)
-            : listed.map((card) => (
-                <LibraryCard key={card.id} kind="term" card={card} href={`?${field ? `bidang=${field.id}&` : ""}istilah=${card.id}`} onOpen={follow({ field: shown.field, term: card.id })} />
-              ))}
+          : showingBooks
+            ? bookCards.map(({ book, card }) => (
+                <LibraryCard key={card.id} kind="book" card={card} href={book === "istilah" ? "?buku=istilah" : "/studi/bahasa"} onOpen={openBook(book)} />
+              ))
+            : showingFields
+              ? fields.map((x) => (
+                  <LibraryCard key={x.id} kind="field" card={fieldCard(x)} href={`?buku=istilah&bidang=${x.id}`} onOpen={follow({ book: "istilah", field: x.id, term: null })} />
+                ))
+              : listed.map((card) => (
+                  <LibraryCard
+                    key={card.id}
+                    kind="term"
+                    card={card}
+                    href={`?buku=istilah&${field ? `bidang=${field.id}&` : ""}istilah=${card.id}`}
+                    onOpen={follow({ book: "istilah", field: shown.field, term: card.id })}
+                  />
+                ))}
       </ul>
 
-      {!onTermPage && (showingFields ? fields.length > 0 : listed.length > 0) && (
+      {!onTermPage && (showingBooks || (showingFields ? fields.length > 0 : listed.length > 0)) && (
         <footer className="library-end" data-library-end>
-          <p className="eyebrow justify-center">{field ? `Ujung ${field.name}` : showingFields ? "Ujung rak" : "Ujung pencarian"}</p>
+          <p className="eyebrow justify-center">
+            {field ? `Ujung ${field.name}` : showingBooks ? "Ujung perpustakaan" : showingFields ? "Ujung rak" : "Ujung pencarian"}
+          </p>
           <h2 className="display mt-3 text-[clamp(1.75rem,1.2rem+2.4vw,2.75rem)] text-balance">
-            {field ? `Kamu sudah sampai ujung ${field.name}` : showingFields ? "Itu semua bidangmu" : "Itu semua yang cocok"}
+            {field
+              ? `Kamu sudah sampai ujung ${field.name}`
+              : showingBooks
+                ? "Itu semua bukumu"
+                : showingFields
+                  ? "Itu semua bidangmu"
+                  : "Itu semua yang cocok"}
           </h2>
           <p className="mt-2 text-sm text-muted">
             {field
               ? filtering
                 ? `${listed.length} dari ${field.count} istilah cocok dengan filtermu.`
                 : `${field.count} istilah, dari yang terbaru sampai yang pertama.`
-              : showingFields
-                ? `${fields.length} bidang, ${cards.length} istilah.`
-                : `${listed.length} dari ${cards.length} istilah.`}
+              : showingBooks
+                ? `${cards.length} istilah teknis dan ${languages.words} diksi bahasa.`
+                : showingFields
+                  ? `${fields.length} bidang, ${cards.length} istilah.`
+                  : `${listed.length} dari ${cards.length} istilah.`}
           </p>
-          {field ? (
-            <button type="button" onClick={back} className="btn btn-primary mt-6">
-              ← Kembali ke semua bidang
-            </button>
-          ) : (
+          {showingBooks ? (
             <Link href="/" className="btn btn-primary mt-6">
               Kembali ke dashboard
             </Link>
+          ) : (
+            <button type="button" onClick={back} className="btn btn-primary mt-6">
+              {field ? "← Kembali ke semua bidang" : "← Kembali ke semua buku"}
+            </button>
           )}
           <p className="mt-10 text-xs text-muted">
             Konsep perpustakaan terinspirasi halaman{" "}

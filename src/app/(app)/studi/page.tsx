@@ -5,13 +5,14 @@ import { getProfile, getSubjectsAndTopics, loadVocabTerms } from "@/lib/queries"
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
 import type { VocabDomain, VocabTerm } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Perpustakaan · Kosakata" };
+export const metadata: Metadata = { title: "Perpustakaan · Ruang Studi" };
 
 function one(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
 }
 
-export default async function LibraryRoute({
+/** Ruang Studi: straight into the Perpustakaan (its books, Istilah Teknis' shelf, the Bahasa atlas). */
+export default async function StudyRoute({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -45,6 +46,7 @@ export default async function LibraryRoute({
       notes={notes}
       programStart={profile?.program_start ?? DEFAULT_PROGRAM_START}
       initial={initial}
+      languages={{ words: 0, languages: [] }}
     />
   );
 }

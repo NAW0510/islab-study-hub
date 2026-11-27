@@ -113,7 +113,7 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
             {terms.map((t) => (
               <li key={t.id}>
                 <Link
-                  href={`/vocab?term=${t.id}`}
+                  href={`/studi/istilah?term=${t.id}`}
                   title={t.domain?.name ?? "Tanpa domain"}
                   className={cn(
                     "chip chip-tone min-h-8 hover:opacity-80 pointer-coarse:min-h-11",

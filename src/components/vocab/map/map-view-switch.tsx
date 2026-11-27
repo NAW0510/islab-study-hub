@@ -5,8 +5,8 @@ import { SlideGroup } from "../../slide-group";
 import { preloadMap3d } from "./preload";
 
 const VIEWS = [
-  { key: "2d", href: "/vocab/map", label: "2D", title: "Peta datar dengan wilayah per bidang" },
-  { key: "3d", href: "/vocab/map/3d", label: "3D", title: "Ruang tiga dimensi yang bisa diputar" },
+  { key: "2d", href: "/studi/istilah/peta", label: "2D", title: "Peta datar dengan wilayah per bidang" },
+  { key: "3d", href: "/studi/istilah/peta/3d", label: "3D", title: "Ruang tiga dimensi yang bisa diputar" },
 ] as const;
 
 /**

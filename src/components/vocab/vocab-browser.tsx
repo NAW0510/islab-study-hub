@@ -160,7 +160,7 @@ export function VocabBrowser({
   return (
     <>
       <PageHeader
-        title="Kosakata"
+        title="Istilah Teknis"
         description={`${terms.length} istilah · ${activeDomains} cabang ilmu terpakai · ${newThisWeek} baru minggu ini`}
         actions={<BulkAdd existing={[...existing.keys()]} onSaved={refresh} />}
       />

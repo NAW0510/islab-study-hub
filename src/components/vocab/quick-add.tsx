@@ -99,7 +99,7 @@ export function QuickAdd({
 
       {duplicate && (
         <p className="mt-2 text-sm text-danger">
-          “{duplicate.term}” sudah ada di Kosakata.{" "}
+          “{duplicate.term}” sudah ada di Istilah Teknis.{" "}
           {onOpenExisting && (
             <>
               Kalau istilah ini juga milik domain lain,{" "}

@@ -17,7 +17,7 @@ export function DomainOnboarding() {
   return (
     <>
       <PageHeader
-        title="Kosakata"
+        title="Istilah Teknis"
         description="Glosarium pribadimu. Sebelum mulai, siapkan bidang dan cabang ilmunya — deskripsi tiap domain dipakai sistem untuk menebak domain istilah baru, jadi tulis kata-kata kunci yang khas."
       />
       <ActionForm action={seedDomains} className="max-w-3xl" onSuccess={() => router.refresh()}>
