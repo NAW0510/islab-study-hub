@@ -1,15 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Search, X } from "lucide-react";
 import { weekNumberFor } from "@/lib/report-template";
-import type { SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
+import type { StudyLanguage, StudyWord, SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
 import { useUrlFilters } from "@/lib/use-url-filters";
 import { excerpt, normalizeSearch } from "@/lib/utils";
 import { domainIndex, domainPath, termDomainIds, type DomainIndex } from "@/lib/vocab/format";
 import { asDomainColor, type DomainColor } from "@/lib/vocab/seed-domains";
+import { preloadAtlas } from "../../study/atlas/atlas-load";
+import type { AtlasClosing } from "../../study/atlas/language-atlas";
 import { EmptyState } from "../../ui";
 import { FilterSheet, type FilterOption } from "./filter-sheet";
 import { LibraryCard, type LibraryCardData } from "./library-card";
@@ -18,6 +21,9 @@ import { NextThreshold } from "./next-threshold";
 import { useLibraryWorld } from "./world-host";
 
 type Filters = { q?: string; domain?: string };
+
+/** The Bahasa book's atlas loads with the book (warmed on the way there by preloadAtlas), not with the shelf. */
+const LanguageAtlas = dynamic(() => import("../../study/atlas/language-atlas").then((m) => m.LanguageAtlas), { ssr: false });
 
 /** "Tanpa domain" as a field of its own on the shelf. */
 const NONE = "none";
@@ -57,8 +63,11 @@ function readView(params: { get(name: string): string | null }): View {
 
 const depthOf = (v: View) => (v.term ? 3 : v.field ? 2 : v.book ? 1 : 0);
 
-/** What the Bahasa book's cover says; the atlas inside it comes with its own data. */
-export type LanguageShelf = { words: number; languages: string[] };
+/** The Bahasa book's contents: its languages and words, for its cover and its atlas. */
+export type LanguageShelf = { languages: StudyLanguage[]; words: StudyWord[] };
+
+/** Where a sheet rests on the shelf right now (the Bahasa book flies back onto it). */
+const sheetRect = (id: string) => document.querySelector<HTMLElement>(`[data-term-id="${id}"] .library-sheet`)?.getBoundingClientRect() ?? null;
 
 /**
  * Ruang Studi › Perpustakaan, all in one page so the WebGL world lives on
@@ -71,7 +80,10 @@ export type LanguageShelf = { words: number; languages: string[] };
  *   a room      ?bidang=<id>: that field's terms as sheets, newest first, in a
  *               library that takes the field's colour; Filter picks a branch;
  *   a term      ?istilah=<id>: the term's own page (library-term.tsx), with
- *               the pull to the next term at its end (next-threshold.tsx).
+ *               the pull to the next term at its end (next-threshold.tsx);
+ *   the atlas   ?buku=bahasa (+ ?negara=JP): the Bahasa book opened over the
+ *               library (study/atlas/language-atlas.tsx). Its sheet lifts
+ *               off the shelf and becomes the book; closing lands it back.
  *
  * The URL leads (a click, the back button, a shared link) and the shown view
  * follows it through a transition: the world pans away under a wash of the
@@ -100,9 +112,13 @@ export function LibraryPage({
 }) {
   const { filters: f, update } = useUrlFilters(initial);
   const params = useSearchParams();
-  const router = useRouter();
   const wanted = readView(params);
+  const country = wanted.book === "bahasa" ? (params.get("negara")?.toUpperCase() ?? null) : null;
   const [shown, setShown] = useState<View>(wanted);
+  const [closing, setClosing] = useState<AtlasClosing | null>(null);
+  const [liftedFrom, setLiftedFrom] = useState<DOMRect | null>(null);
+  const [lifted, setLifted] = useState(false);
+  const atlasOpen = wanted.book === "bahasa";
   const searchRef = useRef<HTMLInputElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -113,7 +129,7 @@ export function LibraryPage({
   const scrolls = useRef<Record<string, number>>({});
   const pushed = useRef(0);
   const byFlood = useRef(false);
-  const world = useLibraryWorld(pageRef, headRef, riverRef, startRef);
+  const worldRef = useLibraryWorld(pageRef, headRef, riverRef, startRef);
   const domainIdx = useMemo(() => domainIndex(domains), [domains]);
 
   // "/" focuses the search, unless the user is already typing somewhere.
@@ -248,8 +264,8 @@ export function LibraryPage({
         mark("in");
       };
       mark("out");
-      if (world.current) {
-        void world.current.transition(kind, colour, swap).then(() => mark(null));
+      if (worldRef.current) {
+        void worldRef.current.transition(kind, colour, swap).then(() => mark(null));
         return;
       }
       // Without the world: a plain wash slides across, the page swaps under it, then it fades.
@@ -277,7 +293,7 @@ export function LibraryPage({
         })
         .catch(() => mark(null));
     },
-    [world],
+    [worldRef],
   );
 
   // The URL leads; the shown view follows it through a transition.
@@ -288,11 +304,37 @@ export function LibraryPage({
     const target: View = { book: wanted.book, field: wanted.field, term: wanted.term };
     const targetTerm = target.term ? byId.get(target.term) : null;
     const nextTheme = targetTerm ? fieldOf(targetTerm.field) : fieldOf(target.field);
+
+    // Into the Bahasa book: the atlas opens over the shelf, which stays until the fog covers it (onCovered).
+    if (target.book === "bahasa" && shown.book !== "bahasa") {
+      scrolls.current[from] = window.scrollY;
+      return;
+    }
+    // Out of it: the shelf comes back under the fog, and the book closes onto its sheet.
+    if (shown.book === "bahasa" && target.book !== "bahasa") {
+      const toShelf = !target.book;
+      const back = scrolls.current[keyOf(target)];
+      const id = requestAnimationFrame(() => {
+        setShown(target);
+        worldRef.current?.setTheme(nextTheme ? `var(--${nextTheme.color})` : null);
+        worldRef.current?.setRoute(target.term ? "detail" : "list");
+        requestAnimationFrame(() => window.scrollTo({ top: back ?? 0, behavior: "instant" }));
+        setClosing({
+          to: () => (toShelf ? sheetRect("buku-bahasa") : null),
+          done: () => {
+            setLifted(false);
+            setClosing(null);
+          },
+        });
+      });
+      return () => cancelAnimationFrame(id);
+    }
+
     const swap = () => {
       scrolls.current[from] = window.scrollY;
       setShown(target);
-      world.current?.setTheme(nextTheme ? `var(--${nextTheme.color})` : null);
-      world.current?.setRoute(target.term ? "detail" : "list");
+      worldRef.current?.setTheme(nextTheme ? `var(--${nextTheme.color})` : null);
+      worldRef.current?.setRoute(target.term ? "detail" : "list");
       const back = scrolls.current[keyOf(target)];
       requestAnimationFrame(() => window.scrollTo({ top: target.term ? 0 : (back ?? 0), behavior: "instant" }));
     };
@@ -322,7 +364,7 @@ export function LibraryPage({
     const colourField = deeper ? (nextTheme ?? fieldOf(shown.field)) : (fieldOf(shown.term ? (byId.get(shown.term)?.field ?? null) : shown.field) ?? nextTheme);
     const colour = bookLevel && book ? BOOK_COLOR[book] : (colourField?.color ?? "domain-none");
     play(deeper ? "open" : "close", `var(--${colour})`, swap);
-  }, [wanted.book, wanted.field, wanted.term, shown, byId, fieldOf, play, world]);
+  }, [wanted.book, wanted.field, wanted.term, shown, byId, fieldOf, play, worldRef]);
 
   // ------------------------------------------------------------ navigation
   const go = (view: View, opts: { push?: boolean } = { push: true }) => {
@@ -391,19 +433,53 @@ export function LibraryPage({
       card: {
         id: "buku-bahasa",
         term: "Bahasa",
-        meta: `${languages.words} diksi · ${languages.languages.length} bahasa`,
+        meta: `${languages.words.length} diksi · ${languages.languages.length} bahasa`,
         color: BOOK_COLOR.bahasa,
-        definition: languages.languages.length ? languages.languages.join(", ") : "Belum ada bahasa.",
+        definition: languages.languages.length ? languages.languages.map((l) => l.name).join(", ") : "Belum ada bahasa.",
       },
     },
   ];
   const openBook = (book: Book) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (book === "istilah") return follow({ book, field: null, term: null })(event);
-    // The Bahasa book opens on its own page for now (its atlas comes in stage 3).
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
-    router.push("/studi/bahasa");
+    // The sheet lifts off the shelf: the atlas's book starts on its rect, and the world stops drawing it.
+    setLiftedFrom(event.currentTarget.getBoundingClientRect());
+    go({ book: "bahasa", field: null, term: null });
   };
+  const pickCountry = useCallback((code: string | null) => {
+    const url = new URL(window.location.href);
+    if (code) url.searchParams.set("negara", code);
+    else url.searchParams.delete("negara");
+    window.history.replaceState(null, "", url);
+  }, []);
+  const exitBook = useCallback(() => {
+    if (pushed.current > 0) {
+      pushed.current -= 1;
+      window.history.back();
+      return;
+    }
+    const url = new URL(window.location.href);
+    for (const key of ["buku", "negara"]) url.searchParams.delete(key);
+    window.history.pushState(null, "", url);
+  }, []);
+  const onCovered = useCallback(
+    (covered: boolean) => {
+      worldRef.current?.setPaused(covered);
+      // Under full cover the shelf gives way to the atlas.
+      if (covered) setShown((v) => (v.book === "bahasa" ? v : { book: "bahasa", field: null, term: null }));
+    },
+    [worldRef],
+  );
+  const onLifted = useCallback(() => setLifted(true), []);
+
+  // On the books shelf, warm the atlas (its shapes and the hologram) for a book opened without warning.
+  useEffect(() => {
+    if (shown.book) return;
+    const idle = typeof window.requestIdleCallback === "function";
+    const id = idle ? window.requestIdleCallback(preloadAtlas, { timeout: 3000 }) : window.setTimeout(preloadAtlas, 1500);
+    return () => (idle ? window.cancelIdleCallback(id) : window.clearTimeout(id));
+  }, [shown.book]);
   const branchOptions: FilterOption[] = field
     ? [
         { key: null, label: "Semua cabang", count: field.count },
@@ -416,13 +492,14 @@ export function LibraryPage({
   const filtering = inTerms && Boolean(f.q || f.domain);
   const onTermPage = Boolean(termCard);
   const showingBooks = !shown.book;
+  const inAtlas = shown.book === "bahasa";
   const showingFields = inTerms && !field && !onTermPage && words.length === 0;
   const backLabel = field ? field.name : words.length > 0 ? "Hasil pencarian" : "Istilah Teknis";
   const level = onTermPage ? "term" : field ? "room" : showingBooks ? "books" : "shelf";
 
   return (
     <div ref={pageRef} className="library-page" data-library-page data-room={field ? field.id : undefined} data-view={level}>
-      <div ref={headRef} className="library-head" data-library-head hidden={onTermPage}>
+      <div ref={headRef} className="library-head" data-library-head hidden={onTermPage || inAtlas}>
         {!showingBooks && (
           <div className="flex justify-center">
             <button type="button" onClick={back} className="btn btn-ghost btn-sm -mb-1">
@@ -506,7 +583,15 @@ export function LibraryPage({
           ? null
           : showingBooks
             ? bookCards.map(({ book, card }) => (
-                <LibraryCard key={card.id} kind="book" card={card} href={book === "istilah" ? "?buku=istilah" : "/studi/bahasa"} onOpen={openBook(book)} />
+                <LibraryCard
+                  key={card.id}
+                  kind="book"
+                  card={card}
+                  href={`?buku=${book}`}
+                  onOpen={openBook(book)}
+                  onIntent={book === "bahasa" ? preloadAtlas : undefined}
+                  lifted={book === "bahasa" && lifted}
+                />
               ))
             : showingFields
               ? fields.map((x) => (
@@ -543,7 +628,7 @@ export function LibraryPage({
                 ? `${listed.length} dari ${field.count} istilah cocok dengan filtermu.`
                 : `${field.count} istilah, dari yang terbaru sampai yang pertama.`
               : showingBooks
-                ? `${cards.length} istilah teknis dan ${languages.words} diksi bahasa.`
+                ? `${cards.length} istilah teknis dan ${languages.words.length} diksi bahasa.`
                 : showingFields
                   ? `${fields.length} bidang, ${cards.length} istilah.`
                   : `${listed.length} dari ${cards.length} istilah.`}
@@ -565,6 +650,22 @@ export function LibraryPage({
             .
           </p>
         </footer>
+      )}
+
+      {(atlasOpen || closing) && (
+        <LanguageAtlas
+          languages={languages.languages}
+          words={languages.words}
+          programStart={programStart}
+          country={atlasOpen ? country : null}
+          onCountry={pickCountry}
+          onExit={exitBook}
+          from={liftedFrom}
+          closing={closing}
+          coverMeta={bookCards[1].card.meta}
+          onCovered={onCovered}
+          onLifted={onLifted}
+        />
       )}
 
       {/* The wash for the transitions when the world isn't running, and the next-term dome. */}

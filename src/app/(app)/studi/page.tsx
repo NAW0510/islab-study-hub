@@ -48,7 +48,7 @@ export default async function StudyRoute({
       notes={notes}
       programStart={profile?.program_start ?? DEFAULT_PROGRAM_START}
       initial={initial}
-      languages={{ words: study.words.length, languages: study.languages.map((l) => l.name) }}
+      languages={{ languages: study.languages, words: study.words }}
     />
   );
 }

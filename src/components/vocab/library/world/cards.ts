@@ -226,6 +226,8 @@ export class CardsLayer {
       if (folded !== card.item.hasAttribute("data-folded")) card.item.toggleAttribute("data-folded", folded);
       const mesh = card.mesh;
       if (!mesh) continue;
+      // A sheet lifted off the shelf (the Bahasa book flying to the atlas) is drawn by the atlas meanwhile.
+      mesh.visible = !card.item.hasAttribute("data-lifted");
       const u = mesh.material.uniforms;
       u.uRect.value.set(card.left, card.top - frame.scrollY, card.width, card.height);
       u.uView.value.set(frame.viewWidth, frame.viewHeight);

@@ -32,11 +32,17 @@ export const LibraryCard = memo(function LibraryCard({
   card,
   href,
   onOpen,
+  onIntent,
+  lifted = false,
   kind,
 }: {
   card: LibraryCardData;
   href: string;
   onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
+  /** Heading for it (pointer over, focus, press): start loading what it opens. */
+  onIntent?: () => void;
+  /** Lifted off the shelf (the Bahasa book, flying to its atlas and back): hidden here meanwhile. */
+  lifted?: boolean;
   kind: "book" | "field" | "term";
 }) {
   const [flipped, setFlipped] = useState(false);
@@ -49,9 +55,10 @@ export const LibraryCard = memo(function LibraryCard({
       data-term-id={card.id}
       data-color={card.color}
       data-flipped={(isTerm && flipped) || undefined}
+      data-lifted={lifted || undefined}
     >
       <div className="library-flip">
-        <a href={href} onClick={onOpen} className="library-sheet">
+        <a href={href} onClick={onOpen} onPointerEnter={onIntent} onFocus={onIntent} onPointerDown={onIntent} className="library-sheet">
           <span className="library-front" aria-hidden={flipped}>
             <span className="library-cover">
               <CoverArt seed={card.id} color={card.color} />

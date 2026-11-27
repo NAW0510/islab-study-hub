@@ -44,6 +44,8 @@ export type LibraryWorld = {
    * here; without it (the DOM sheets already showed) they are simply there.
    */
   reveal(rise: boolean): void;
+  /** Stops drawing while something opaque covers the whole world (the Bahasa atlas), and starts again. */
+  setPaused(paused: boolean): void;
   dispose(): void;
 };
 
@@ -278,11 +280,13 @@ export async function createLibraryWorld({ page, head, river, onFallback, onRead
     // Private mode: every visit gets the settle.
   }
 
+  let paused = false;
   const frame = (now: number) => {
     frameId = requestAnimationFrame(frame);
     if (lost) return;
     const dtMs = Math.min(100, now - last);
     last = now;
+    if (paused) return;
     lastMs = dtMs;
     const dt = dtMs / 1000;
     clock += dt;
@@ -435,6 +439,13 @@ export async function createLibraryWorld({ page, head, river, onFallback, onRead
     transition,
     setRoute,
     reveal,
+    setPaused(next: boolean) {
+      paused = next;
+      // Coming back: no long first step, and the scroll may have moved under cover.
+      last = performance.now();
+      lastScroll = window.scrollY;
+      if (!next) remeasure();
+    },
     dispose() {
       cancelAnimationFrame(frameId);
       run?.resolve();
