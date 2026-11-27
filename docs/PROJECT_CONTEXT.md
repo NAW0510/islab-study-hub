@@ -83,10 +83,10 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Klasifikasi domain otomatis: Edge Function `vocab-embed` meng-embed teks lewat Voyage AI (`voyage-4`, 512 dimensi, pgvector), membandingkannya dengan prototipe domain + centroid istilah yang sudah disetujui, lalu memutuskan `auto` atau `pending` (ambang di `supabase/functions/_shared/vocab-config.ts`; kalibrasi di docs/VOCAB_CALIBRATION.md). Status `confirmed`/`manual` tidak pernah ditimpa (dijamin di SQL).
 - Tabel `vocab_domains` (maks dua tingkat, soft delete) dan `vocab_terms` (soft delete, kolom peta untuk Fase 3), RLS owner-only, RPC batch security invoker.
 - UI: tambah cepat, tempel banyak (satu batch embedding), banner tinjau, saran domain sekali klik, drawer detail dengan istilah terdekat, kelola domain (gabung/hapus/klasifikasi ulang).
-- Sub-tab bersama: Daftar · Peta Otak · Domain.
+- Sub-tab bersama di baris kedua navbar: Daftar · Perpustakaan · Peta Otak · Domain.
 - Tampilan **Daftar | Kartu** (`?view=kartu`): kartu bolak-balik, depan istilah + domain, belakang ringkasan definisi.
 - Tautan langsung: `/vocab?term=<id>` membuka detail istilah, `/vocab?topic=<id>` menyaring istilah satu topik.
-- **Satu istilah, banyak domain** (branch `feat/istilah-multi-domain`): domain utama tetap di `vocab_terms.domain_id`, domain tambahan di tabel `vocab_term_domains` (RLS owner-only, trigger pemilik/domain aktif/bukan domain utama, RPC `make_primary_vocab_domain`; gabung/hapus domain dan centroid saran ikut menghitungnya). Klasifikasi tetap memilih satu domain; domain lain yang skornya hampir sama (`MULTI_SUGGEST_MARGIN`) hanya disarankan sebagai "Juga cocok di", dan kamu yang memasangnya.
+- **Satu istilah, banyak domain**: domain utama tetap di `vocab_terms.domain_id`, domain tambahan di tabel `vocab_term_domains` (RLS owner-only, trigger pemilik/domain aktif/bukan domain utama, RPC `make_primary_vocab_domain`; gabung/hapus domain dan centroid saran ikut menghitungnya). Klasifikasi tetap memilih satu domain; domain lain yang skornya hampir sama (`MULTI_SUGGEST_MARGIN`) hanya disarankan sebagai "Juga cocok di", dan kamu yang memasangnya.
 
 ### Perpustakaan (`/vocab/perpustakaan`, prototipe Tahap A)
 - Halaman DOM lengkap (kepala lengket dengan cari + Filter bidang, sungai kartu bersampul pola Bauhaus per istilah, balik ke definisi, ujung daftar) yang selalu jadi sumber kebenaran.
@@ -153,7 +153,7 @@ src/components/                               komponen UI
 
 Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 
-## 7. Kondisi saat ini (per 17 November 2026, Week 8 program, Fase 4 berjalan)
+## 7. Kondisi saat ini (per 27 November 2026, Week 9 program, Fase 0–4 selesai)
 
 - ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi.
 - ✅ Semua tabel (termasuk `profiles` dan `weekly_reports`) sudah ada di Supabase. Laporan Mingguan bisa dipakai.
@@ -161,15 +161,17 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Supabase CLI (devDependency) terhubung ke project. Skema dikelola sebagai migrasi di `supabase/migrations/` dan riwayatnya sinkron dengan remote.
 - ✅ Tipe TypeScript hasil generate ada di `src/lib/supabase/database.types.ts` (`npm run db:types`). Kode lama masih memakai tipe manual di `src/lib/types.ts`.
 - ✅ Unit test dengan Vitest (`npm test`), termasuk uji kontras warna.
-- ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, sidebar bernomor, menu layar penuh di mobile, dashboard dengan penanda Week. Fase 4 menyelesaikan restyle halaman lain (login, `/r/[token]`, dialog, kontrol segmen).
+- ✅ Design system baru (Fase 1): token warna/tipografi/radius/gerak, menu layar penuh di mobile, dashboard dengan penanda Week. Fase 4 menyelesaikan restyle halaman lain (login, `/r/[token]`, dialog, kontrol segmen); restyle Bauhaus dan navbar atas menggantikan gaya dan sidebar awalnya.
 - ✅ Backup database (dump skema + data) disimpan di luar repo.
 - ✅ Fase 2 (Kosakata MVP) selesai dan sudah di `main`; fungsi `vocab-embed` aktif di remote dengan Voyage asli (7/7 kasus klasifikasi benar).
 - ✅ Fase 3 (Peta Otak 2D) selesai dan sudah di `main`; migrasi `vocab_map` dan `vocab-embed` v2 di remote.
 - ✅ Peta Otak 3D (`/vocab/map/3d`: Luar angkasa · Otak · Kubus) sudah di `main`.
-- 🔄 Fase 4 (integrasi Kosakata, tampilan Kartu, sisa redesign) di branch `feat/fase-4-integrasi`, menunggu QA dan merge.
-- 🔄 Restyle Bauhaus (arah labmgm.org) di branch `feat/restyle-bauhaus` (di atas `feat/perpustakaan-kosakata`). Tahap 1 (token, bentuk, tema, fondasi transisi, shell, dashboard, login) disetujui; Tahap 2 (semua halaman lain dan transisinya) selesai, menunggu QA.
-- 🔄 Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro di branch `feat/istilah-multi-domain` (di atas `feat/restyle-bauhaus`). Migrasi `20261118120000_vocab_multi_domain.sql` baru diterapkan di stack **lokal**; remote menunggu konfirmasi. Sampai migrasinya ada di remote, app tetap jalan di data asli (tanpa domain tambahan).
-- 🔄 Navbar atas menggantikan sidebar (branch `feat/navbar-atas`, di atas `feat/istilah-multi-domain`): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab dan sakelar tampilan (tab Kosakata, 2D/3D, tampilan 3D, Daftar/Kartu, tab Subjek), transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan (dunia ditahan sampai siap lalu memudar masuk; surut ke kertas saat keluar). Menunggu QA.
+- ✅ Fase 4 (integrasi Kosakata, tampilan Kartu, sisa redesign) sudah di `main` (PR #8, #9).
+- ✅ Perpustakaan (`/vocab/perpustakaan`) sudah di `main` (PR #10).
+- ✅ Restyle Bauhaus (arah labmgm.org) untuk semua halaman dan transisinya sudah di `main` (PR #11).
+- ✅ Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro sudah di `main` (PR #12). Migrasi `20261118120000_vocab_multi_domain.sql` sudah diterapkan di remote; riwayat migrasi lokal dan remote sinkron.
+- ✅ Navbar atas menggantikan sidebar, sudah di `main` (PR #13): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab, sakelar tampilan dan alat Peta Otak, transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan.
+- 🔜 Fase 5 (eksplorasi, opsional): tampilan 3D sudah ada; butir lain di spec §10 dipilih nanti. Kalibrasi ambang klasifikasi menunggu ±30 istilah nyata.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.
 - ⚠️ Belum ada CI.
