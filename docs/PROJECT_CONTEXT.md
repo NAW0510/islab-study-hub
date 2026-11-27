@@ -165,7 +165,7 @@ src/components/                               komponen UI
 
 Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 
-## 7. Kondisi saat ini (per 27 November 2026, Week 9 program, Fase 0–4 selesai)
+## 7. Kondisi saat ini (per 28 November 2026, Week 9 program, Fase 0–4 dan Ruang Studi selesai)
 
 - ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi.
 - ✅ Semua tabel (termasuk `profiles` dan `weekly_reports`) sudah ada di Supabase. Laporan Mingguan bisa dipakai.
@@ -183,7 +183,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Restyle Bauhaus (arah labmgm.org) untuk semua halaman dan transisinya sudah di `main` (PR #11).
 - ✅ Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro sudah di `main` (PR #12). Migrasi `20261118120000_vocab_multi_domain.sql` sudah diterapkan di remote; riwayat migrasi lokal dan remote sinkron.
 - ✅ Navbar atas menggantikan sidebar, sudah di `main` (PR #13): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab, sakelar tampilan dan alat Peta Otak, transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan.
-- 🔄 Ruang Studi (branch `feat/ruang-studi`): Kosakata menjadi Istilah Teknis di dalam Ruang Studi, Perpustakaan dengan rak buku, halaman Bahasa, dan atlas hologram di buku Bahasa. Migrasi `20261127120000_study_languages.sql` sudah diterapkan di remote (28 Nov 2026); riwayat migrasi lokal dan remote sinkron.
+- ✅ Ruang Studi sudah di `main` (PR #15): Kosakata menjadi Istilah Teknis di dalam Ruang Studi, Perpustakaan dengan rak buku, halaman Bahasa, dan atlas hologram di buku Bahasa. Migrasi `20261127120000_study_languages.sql` sudah diterapkan di remote (28 Nov 2026); riwayat migrasi lokal dan remote sinkron.
 - 🔜 Fase 5 (eksplorasi, opsional): tampilan 3D sudah ada; butir lain di spec §10 dipilih nanti. Kalibrasi ambang klasifikasi menunggu ±30 istilah nyata.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.

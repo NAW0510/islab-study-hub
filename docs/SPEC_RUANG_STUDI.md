@@ -1,6 +1,6 @@
 # Spesifikasi: Ruang Studi, Istilah Teknis, dan Bahasa
 
-Status: Tahap 1–4 selesai di branch `feat/ruang-studi` (28 Nov 2026); migrasi sudah diterapkan di remote. Melengkapi docs/SPEC_KOSAKATA_PETA_OTAK.md; aturan §0 di sana tetap berlaku. Pola desain yang jadi: docs/DESIGN_SYSTEM.md › Pola atlas Bahasa.
+Status: Tahap 1–4 selesai dan sudah di `main` (PR #15, 28 Nov 2026); migrasi sudah diterapkan di remote. Melengkapi docs/SPEC_KOSAKATA_PETA_OTAK.md; aturan §0 di sana tetap berlaku. Pola desain yang jadi: docs/DESIGN_SYSTEM.md › Pola atlas Bahasa.
 
 **Beda dari rencana**: buku Istilah Teknis tetap memakai transisi sapuan Perpustakaan (bukan animasi buku); animasi buku hanya untuk Bahasa, seperti yang diminta. Bisa ditambahkan nanti dengan mesin buku yang sama.
 
