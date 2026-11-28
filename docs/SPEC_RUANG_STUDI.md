@@ -210,7 +210,7 @@ Diminta Ngurah 28 Nov 2026.
 - **Menutup**: hologram turun, layar padam kembali menjadi sampul, tablet menebal kembali menjadi buku, lalu terbang ke lembarnya.
 - Tanpa WebGL2 atau dengan reduced motion: tablet DOM dengan Peta Otak 2D datar (SVG) dan tombol yang sama.
 
-**Status**: Tahap 1–2 selesai di branch `feat/tablet-istilah` (28 Nov 2026), tanpa perubahan database.
+**Status**: Tahap 1–3 selesai dan sudah di `main` (PR #17, 28 Nov 2026), tanpa perubahan database.
 
 ### 7.3 Tahap kerja
 1. **Alur**: navbar tanpa tab, tautan balik, tombol di buku Bahasa (Tambah diksi, Daftar diksi, Kelola bahasa), overlay buku yang dipakai bersama kedua buku.
