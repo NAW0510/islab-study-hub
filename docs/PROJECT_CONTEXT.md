@@ -79,7 +79,7 @@ Catatan Next.js 16: middleware sekarang bernama **`proxy.ts`**, dan ada beberapa
 - Logout lewat `/auth/signout`.
 
 ### Ruang Studi (`/studi`)
-Menu 04 di navbar (menggantikan Kosakata sejak 27 Nov 2026; spesifikasi di docs/SPEC_RUANG_STUDI.md). Membuka langsung Perpustakaan. Baris kedua navbar: **Perpustakaan · Istilah Teknis · Bahasa**. Rute lama `/vocab*` dialihkan ke rute baru, termasuk query-nya.
+Menu 04 di navbar (menggantikan Kosakata sejak 27 Nov 2026; spesifikasi di docs/SPEC_RUANG_STUDI.md). Membuka langsung Perpustakaan, tanpa tab di navbar: Istilah Teknis dan Bahasa adalah buku, dan semua pilihannya (tambah, daftar, domain, peta penuh, kelola bahasa) adalah tombol di dalam buku yang terbuka. Halaman turunannya diawali tautan balik "← Istilah Teknis" / "← Bahasa". Rute lama `/vocab*` dialihkan ke rute baru, termasuk query-nya.
 
 ### Istilah Teknis (`/studi/istilah`, dulu Kosakata, sejak Fase 2)
 - Glosarium pribadi: istilah + definisi (Markdown + LaTeX), alias, tanggal belajar (dengan nomor Week), kaitan ke subjek/topik.
@@ -92,10 +92,10 @@ Menu 04 di navbar (menggantikan Kosakata sejak 27 Nov 2026; spesifikasi di docs/
 - **Satu istilah, banyak domain**: domain utama tetap di `vocab_terms.domain_id`, domain tambahan di tabel `vocab_term_domains` (RLS owner-only, trigger pemilik/domain aktif/bukan domain utama, RPC `make_primary_vocab_domain`; gabung/hapus domain dan centroid saran ikut menghitungnya). Klasifikasi tetap memilih satu domain; domain lain yang skornya hampir sama (`MULTI_SUGGEST_MARGIN`) hanya disarankan sebagai "Juga cocok di", dan kamu yang memasangnya.
 
 ### Perpustakaan (`/studi`, prototipe Tahap A)
-- Rak buku: **Istilah Teknis** (`?buku=istilah`: rak bidang → ruang → halaman istilah) dan **Bahasa** (`?buku=bahasa`: atlas hologram).
+- Rak buku: **Istilah Teknis** (`?buku=istilah`: bukunya menjadi tablet yang memproyeksikan Peta Otak 2D/3D; wilayah bidang membuka ruangnya, titik istilah membuka panelnya) dan **Bahasa** (`?buku=bahasa`: atlas hologram).
 - Halaman DOM lengkap (kepala lengket dengan cari + Filter bidang, sungai kartu bersampul pola Bauhaus per istilah, balik ke definisi, ujung daftar) yang selalu jadi sumber kebenaran.
 - Dunia WebGL di belakangnya bila perangkat mampu: lembar kartu yang bergelombang dan terlipat di bawah kepala, lensa (barel, pecahan warna di pojok, motion blur scroll, grain), kursor + kawanan kertas, perpustakaan prosedural siang/malam. Dimuat belakangan (import dinamis), dengan tata kelola kualitas dan cadangan ke DOM.
-- Tiga tingkat dalam satu halaman: rak bidang → ruang bidang (`?bidang=`) → halaman istilah (`?istilah=`) dengan hero, sampul air, definisi, istilah terdekat, kaitan, dan tarikan "Istilah berikutnya". Transisi geser + sapuan warna bidang; tombol back mengikuti.
+- Di bawah tablet: ruang bidang (`?bidang=`) → halaman istilah (`?istilah=`) dengan hero, sampul air, definisi, istilah terdekat, kaitan, dan tarikan "Istilah berikutnya". Transisi geser + sapuan warna bidang; tombol back mengikuti.
 - Kode: `src/components/vocab/library/` dan `src/lib/vocab/library/` (angka di `config.ts`). Belum: gelombang ganti tema (Tahap C), buku/halaman melayang dan glif malam.
 
 ### Bahasa (`/studi/bahasa` dan buku Bahasa di Perpustakaan)
@@ -165,7 +165,7 @@ src/components/                               komponen UI
 
 Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 
-## 7. Kondisi saat ini (per 27 November 2026, Week 9 program, Fase 0–4 selesai)
+## 7. Kondisi saat ini (per 28 November 2026, Week 9 program, Fase 0–4 dan Ruang Studi selesai)
 
 - ✅ Jalan di lokal (`npm run dev`). Dependensi terpasang, env sudah diisi.
 - ✅ Semua tabel (termasuk `profiles` dan `weekly_reports`) sudah ada di Supabase. Laporan Mingguan bisa dipakai.
@@ -183,7 +183,8 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Restyle Bauhaus (arah labmgm.org) untuk semua halaman dan transisinya sudah di `main` (PR #11).
 - ✅ Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro sudah di `main` (PR #12). Migrasi `20261118120000_vocab_multi_domain.sql` sudah diterapkan di remote; riwayat migrasi lokal dan remote sinkron.
 - ✅ Navbar atas menggantikan sidebar, sudah di `main` (PR #13): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab, sakelar tampilan dan alat Peta Otak, transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan.
-- 🔄 Ruang Studi (branch `feat/ruang-studi`): Kosakata menjadi Istilah Teknis di dalam Ruang Studi, Perpustakaan dengan rak buku, halaman Bahasa, dan atlas hologram di buku Bahasa. Migrasi `20261127120000_study_languages.sql` sudah diterapkan di remote (28 Nov 2026); riwayat migrasi lokal dan remote sinkron.
+- 🔄 Tablet Istilah Teknis dan alur satu pintu (branch `feat/tablet-istilah`): tab Ruang Studi dihapus dari navbar, tombol di dalam buku, buku Istilah Teknis menjadi tablet dengan hologram Peta Otak 2D/3D. Tanpa perubahan database.
+- ✅ Ruang Studi sudah di `main` (PR #15): Kosakata menjadi Istilah Teknis di dalam Ruang Studi, Perpustakaan dengan rak buku, halaman Bahasa, dan atlas hologram di buku Bahasa. Migrasi `20261127120000_study_languages.sql` sudah diterapkan di remote (28 Nov 2026); riwayat migrasi lokal dan remote sinkron.
 - 🔜 Fase 5 (eksplorasi, opsional): tampilan 3D sudah ada; butir lain di spec §10 dipilih nanti. Kalibrasi ambang klasifikasi menunggu ±30 istilah nyata.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
 - ⚠️ Tidak ada fitur lupa/ganti password di app. Reset hanya lewat SQL di Supabase.

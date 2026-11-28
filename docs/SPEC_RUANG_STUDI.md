@@ -1,6 +1,6 @@
 # Spesifikasi: Ruang Studi, Istilah Teknis, dan Bahasa
 
-Status: Tahap 1–4 selesai di branch `feat/ruang-studi` (28 Nov 2026); migrasi sudah diterapkan di remote. Melengkapi docs/SPEC_KOSAKATA_PETA_OTAK.md; aturan §0 di sana tetap berlaku. Pola desain yang jadi: docs/DESIGN_SYSTEM.md › Pola atlas Bahasa.
+Status: Tahap 1–4 selesai dan sudah di `main` (PR #15, 28 Nov 2026); migrasi sudah diterapkan di remote. Melengkapi docs/SPEC_KOSAKATA_PETA_OTAK.md; aturan §0 di sana tetap berlaku. Pola desain yang jadi: docs/DESIGN_SYSTEM.md › Pola atlas Bahasa.
 
 **Beda dari rencana**: buku Istilah Teknis tetap memakai transisi sapuan Perpustakaan (bukan animasi buku); animasi buku hanya untuk Bahasa, seperti yang diminta. Bisa ditambahkan nanti dengan mesin buku yang sama.
 
@@ -173,3 +173,47 @@ study_words
 - fokus negara membingkai negara yang benar (Jepang, Indonesia, Prancis, AS, Singapura);
 - `npm run lint`, `npm test`, `npm run build`, dan `npm run test:db` lulus;
 - ukuran JS rute lain tidak bertambah berarti (data peta dan hologram dimuat belakangan).
+
+---
+
+## 7. Tahap lanjutan: buku sebagai satu-satunya jalan, dan tablet Istilah Teknis
+
+Diminta Ngurah 28 Nov 2026.
+
+**Keputusan Ngurah**:
+- tidak ada tab Istilah Teknis/Bahasa di navbar; pilihannya menjadi tombol setelah buku dibuka;
+- buku Istilah Teknis memakai animasi yang sama, tetapi berubah menjadi **tablet** yang memproyeksikan **hologram Peta Otak**, bisa 2D atau 3D, dengan 2D lebih dulu;
+- Peta Otak layar penuh tetap ada lewat tombol "Layar penuh".
+
+### 7.1 Alur yang disatukan
+- **Navbar**:
+  - baris kedua di Perpustakaan kosong (tidak ada lagi Perpustakaan · Istilah Teknis · Bahasa);
+  - di halaman turunan buku (Daftar, Domain, Peta Otak penuh, Daftar diksi), baris kedua diawali tautan balik "← Istilah Teknis" / "← Bahasa" yang membuka bukunya lagi, lalu sakelar halaman itu sendiri (Daftar/Kartu, 2D/3D, tampilan 3D, filter bahasa).
+- **Tombol di dalam buku**:
+  - Istilah Teknis: **Tambah istilah** (panel di tempat, tanpa pindah halaman), **2D · 3D**, **Daftar**, **Domain**, **Layar penuh**;
+  - Bahasa: **Tambah diksi** (panel di tempat), **Daftar diksi**, **Kelola bahasa** (dialog).
+- **Isi buku Istilah Teknis**:
+  - Rak bidang lama digantikan hologram;
+  - klik wilayah bidang (atau namanya di legenda) membuka ruang bidang itu (lembar-lembar Perpustakaan);
+  - klik titik istilah membuka panel istilah ("Buka halaman istilah", "Ubah di Daftar");
+  - kembali dari ruang atau halaman istilah membuka tablet lagi tanpa mengulang animasi.
+
+### 7.2 Tablet dan hologram
+- **Membuka**:
+  - lembar Istilah Teknis terangkat dan merebah seperti buku Bahasa;
+  - lalu bukunya **menjadi tablet**: halaman memadat menjadi badan tipis, sampul berubah menjadi layar kaca gelap lewat sapuan cahaya, bingkai menyala;
+  - layar menyala, berkas cahaya naik, hologram tersusun di atasnya.
+- **2D** (bawaan): posisi Peta Otak (`map_x`, `map_y`) sebagai titik cahaya berwarna bidang, wilayah tiap bidang (`paddedHull`, sama dengan peta 2D) sebagai garis dan isi tembus pandang, nama bidang melayang di tengah wilayahnya.
+- **3D**: otak dari tampilan Otak (`useLayout3d`: slot neuron dan istilah yang menyalakannya), berputar pelan; titik istilah berwarna bidang, neuron lain redup.
+- Ganti 2D ↔ 3D: yang satu turun ke layar, yang lain naik.
+- **Hover**: nama istilah atau bidang. **Klik istilah**: kamera mendekat dan panel muncul.
+- **Menutup**: hologram turun, layar padam kembali menjadi sampul, tablet menebal kembali menjadi buku, lalu terbang ke lembarnya.
+- Tanpa WebGL2 atau dengan reduced motion: tablet DOM dengan Peta Otak 2D datar (SVG) dan tombol yang sama.
+
+**Status**: Tahap 1–2 selesai di branch `feat/tablet-istilah` (28 Nov 2026), tanpa perubahan database.
+
+### 7.3 Tahap kerja
+1. **Alur**: navbar tanpa tab, tautan balik, tombol di buku Bahasa (Tambah diksi, Daftar diksi, Kelola bahasa), overlay buku yang dipakai bersama kedua buku.
+2. **Tablet**: mesin tablet (buku → tablet, hologram 2D/3D, pilih istilah dan bidang), panel istilah, Tambah istilah, ruang bidang dari hologram, kembali tanpa animasi ulang.
+3. **Penutup**: QA (GPU, SwiftShader/DOM, HP, gelap), dokumen, laporan.
+
