@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, List, Plus, X } from "lucide-react";
 import { createWord } from "@/lib/actions/study";
 import { weekNumberFor } from "@/lib/report-template";
 import { ATLAS_CONFIG } from "@/lib/study/atlas/config";
@@ -17,6 +17,7 @@ import { DOMAIN_TONE_CLASS } from "@/lib/vocab/seed-domains";
 import { useToast } from "../../toast";
 import { drawFront } from "../../vocab/library/world/card-texture";
 import { colorReader, coverColors, fogOf, uiColors, type ColorReader } from "../../vocab/library/world/palette";
+import { LanguageManager } from "../language-manager";
 import { WordForm } from "../word-form";
 import { loadAtlasData, loadAtlasMesh, loadHologram } from "./atlas-load";
 import { AtlasSvg } from "./atlas-svg";
@@ -81,6 +82,8 @@ export function LanguageAtlas({
   const [data, setData] = useState<AtlasData | null>(null);
   const [ready, setReady] = useState(false);
   const [highlighted, setHighlighted] = useState<ReadonlySet<string> | null>(null);
+  // "Tambah diksi": the add panel, in the same place as a country's panel (one or the other).
+  const [adding, setAdding] = useState(false);
   const wide = useSyncExternalStore(subscribeWide, isWide, () => false);
 
   const entries = useMemo(() => wordsByCountry(languages, words), [languages, words]);
@@ -152,16 +155,23 @@ export function LanguageAtlas({
   }, []);
 
   // ------------------------------------------------------------ the hologram
+  const pick = useCallback(
+    (code: string | null) => {
+      setAdding(false);
+      onCountry(code);
+    },
+    [onCountry],
+  );
   const onCoveredRef = useRef(onCovered);
   const onLiftedRef = useRef(onLifted);
-  const onCountryRef = useRef(onCountry);
+  const onCountryRef = useRef<(code: string | null) => void>(onCountry);
   const entriesRef = useRef(entries);
   const litRef = useRef(litColours);
   const focusRef = useRef({ country, wide });
   useEffect(() => {
     onCoveredRef.current = onCovered;
     onLiftedRef.current = onLifted;
-    onCountryRef.current = onCountry;
+    onCountryRef.current = pick;
     entriesRef.current = entries;
     litRef.current = litColours;
     focusRef.current = { country, wide };
@@ -320,19 +330,21 @@ export function LanguageAtlas({
   }, [country, closing, onCountry, onExit]);
 
   const selected = country ? (data?.byCode.get(country) ?? null) : null;
+  const showAdd = adding && !selected;
   const entry: CountryEntry | null = country ? (entries.get(country) ?? null) : null;
   const countryCount = litList.length;
   const legendCodes = (language: StudyLanguage) =>
     new Set([...language.countries, ...words.filter((w) => w.language_id === language.id && w.region).map((w) => w.region as string)]);
 
   return (
-    <div ref={rootRef} className="atlas theme-scope" data-mode={mode} data-ready={(ready && !closing) || undefined} data-closing={closing ? "" : undefined} data-panel={selected ? "" : undefined}>
+    <div ref={rootRef} className="atlas theme-scope" data-mode={mode} data-ready={(ready && !closing) || undefined} data-closing={closing ? "" : undefined} data-panel={selected || showAdd ? "" : undefined}>
       <div ref={backdropRef} className="atlas-backdrop" aria-hidden="true" />
       <div ref={stageRef} className="atlas-stage">
-        {mode === "dom" && data && <AtlasSvg data={data} lit={litColours} selected={country} highlighted={highlighted} onPick={onCountry} />}
+        {mode === "dom" && data && <AtlasSvg data={data} lit={litColours} selected={country} highlighted={highlighted} onPick={pick} />}
       </div>
       <div ref={tipRef} className="atlas-tip" hidden aria-hidden="true" />
 
+      <div className="atlas-side no-scrollbar">
       <header className="atlas-head">
         <button type="button" className="btn btn-ghost btn-sm -ml-2" onClick={onExit}>
           <ArrowLeft className="size-4" aria-hidden="true" /> Semua buku
@@ -343,6 +355,27 @@ export function LanguageAtlas({
           {words.length} diksi · {languages.length} bahasa · {countryCount} negara menyala
         </p>
       </header>
+
+      {/* Everything the Bahasa book does lives here: add in place, the full list, the languages. */}
+      <div className="atlas-actions">
+        {languages.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            aria-expanded={adding}
+            onClick={() => {
+              onCountry(null);
+              setAdding(true);
+            }}
+          >
+            <Plus className="size-4" aria-hidden="true" /> Tambah diksi
+          </button>
+        )}
+        <Link href="/studi/bahasa" className="btn btn-secondary btn-sm">
+          <List className="size-4" aria-hidden="true" /> Daftar diksi
+        </Link>
+        <LanguageManager languages={languages} counts={counts} compact />
+      </div>
 
       {languages.length > 0 ? (
         <ul className="atlas-legend" aria-label="Bahasa">
@@ -369,18 +402,14 @@ export function LanguageAtlas({
           })}
         </ul>
       ) : (
-        <div className="atlas-legend atlas-empty">
-          <p className="text-sm">Belum ada bahasa.</p>
-          <Link href="/studi/bahasa" className="btn btn-primary btn-sm mt-3">
-            Pilih bahasa pertama
-          </Link>
-        </div>
+        <p className="atlas-legend atlas-empty text-sm text-text-2">Belum ada bahasa. Tambahkan lewat “Kelola bahasa”.</p>
       )}
+      </div>
 
       {litList.length > 0 && (
         <nav className="atlas-countries no-scrollbar" aria-label="Negara yang menyala">
           {litList.map((e) => (
-            <button key={e.code} type="button" className="atlas-country" aria-pressed={country === e.code} onClick={() => onCountry(country === e.code ? null : e.code)}>
+            <button key={e.code} type="button" className="atlas-country" aria-pressed={country === e.code} onClick={() => pick(country === e.code ? null : e.code)}>
               <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: e.color ? `var(--${e.color})` : undefined }} />
               {data?.byCode.get(e.code)?.name ?? e.code}
               <span className="text-muted tabular-nums">{e.total}</span>
@@ -429,6 +458,33 @@ export function LanguageAtlas({
               toast({ message: `“${w.word}” disimpan.` });
               router.refresh();
             }} />
+          </div>
+        </section>
+      )}
+
+      {showAdd && (
+        <section className="atlas-panel" aria-label="Tambah diksi">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="eyebrow">Bahasa</p>
+              <h2 className="display mt-1 text-[1.75rem] leading-tight">Tambah diksi</h2>
+              <p className="mt-1 text-sm text-muted">Negaranya menyala di peta begitu disimpan.</p>
+            </div>
+            <button type="button" className="icon-btn -mt-1 -mr-2 size-9 shrink-0" aria-label="Tutup" onClick={() => setAdding(false)}>
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="atlas-panel-body mt-4">
+            <WordForm
+              compact
+              languages={languages}
+              action={createWord}
+              idPrefix="atlas-add"
+              onSaved={(w) => {
+                toast({ message: `“${w.word}” disimpan.` });
+                router.refresh();
+              }}
+            />
           </div>
         </section>
       )}

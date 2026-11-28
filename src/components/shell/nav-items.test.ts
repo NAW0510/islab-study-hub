@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { isImmersive, sectionOf, subNavFor } from "./nav-items";
 
 describe("subNavFor", () => {
-  it("shows the Ruang Studi's parts on every page of it", () => {
-    expect(subNavFor("/studi")).toEqual({ study: "library" });
-    expect(subNavFor("/studi/bahasa")).toEqual({ study: "languages" });
+  it("has no tabs in the Perpustakaan: the books hold their own buttons", () => {
+    expect(subNavFor("/studi")).toBeNull();
   });
 
-  it("adds Istilah Teknis' pages under Istilah Teknis", () => {
-    expect(subNavFor("/studi/istilah")).toEqual({ study: "terms", terms: "list" });
-    expect(subNavFor("/studi/istilah/domain")).toEqual({ study: "terms", terms: "domains" });
+  it("starts a book's own pages with the way back to the book", () => {
+    expect(subNavFor("/studi/istilah")).toEqual({ back: "istilah" });
+    expect(subNavFor("/studi/istilah/domain")).toEqual({ back: "istilah" });
+    expect(subNavFor("/studi/bahasa")).toEqual({ back: "bahasa" });
   });
 
-  it("adds the 2D/3D switch on the Peta Otak", () => {
-    expect(subNavFor("/studi/istilah/peta")).toEqual({ study: "terms", terms: "map", map: "2d" });
-    expect(subNavFor("/studi/istilah/peta/3d")).toEqual({ study: "terms", terms: "map", map: "3d" });
+  it("adds the 2D/3D switch on the full Peta Otak", () => {
+    expect(subNavFor("/studi/istilah/peta")).toEqual({ back: "istilah", map: "2d" });
+    expect(subNavFor("/studi/istilah/peta/3d")).toEqual({ back: "istilah", map: "3d" });
   });
 
   it("keeps the row open on a subject's page, whose tabs come through the slot", () => {
@@ -26,8 +26,8 @@ describe("subNavFor", () => {
     expect(subNavFor("/")).toBeNull();
     expect(subNavFor("/notes")).toBeNull();
     expect(subNavFor("/studio")).toBeNull();
-    expect(subNavFor("/studi/istilahku")).toEqual({ study: "library" });
-    expect(subNavFor("/studi/istilah/petak")).toEqual({ study: "terms", terms: "list" });
+    expect(subNavFor("/studi/istilahku")).toBeNull();
+    expect(subNavFor("/studi/istilah/petak")).toEqual({ back: "istilah" });
   });
 });
 

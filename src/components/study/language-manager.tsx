@@ -50,7 +50,16 @@ type Draft = { id: string | null; name: string; code: string; color: DomainColor
  * counts; add one from the starting list or make one's own; change a
  * language's name, colour and countries; delete one that has no words left.
  */
-export function LanguageManager({ languages, counts }: { languages: readonly StudyLanguage[]; counts: ReadonlyMap<string, number> }) {
+export function LanguageManager({
+  languages,
+  counts,
+  compact = false,
+}: {
+  languages: readonly StudyLanguage[];
+  counts: ReadonlyMap<string, number>;
+  /** A small button (inside the Bahasa book). */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -102,7 +111,7 @@ export function LanguageManager({ languages, counts }: { languages: readonly Stu
 
   return (
     <>
-      <button type="button" className="btn btn-secondary" onClick={open}>
+      <button type="button" className={cn("btn btn-secondary", compact && "btn-sm")} onClick={open}>
         <Settings2 className="size-4" aria-hidden="true" /> Kelola bahasa
       </button>
       <dialog ref={dialogRef} className="dialog w-[min(44rem,calc(100vw-2rem))]" aria-label="Kelola bahasa" onClick={(e) => e.target === e.currentTarget && close()}>
