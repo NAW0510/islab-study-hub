@@ -204,7 +204,7 @@ Diminta Ngurah 28 Nov 2026.
   - lalu bukunya **menjadi tablet**: halaman memadat menjadi badan tipis, sampul berubah menjadi layar kaca gelap lewat sapuan cahaya, bingkai menyala;
   - layar menyala, berkas cahaya naik, hologram tersusun di atasnya.
 - **2D** (bawaan): posisi Peta Otak (`map_x`, `map_y`) sebagai titik cahaya berwarna bidang, wilayah tiap bidang (`paddedHull`, sama dengan peta 2D) sebagai garis dan isi tembus pandang, nama bidang melayang di tengah wilayahnya.
-- **3D**: otak dari tampilan Otak (`useLayout3d`: slot neuron dan istilah yang menyalakannya), berputar pelan; titik istilah berwarna bidang, neuron lain redup.
+- **3D**: tampilan Peta Otak 3D yang sama dengan layar penuh (lihat §7.4).
 - Ganti 2D ↔ 3D: yang satu turun ke layar, yang lain naik.
 - **Hover**: nama istilah atau bidang. **Klik istilah**: kamera mendekat dan panel muncul.
 - **Menutup**: hologram turun, layar padam kembali menjadi sampul, tablet menebal kembali menjadi buku, lalu terbang ke lembarnya.
@@ -216,4 +216,14 @@ Diminta Ngurah 28 Nov 2026.
 1. **Alur**: navbar tanpa tab, tautan balik, tombol di buku Bahasa (Tambah diksi, Daftar diksi, Kelola bahasa), overlay buku yang dipakai bersama kedua buku.
 2. **Tablet**: mesin tablet (buku → tablet, hologram 2D/3D, pilih istilah dan bidang), panel istilah, Tambah istilah, ruang bidang dari hologram, kembali tanpa animasi ulang.
 3. **Penutup**: QA (GPU, SwiftShader/DOM, HP, gelap), dokumen, laporan.
+
+### 7.4 Hologram 3D = Peta Otak 3D layar penuh
+Permintaan Ngurah (28 Nov 2026): hologram otak harus model 3D yang sama dengan Peta Otak 3D, bisa diputar seperti layar penuh, dan Luar angkasa serta Kubus ikut masuk dengan detail yang sama.
+
+- Mode 3D tablet menampilkan **adegan yang sama** dengan layar penuh (`ViewScene` dari `scenes/registry.ts`): **Luar angkasa · Otak · Kubus**, dengan label, sinapsis, cincin multi-domain, garis ke istilah termirip, dan orbit yang bergerak. Otak buatan sendiri di tablet dihapus.
+- **Diputar seperti layar penuh**: `OrbitControls` yang sama (seret, gulir/cubit, seret kanan), "Putar otomatis" dengan kecepatan tiap tampilan, "Kembali ke tampilan awal". Yang berputar hologramnya; tablet tetap di bawahnya dan ikut mendekat saat zoom.
+- Klik istilah: hologram terbang ke istilah itu seperti layar penuh, lalu panel istilah muncul; menutup panel mengembalikan hologram.
+- Skema mengikuti tampilan seperti layar penuh (Luar angkasa gelap, Otak terang, Kubus pilihan Gelap/Terang), termasuk navbar; 2D dan buku tertutup kembali ke skema aplikasi.
+- Tampilan terakhir diingat bersama layar penuh; "Layar penuh" membuka tampilan yang sama. 2D tetap tampilan pertama saat buku dibuka.
+- Tanpa perubahan database. Angka di `src/lib/study/tablet/config.ts` (`hologram`).
 

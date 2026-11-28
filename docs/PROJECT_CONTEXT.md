@@ -118,13 +118,13 @@ Menu 04 di navbar (menggantikan Kosakata sejak 27 Nov 2026; spesifikasi di docs/
 - RPC: `vocab_map_points` (ringan, tanpa vektor), `vocab_embeddings`, `save_vocab_layout`, `vocab_knn_neighbors`, `save_vocab_placements`.
 
 ### Peta Otak 3D (`/studi/istilah/peta/3d`)
-- Tiga tampilan di balik satu sakelar, terdaftar di `src/components/vocab/map/scenes/registry.ts`:
+- Tiga tampilan di balik satu sakelar, terdaftar di `src/components/vocab/map/scenes/views.ts` (label, tema, kredit) dan `registry.ts` (kelas adegannya). Hologram 3D buku Istilah Teknis memakai adegan yang sama:
   - **Luar angkasa** (selalu gelap): galaksi per bidang dengan lubang hitam (event horizon, cincin foton, cakram akresi), matahari per cabang, dan istilah sebagai planet/bulan/batuan dengan orbit Kepler. Perannya dihitung dari embedding, per cabang.
   - **Otak** (selalu terang): neuron di permukaan luar model "Brain" karya dgallichan (CC BY 4.0), dipanggang dengan `scripts/bake-brain-points.mjs`. Lobus dibagi ke bidang menurut ukurannya. Kapasitas 1.500 neuron, bertambah 500 setiap kali terlewati.
   - **Kubus**: UMAP 3D dengan wilayah transparan per bidang/cabang dan pilihan Gelap/Terang.
 - Semua dihitung di browser (Web Worker) dan disimpan di `localStorage`, dengan sidik jari istilah + domain + versi model. Tidak ada tabel atau RPC baru.
 - Label: lima bidang terbesar tampil 60%; bidang dari istilah yang disorot tampil penuh; tanpa angka jumlah.
-- Menambah visualisasi 3D baru: satu kelas `ViewScene` + satu entri registry (lihat `docs/DESIGN_SYSTEM.md`).
+- Menambah visualisasi 3D baru: satu kelas `ViewScene` + satu entri di `views.ts` + konstruktornya di `registry.ts` (lihat `docs/DESIGN_SYSTEM.md`); ia langsung muncul juga di hologram tablet.
 - Istilah multi-domain tampil sebagai **irisan** di keempat peta: wilayah 2D yang bertumpuk (cincin + sulur), planet yang mengorbit beberapa matahari/lubang hitam, neuron di perbatasan lobus, dan titik bercincin yang ikut di wilayah semua domainnya di Kubus.
 - Semua tampilan Peta Otak **layar penuh** (seperti Perpustakaan) dengan **intro** per tampilan: penuh sekali per sesi, singkat sesudahnya, bisa dilewati dengan input apa pun.
 

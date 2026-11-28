@@ -1894,14 +1894,15 @@ html:has(dialog.mobile-menu[open]) {
 }
 /*
  * A 3D scene's own scheme (brain-map-3d.tsx sets data-map-scheme on <html>
- * while it shows): the whole page follows it, top bar and panels included
- * (Luar angkasa is always dark), and the app's own choice returns when the
- * scene leaves.
+ * while it shows; the Istilah Teknis tablet sets data-holo-scheme while its
+ * hologram shows a 3D view): the whole page follows it, top bar and panels
+ * included (Luar angkasa is always dark), and the app's own choice returns
+ * when the scene leaves.
  */
-:root[data-map-scheme="dark"] {
+:root:is([data-map-scheme="dark"], [data-holo-scheme="dark"]) {
   color-scheme: dark;
 }
-:root[data-map-scheme="light"] {
+:root:is([data-map-scheme="light"], [data-holo-scheme="light"]) {
   color-scheme: light;
 }
 .map-immersive :is(.card, header, nav, form, button, input, select, a, label, [role="group"], [role="search"], dl) {
@@ -2187,6 +2188,8 @@ html:has(dialog.mobile-menu[open]) {
   position: absolute;
   inset: 0;
   opacity: 0;
+  /* A 3D view's own scheme (the tablet's hologram) comes in as a fade of the fog. */
+  transition: background-color 0.6s var(--ease-std);
 }
 .atlas[data-mode="dom"] .atlas-backdrop {
   transition: opacity 0.32s var(--ease-std);
@@ -2279,6 +2282,11 @@ html:has(dialog.mobile-menu[open]) {
   text-shadow:
     0 0 14px var(--bg),
     0 0 4px var(--bg);
+  /* Its empty parts let the pointer through to the map (a hologram turns under them too). */
+  pointer-events: none;
+}
+.atlas-side :is(a, button, input, select, textarea, label, summary, [role="group"]) {
+  pointer-events: auto;
 }
 .atlas-head {
   display: flex;
@@ -2413,6 +2421,18 @@ html:has(dialog.mobile-menu[open]) {
   .atlas-side {
     width: calc(100vw - 2rem);
   }
+  /* Phones: the 3D tools in one row, the hint left out (the hologram stands right under them). */
+  .atlas-holo-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .atlas-holo-tools .segmented {
+    width: auto;
+  }
+  .atlas-holo-hint {
+    display: none;
+  }
   .atlas-legend {
     display: none;
   }
@@ -2439,6 +2459,10 @@ html:has(dialog.mobile-menu[open]) {
   white-space: nowrap;
   color: var(--primary-fg);
   pointer-events: none;
+}
+.atlas-tip-detail {
+  display: block;
+  opacity: 0.8;
 }
 .atlas-credit {
   position: absolute;
@@ -2473,6 +2497,53 @@ html:has(dialog.mobile-menu[open]) {
   cursor: pointer;
   stroke: var(--bg);
   stroke-width: 0.008;
+}
+/* The tablet's 3D views: their switch, "Putar otomatis" and the way back to the view's framing. */
+.atlas-holo-tools {
+  display: grid;
+  gap: 0.5rem;
+  text-shadow: none;
+}
+.atlas-holo-tools .segmented {
+  display: flex;
+  width: 100%;
+}
+.atlas-holo-tools .segmented-item {
+  flex: 1 1 auto;
+  padding-inline: 0.625rem;
+}
+.atlas-holo-tools p {
+  text-shadow:
+    0 0 14px var(--bg),
+    0 0 4px var(--bg);
+}
+/* Names over the hologram, placed every frame (study/tablet/hologram.ts), as the full screen's 3D labels. */
+.tablet-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tablet-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--text);
+  text-shadow:
+    0 0 3px var(--surface),
+    0 0 3px var(--surface),
+    0 0 6px var(--surface);
+}
+.tablet-label[data-group] {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tablet-label[data-selected] {
+  font-weight: 600;
 }
 /* Over the open atlas, the library's ring cursor gives way to the map's own pointer. */
 .library-page:has(> .atlas) .library-cursor {

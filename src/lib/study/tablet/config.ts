@@ -1,6 +1,7 @@
 /**
  * The Istilah Teknis book: the sheet lifts off the shelf, lays itself down,
- * turns into a tablet, and projects the Peta Otak (2D or 3D) as a hologram.
+ * turns into a tablet, and projects the Peta Otak (2D, or the 3D views) as a
+ * hologram.
  * Every number in one place (spec §0). World units are arbitrary; times are
  * seconds unless named _MS.
  */
@@ -31,17 +32,31 @@ export const TABLET_CONFIG = {
     /** How close (map units) the pointer must come to a point to pick it. */
     PICK: 0.06,
   },
-  /** The brain (the Otak view's neurons), above the tablet. */
-  brain: {
-    /** The brain is about 2 units long; this many world units per brain unit. */
-    SCALE: 1.85,
+  /**
+   * The Peta Otak 3D above the tablet: the full screen's own views (Luar
+   * angkasa, Otak, Kubus), turned with the same controls. Each view is scaled
+   * so that its full-screen framing distance becomes FIT world units.
+   */
+  hologram: {
     CENTER: [0, 2.05, -0.55] as const,
-    /** Slow turn while idle (radians per second); still while a term is in focus. */
-    SPIN: 0.1,
-    POINT: 0.07,
-    SCAFFOLD_POINT: 0.028,
-    /** Picking threshold (world units). */
-    PICK: 0.08,
+    FIT: 6.1,
+    /** Views that fill more of their full-screen framing (the Kubus's corners) stand smaller. */
+    FIT_BY_VIEW: { cube: 4.9 } as Readonly<Record<string, number>>,
+    /** The full screen's field of view (degrees): points keep their size against the picture. */
+    FULL_FOV: 45,
+    /** Zoom limits, as a share of the view's framing distance (the full screen allows 0.12…3). */
+    ZOOM_MIN: 0.3,
+    ZOOM_MAX: 2.5,
+    /** A picked term: the orbit comes this close (scene units) in this long, as in full screen. */
+    FOCUS: 1.8,
+    FOCUS_TIME: 0.45,
+    /** Pointer reach for hover and pick (px): mouse, touch. */
+    HIT: 14,
+    HIT_TOUCH: 24,
+    /** A new or swapped view grows out of the screen in this long. */
+    APPEAR: 0.7,
+    /** Labels shown at most, as in full screen. */
+    LABELS: 40,
   },
   camera: {
     FOV: 34,
@@ -110,5 +125,7 @@ export const TABLET_CONFIG = {
     PANEL: 400,
     LEFT: 240,
     WIDE: 960,
+    /** Phones: how much of the height the book's buttons cover becomes a top inset (the picture sits lower). */
+    SIDE_SHARE: 0.6,
   },
 } as const;

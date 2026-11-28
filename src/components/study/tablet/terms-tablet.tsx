@@ -3,31 +3,37 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, ArrowUpRight, Expand, FolderTree, List, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Expand, FolderTree, List, Maximize, Plus, Rotate3d, X } from "lucide-react";
+import { termDetail } from "@/lib/actions/vocab";
+import { callAction } from "@/lib/call-action";
 import { weekNumberFor } from "@/lib/report-template";
 import { TABLET_CONFIG } from "@/lib/study/tablet/config";
 import { mapToPlane, type PlaneRegion, type PlaneTerm } from "@/lib/study/tablet/map2d";
-import { currentScheme, onSchemeChange } from "@/lib/theme";
+import { currentScheme, onSchemeChange, type Scheme } from "@/lib/theme";
 import type { SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
 import { cn, todayISO } from "@/lib/utils";
-import { borderSlots } from "@/lib/vocab/brain-model";
 import { domainIndex, domainPath, type DomainIndex } from "@/lib/vocab/format";
+import { visible3d, type Layout3dData } from "@/lib/vocab/map3d-model";
 import { extrasOf, fieldOf, firstSentence, type MapPoint } from "@/lib/vocab/map-model";
 import { decideWorldMode, probeWebGL2 } from "@/lib/vocab/library/world-mode";
 import { asDomainColor, DOMAIN_TONE_CLASS } from "@/lib/vocab/seed-domains";
 import { SlideGroup } from "../../slide-group";
 import { useToast } from "../../toast";
+import type { Theme } from "../../vocab/map/scenes/common";
+import { defaultView, VIEW_KEYS, viewInfo, VIEWS, type View3d } from "../../vocab/map/scenes/views";
 import { useLayout3d } from "../../vocab/map/use-layout-3d";
+import { remember, remembered, THEME_KEY, VIEW_KEY } from "../../vocab/map/view-memory";
 import { QuickAdd } from "../../vocab/quick-add";
 import { drawFront } from "../../vocab/library/world/card-texture";
 import { colorReader, coverColors, fogOf, uiColors, type ColorReader } from "../../vocab/library/world/palette";
-import type { Tablet, TabletBrain, TabletColors, TabletHover, TabletMap, TabletView } from "./tablet";
+import type { Tablet, TabletColors, TabletHover, TabletMap, TabletView } from "./tablet";
 import { loadTablet } from "./tablet-load";
 
 export type TabletClosing = { to: () => DOMRect | null; style: "fly" | "dive"; done: () => void };
 
 const { map2d: MAP, ui: UI } = TABLET_CONFIG;
 const SHEET = { width: 560, height: 294 };
+const NO_FIELDS = new Set<string>();
 const toCss = ([r, g, b]: [number, number, number]) =>
   `#${[r, g, b].map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0")).join("")}`;
 
@@ -43,10 +49,17 @@ function fieldsOfPoint(p: MapPoint, domains: DomainIndex): string[] {
 
 /**
  * The Istilah Teknis book, open in the Perpustakaan (?buku=istilah): a
- * tablet projecting the Peta Otak as a hologram, flat (2D, first) or as the
- * brain (3D). Everything the book does is here: add a term in place, open
- * the list, the domains or the full map; a field (its region, or its name in
- * the legend) opens its room in the Perpustakaan, a term opens its panel.
+ * tablet projecting the Peta Otak as a hologram, flat (2D, first) or as one
+ * of the Peta Otak 3D's views (Luar angkasa, Otak, Kubus: the full screen's
+ * own scenes, turned by hand like there). Everything the book does is here:
+ * add a term in place, open the list, the domains or the full map; a field
+ * (its region, or its name in the legend) opens its room in the
+ * Perpustakaan, a term opens its panel.
+ *
+ * A 3D view brings its own scheme, as in full screen: Luar angkasa is dark,
+ * Otak light, Kubus the Gelap/Terang chosen there (else the app's). The whole
+ * overlay and the top bar take it (data-holo-scheme on <html>) until the
+ * view goes or the book closes.
  *
  * With hardware WebGL2 and motion allowed, the book turns into the tablet
  * (tablet.ts); otherwise the same frame shows the flat map as SVG. `from`
@@ -97,8 +110,14 @@ export function TermsTablet({
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<TabletView>("2d");
   const [wanted3d, setWanted3d] = useState(false);
-  const [brain, setBrain] = useState<TabletBrain | null>(null);
-  const [brainStatus, setBrainStatus] = useState<string | null>(null);
+  const [live, setLive] = useState(false);
+  const appScheme = useSyncExternalStore(onSchemeChange, currentScheme, (): Scheme => "light");
+  // The full screen's last view and Kubus theme (shared), so "Layar penuh" opens on the same one.
+  const [view3d, setView3d] = useState<View3d>(() => remembered(VIEW_KEY, VIEW_KEYS, defaultView(currentScheme() === "dark")));
+  const [cubeTheme] = useState<Theme>(() => remembered(THEME_KEY, ["dark", "light"], currentScheme()));
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [layout, setLayout] = useState<Layout3dData | null>(null);
+  const [layoutStatus, setLayoutStatus] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -139,8 +158,7 @@ export function TermsTablet({
     }),
     [plane, fields],
   );
-  const readColours = useCallback((reader: ColorReader): TabletColors => {
-    const dark = currentScheme() === "dark";
+  const readColours = useCallback((reader: ColorReader, dark: boolean): TabletColors => {
     return {
       holo: reader.read("var(--holo)"),
       fog: toCss(fogOf(dark ? 1 : 0, 0, [0.5, 0.5, 0.5])),
@@ -214,10 +232,9 @@ export function TermsTablet({
           cover: face.canvas,
           aspect: size.width / Math.max(1, size.height),
           from,
-          colors: readColours(reader),
+          colors: readColours(reader, currentScheme() === "dark"),
           dark: currentScheme() === "dark",
           map: tabletMap(reader),
-          brain: null,
           view: latest.current.view,
           onHover: (hover: TabletHover, x: number, y: number) => {
             if (!tip) return;
@@ -225,7 +242,13 @@ export function TermsTablet({
               tip.hidden = true;
               return;
             }
-            tip.textContent = hover.kind === "field" ? `${hover.label} · buka ruangnya` : hover.label;
+            tip.replaceChildren(hover.kind === "field" ? `${hover.label} · buka ruangnya` : hover.label);
+            if (hover.detail) {
+              const detail = document.createElement("span");
+              detail.className = "atlas-tip-detail";
+              detail.textContent = hover.detail;
+              tip.append(detail);
+            }
             tip.style.transform = `translate(${Math.round(x + 14)}px, ${Math.round(y + 16)}px)`;
             tip.hidden = false;
           },
@@ -237,6 +260,7 @@ export function TermsTablet({
         });
         if (cancelled) return tablet.dispose();
         tabletRef.current = tablet;
+        setLive(true);
         const { selected: first, wide: isWide } = latest.current;
         tablet.setInsets(isWide ? UI.LEFT : 0, first && isWide ? UI.PANEL : 0, !isWide && first ? Math.round(window.innerHeight * 0.58) + 12 : 0, first ? navHeight() : 0);
         if (first) tablet.focusTerm(first);
@@ -244,14 +268,8 @@ export function TermsTablet({
       .catch(() => {
         if (!cancelled) setMode("dom");
       });
-    const offScheme = onSchemeChange(() => {
-      reader.reset();
-      tabletRef.current?.setScheme(currentScheme() === "dark", readColours(reader));
-      tabletRef.current?.setMap(tabletMap(reader));
-    });
     return () => {
       cancelled = true;
-      offScheme();
       tabletRef.current?.dispose();
       tabletRef.current = null;
       reader.dispose();
@@ -267,7 +285,7 @@ export function TermsTablet({
     const backdrop = backdropRef.current;
     if (!backdrop) return;
     const reader = colorReader(rootRef.current ?? document.body);
-    backdrop.style.backgroundColor = readColours(reader).fog;
+    backdrop.style.backgroundColor = readColours(reader, currentScheme() === "dark").fog;
     reader.dispose();
     backdrop.style.opacity = "1";
     const id = window.setTimeout(() => {
@@ -277,17 +295,71 @@ export function TermsTablet({
     return () => window.clearTimeout(id);
   }, [mode, readColours]);
 
-  // New terms, a new scheme of colours: the map follows.
+  // The overlay's scheme: a 3D view's own (as in full screen), else the app's; the book closes in the app's.
+  const definition3d = viewInfo(view3d);
+  const holoTheme: Theme = definition3d.theme === "choice" ? cubeTheme : definition3d.theme;
+  const forced = mode === "gl" && view === "3d" && !closing ? holoTheme : null;
+  const overlayDark = (forced ?? appScheme) === "dark";
   useEffect(() => {
+    const root = document.documentElement;
+    if (forced) root.dataset.holoScheme = forced;
+    else delete root.dataset.holoScheme;
+    // New terms or a new scheme: the tablet and the flat map take its colours.
     const reader = readerRef.current;
-    if (reader) tabletRef.current?.setMap(tabletMap(reader));
-  }, [tabletMap]);
+    const tablet = tabletRef.current;
+    if (!reader || !tablet) return;
+    reader.reset();
+    tablet.setScheme(overlayDark, readColours(reader, overlayDark));
+    tablet.setMap(tabletMap(reader));
+  }, [forced, overlayDark, live, readColours, tabletMap]);
+  useEffect(
+    () => () => {
+      delete document.documentElement.dataset.holoScheme;
+    },
+    [],
+  );
+
+  // The 3D view: the full screen's scene, built in the overlay's scheme (after the effect above).
+  const thisWeek = weekNumberFor(programStart, todayISO());
+  const holoVisible = useMemo(
+    () => (layout ? visible3d(points, layout.coords, { programStart, week: thisWeek, hiddenFields: NO_FIELDS, domains: domainIdx }) : []),
+    [layout, points, programStart, thisWeek, domainIdx],
+  );
   useEffect(() => {
-    tabletRef.current?.setBrain(brain);
-  }, [brain]);
+    const tablet = tabletRef.current;
+    if (!tablet || !layout || closing) return;
+    tablet.setHologram({ view: view3d, data: layout, points, visible: holoVisible, domains: domainIdx, theme: holoTheme, level: "bidang" });
+  }, [live, layout, view3d, points, holoVisible, domainIdx, holoTheme, overlayDark, closing]);
+  useEffect(() => {
+    tabletRef.current?.setAutoRotate(autoRotate);
+  }, [autoRotate, live]);
+
+  // The picked term's nearest terms: the 3D views draw lines to them, as in full screen.
+  const neighbourCache = useRef(new Map<string, { id: string; similarity: number }[]>());
+  useEffect(() => {
+    const tablet = tabletRef.current;
+    if (!tablet || !selected || view !== "3d") return;
+    const known = neighbourCache.current.get(selected);
+    if (known) {
+      tablet.setNeighbours(selected, known);
+      return;
+    }
+    let alive = true;
+    const id = selected;
+    void callAction(() => termDetail(id)).then((result) => {
+      if (!result || "error" in result) return;
+      const list = result.neighbours.map((n) => ({ id: n.id, similarity: n.similarity }));
+      neighbourCache.current.set(id, list);
+      if (alive) tabletRef.current?.setNeighbours(id, list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [selected, view, live]);
+
   useEffect(() => {
     tabletRef.current?.setView(view);
-  }, [view]);
+  }, [view, live]);
   useEffect(() => {
     tabletRef.current?.highlightField(highlight);
   }, [highlight]);
@@ -297,9 +369,15 @@ export function TermsTablet({
     if (!tablet) return;
     const panel = selected || adding;
     const sheet = !wide && panel ? (rootRef.current?.querySelector<HTMLElement>(".atlas-panel")?.offsetHeight ?? Math.round(window.innerHeight * 0.58)) + 12 : 0;
-    tablet.setInsets(wide ? UI.LEFT : 0, panel && wide ? UI.PANEL : 0, sheet, selected ? navHeight() : 0);
+    tablet.setInsets(wide ? UI.LEFT : 0, panel && wide ? UI.PANEL : 0, sheet, selected ? navHeight() : sideInset(rootRef.current, wide || Boolean(panel)));
     tablet.focusTerm(selected);
   }, [selected, adding, wide]);
+  // The book's buttons grow with the 3D tools: on phones the picture moves down with them.
+  useEffect(() => {
+    const tablet = tabletRef.current;
+    if (!tablet || wide || selected || adding) return;
+    tablet.setInsets(0, 0, 0, sideInset(rootRef.current, false));
+  }, [view, wide, live, selected, adding]);
 
   // The way out.
   useEffect(() => {
@@ -336,7 +414,11 @@ export function TermsTablet({
     if (next === "3d") setWanted3d(true);
     setView(next);
   };
-  const thisWeek = weekNumberFor(programStart, todayISO());
+  const chooseView3d = (next: View3d) => {
+    if (tipRef.current) tipRef.current.hidden = true;
+    setView3d(next);
+    remember(VIEW_KEY, next);
+  };
   const newThisWeek = terms.filter((t) => weekNumberFor(programStart, t.learned_on) === thisWeek).length;
   const unplaced = points.length - plane.terms.length;
   const point = selected ? byId.get(selected) : undefined;
@@ -358,7 +440,7 @@ export function TermsTablet({
         )}
       </div>
       <div ref={tipRef} className="atlas-tip" hidden aria-hidden="true" />
-      {wanted3d && <Brain3d points={points} domainIdx={domainIdx} onBrain={setBrain} onStatus={setBrainStatus} />}
+      {wanted3d && <Layout3d points={points} domainIdx={domainIdx} onData={setLayout} onStatus={setLayoutStatus} />}
 
       <div className="atlas-side no-scrollbar">
         <header className="atlas-head">
@@ -408,7 +490,28 @@ export function TermsTablet({
             <Expand className="size-4" aria-hidden="true" /> Layar penuh
           </Link>
         </div>
-        {view === "3d" && brainStatus && <p className="text-xs text-muted">{brainStatus}</p>}
+        {mode === "gl" && view === "3d" && (
+          <div className="atlas-holo-tools">
+            <div role="group" aria-label="Tampilan 3D">
+              <SlideGroup className="segmented segmented-sm">
+                {VIEWS.map(({ key, label }) => (
+                  <button key={key} type="button" className="segmented-item" aria-pressed={view3d === key} onClick={() => chooseView3d(key)}>
+                    {label}
+                  </button>
+                ))}
+              </SlideGroup>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button type="button" className="btn btn-ghost btn-sm" aria-pressed={autoRotate} title="Putar otomatis" onClick={() => setAutoRotate((on) => !on)}>
+                <Rotate3d className="size-3.5" aria-hidden="true" /> <span className="max-[60rem]:sr-only">Putar otomatis</span>
+              </button>
+              <button type="button" className="icon-btn size-8" aria-label="Kembali ke tampilan awal" title="Kembali ke tampilan awal" onClick={() => tabletRef.current?.resetHologram()}>
+                <Maximize className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+            <p className={cn("text-xs text-muted", !layoutStatus && "atlas-holo-hint")}>{layoutStatus ?? "Seret untuk memutar, gulir atau cubit untuk zoom."}</p>
+          </div>
+        )}
 
         {fields.length > 0 && (
           <ul className="atlas-legend" aria-label="Bidang (buka ruangnya)">
@@ -433,6 +536,23 @@ export function TermsTablet({
           </ul>
         )}
       </div>
+
+      {mode === "gl" && view === "3d" && definition3d.credit && (
+        <p className="atlas-credit">
+          {definition3d.credit.lead}{" "}
+          <a className="underline underline-offset-2 hover:text-text" href={definition3d.credit.titleUrl} target="_blank" rel="noreferrer">
+            {definition3d.credit.title}
+          </a>{" "}
+          karya{" "}
+          <a className="underline underline-offset-2 hover:text-text" href={definition3d.credit.authorUrl} target="_blank" rel="noreferrer">
+            {definition3d.credit.author}
+          </a>
+          ,{" "}
+          <a className="underline underline-offset-2 hover:text-text" href={definition3d.credit.licenseUrl} target="_blank" rel="noreferrer">
+            {definition3d.credit.license}
+          </a>
+        </p>
+      )}
 
       {point && !adding && (
         <section className="atlas-panel" aria-label={point.term} key={point.id}>
@@ -502,38 +622,26 @@ export function TermsTablet({
   );
 }
 
-/** The 3D brain's layout (the Otak view's, cached or computed in a worker), handed up as neurons and lit terms. */
-function Brain3d({
+/** The Peta Otak 3D's layout (cached, or computed in a worker as in full screen), handed up once ready. */
+function Layout3d({
   points,
   domainIdx,
-  onBrain,
+  onData,
   onStatus,
 }: {
   points: MapPoint[];
   domainIdx: DomainIndex;
-  onBrain: (brain: TabletBrain | null) => void;
+  onData: (data: Layout3dData) => void;
   onStatus: (status: string | null) => void;
 }) {
   const { state } = useLayout3d(points, domainIdx);
   useEffect(() => {
-    if (state.phase === "computing") onStatus(`Menyusun otak… ${Math.round(state.progress * 100)}%`);
-    else if (state.phase === "loading") onStatus("Menyiapkan otak…");
-    else if (state.phase === "error") onStatus(`Otak gagal disusun: ${state.message}`);
+    if (state.phase === "computing") onStatus(`Menyusun ruang 3D… ${Math.round(state.progress * 100)}%`);
+    else if (state.phase === "loading") onStatus("Menyiapkan ruang 3D…");
+    else if (state.phase === "error") onStatus(`Ruang 3D gagal disusun: ${state.message}`);
     else onStatus(null);
-    if (state.phase !== "ready") return;
-    const brain = state.data.brain;
-    const border = borderSlots(
-      brain,
-      points.map((p) => ({ id: p.id, fieldIds: fieldsOfPoint(p, domainIdx) })),
-    );
-    const lit: TabletBrain["terms"][number][] = [];
-    for (const p of points) {
-      const slot = border.get(p.id) ?? brain.termSlot.get(p.id);
-      if (slot === undefined) continue;
-      lit.push({ id: p.id, term: p.term, slot, fieldId: fieldOf(p.domain_id, domainIdx)?.id ?? null });
-    }
-    onBrain({ slots: brain.slots, terms: lit });
-  }, [state, points, domainIdx, onBrain, onStatus]);
+    if (state.phase === "ready") onData(state.data);
+  }, [state, onData, onStatus]);
   return null;
 }
 
@@ -593,6 +701,16 @@ function FlatMapSvg({
       ))}
     </svg>
   );
+}
+
+/**
+ * Phones: the book's buttons run across the top, over the hologram; the
+ * picture is centred a little lower (a top inset of part of what they cover).
+ */
+function sideInset(root: HTMLElement | null, skip: boolean) {
+  const side = root?.querySelector<HTMLElement>(".atlas-side");
+  if (skip || !side) return 0;
+  return Math.round(Math.max(0, side.getBoundingClientRect().bottom - navHeight()) * UI.SIDE_SHARE);
 }
 
 /** The top bar's height (it measures itself into --nav-h), the space a focused term keeps clear of. */
