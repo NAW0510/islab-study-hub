@@ -2453,6 +2453,27 @@ html:has(dialog.mobile-menu[open]) {
 .library-item[data-lifted] .library-sheet {
   visibility: hidden;
 }
+/* The Istilah Teknis tablet without its scene: the flat Peta Otak as SVG (study/tablet/terms-tablet.tsx). */
+.tablet-svg {
+  width: min(100%, 44rem);
+  height: auto;
+  max-height: 100%;
+}
+.tablet-region {
+  fill-opacity: 0.12;
+  stroke-width: 0.012;
+  cursor: pointer;
+  transition: fill-opacity var(--dur-fast) var(--ease-std);
+}
+.tablet-region:hover,
+.tablet-region[data-highlight] {
+  fill-opacity: 0.3;
+}
+.tablet-point {
+  cursor: pointer;
+  stroke: var(--bg);
+  stroke-width: 0.008;
+}
 /* Over the open atlas, the library's ring cursor gives way to the map's own pointer. */
 .library-page:has(> .atlas) .library-cursor {
   display: none;

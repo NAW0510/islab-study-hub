@@ -5,6 +5,7 @@ import { getProfile, getSubjectsAndTopics, loadVocabTerms } from "@/lib/queries"
 import { DEFAULT_PROGRAM_START } from "@/lib/report-template";
 import { loadStudy } from "@/lib/study/queries";
 import type { VocabDomain, VocabTerm } from "@/lib/types";
+import type { MapPoint } from "@/lib/vocab/map-model";
 
 export const metadata: Metadata = { title: "Perpustakaan · Ruang Studi" };
 
@@ -12,7 +13,7 @@ function one(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
 }
 
-/** Ruang Studi: straight into the Perpustakaan (its books, Istilah Teknis' shelf, the Bahasa atlas). */
+/** Ruang Studi: straight into the Perpustakaan (its books, the Istilah Teknis tablet, the Bahasa atlas). */
 export default async function StudyRoute({
   searchParams,
 }: {
@@ -22,12 +23,14 @@ export default async function StudyRoute({
   const sp = await searchParams;
 
   // The same light read as the Daftar page; search, fields, rooms and term pages all run in the browser.
-  const [termsRes, domainsRes, profile, { subjects, topics }, study] = await Promise.all([
+  const [termsRes, domainsRes, profile, { subjects, topics }, study, pointsRes] = await Promise.all([
     loadVocabTerms(supabase),
     supabase.from("vocab_domains").select("*").is("deleted_at", null).order("name"),
     getProfile(supabase),
     getSubjectsAndTopics(supabase),
     loadStudy(supabase),
+    // The Peta Otak's light payload, for the Istilah Teknis tablet's hologram.
+    supabase.rpc("vocab_map_points"),
   ]);
   const terms = (termsRes.data ?? []) as unknown as VocabTerm[];
 
@@ -49,6 +52,7 @@ export default async function StudyRoute({
       programStart={profile?.program_start ?? DEFAULT_PROGRAM_START}
       initial={initial}
       languages={{ languages: study.languages, words: study.words }}
+      mapPoints={(pointsRes.data ?? []) as MapPoint[]}
     />
   );
 }

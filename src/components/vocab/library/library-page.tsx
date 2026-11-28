@@ -6,12 +6,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import { Search, X } from "lucide-react";
 import { weekNumberFor } from "@/lib/report-template";
 import type { StudyLanguage, StudyWord, SubjectRef, TopicRef, VocabDomain, VocabTerm } from "@/lib/types";
+import type { MapPoint } from "@/lib/vocab/map-model";
 import { useUrlFilters } from "@/lib/use-url-filters";
 import { excerpt, normalizeSearch } from "@/lib/utils";
 import { domainIndex, domainPath, termDomainIds, type DomainIndex } from "@/lib/vocab/format";
 import { asDomainColor, type DomainColor } from "@/lib/vocab/seed-domains";
 import { loadAtlasUi, preloadAtlas } from "../../study/atlas/atlas-load";
-import type { AtlasClosing, LanguageAtlas as LanguageAtlasComponent } from "../../study/atlas/language-atlas";
+import type { LanguageAtlas as LanguageAtlasComponent } from "../../study/atlas/language-atlas";
+import { loadTabletUi, preloadTablet } from "../../study/tablet/tablet-load";
+import type { TermsTablet as TermsTabletComponent } from "../../study/tablet/terms-tablet";
 import { EmptyState } from "../../ui";
 import { FilterSheet, type FilterOption } from "./filter-sheet";
 import { LibraryCard, type LibraryCardData } from "./library-card";
@@ -20,7 +23,6 @@ import { NextThreshold } from "./next-threshold";
 import { useLibraryWorld } from "./world-host";
 
 type Filters = { q?: string; domain?: string };
-
 
 /** "Tanpa domain" as a field of its own on the shelf. */
 const NONE = "none";
@@ -59,28 +61,37 @@ function readView(params: { get(name: string): string | null }): View {
 }
 
 const depthOf = (v: View) => (v.term ? 3 : v.field ? 2 : v.book ? 1 : 0);
+/** A book itself (its tablet or its atlas open over the library), not a room or a page inside it. */
+const atBook = (v: View) => Boolean(v.book && !v.field && !v.term);
+
+/** The way out of an open book: back onto its sheet (`fly`), or into a room or a page (`dive`). */
+type BookClosing = { book: Book; to: () => DOMRect | null; style: "fly" | "dive"; done: () => void };
 
 /** The Bahasa book's contents: its languages and words, for its cover and its atlas. */
 export type LanguageShelf = { languages: StudyLanguage[]; words: StudyWord[] };
 
-/** Where a sheet rests on the shelf right now (the Bahasa book flies back onto it). */
+/** Where a sheet rests on the shelf right now (a book flies back onto it). */
 const sheetRect = (id: string) => document.querySelector<HTMLElement>(`[data-term-id="${id}"] .library-sheet`)?.getBoundingClientRect() ?? null;
 
 /**
  * Ruang Studi › Perpustakaan, all in one page so the WebGL world lives on
  * between its levels:
  *
- *   the books   one sheet per book: Istilah Teknis and Bahasa (?buku=);
- *   the shelf   ?buku=istilah: one sheet per field (its cover in the field's
- *               colour, how many terms and branches); searching here finds
- *               terms in every field;
- *   a room      ?bidang=<id>: that field's terms as sheets, newest first, in a
- *               library that takes the field's colour; Filter picks a branch;
+ *   the books   one sheet per book: Istilah Teknis and Bahasa;
+ *   the tablet  ?buku=istilah: the Istilah Teknis book opened over the
+ *               library, a tablet projecting the Peta Otak
+ *               (study/tablet/terms-tablet.tsx);
+ *   a room      ?bidang=<id>: a field's terms as sheets, newest first, in a
+ *               library that takes the field's colour (from the tablet: a
+ *               field's region or its name); Filter picks a branch;
  *   a term      ?istilah=<id>: the term's own page (library-term.tsx), with
  *               the pull to the next term at its end (next-threshold.tsx);
  *   the atlas   ?buku=bahasa (+ ?negara=JP): the Bahasa book opened over the
- *               library (study/atlas/language-atlas.tsx). Its sheet lifts
- *               off the shelf and becomes the book; closing lands it back.
+ *               library (study/atlas/language-atlas.tsx).
+ *
+ * A book's sheet lifts off the shelf and becomes the book; closing lands it
+ * back. From the tablet into a room or a page, the hologram rushes past while
+ * the fog clears onto it; back from there, the tablet returns already open.
  *
  * The URL leads (a click, the back button, a shared link) and the shown view
  * follows it through a transition: the world pans away under a wash of the
@@ -97,6 +108,7 @@ export function LibraryPage({
   programStart,
   initial,
   languages,
+  mapPoints,
 }: {
   terms: VocabTerm[];
   domains: VocabDomain[];
@@ -106,29 +118,42 @@ export function LibraryPage({
   programStart: string;
   initial: Filters;
   languages: LanguageShelf;
+  /** The Peta Otak's points, for the Istilah Teknis tablet. */
+  mapPoints: MapPoint[];
 }) {
   const { filters: f, update } = useUrlFilters(initial);
   const params = useSearchParams();
   const wanted = readView(params);
   const country = wanted.book === "bahasa" ? (params.get("negara")?.toUpperCase() ?? null) : null;
   const [shown, setShown] = useState<View>(wanted);
-  const [closing, setClosing] = useState<AtlasClosing | null>(null);
+  const [closing, setClosing] = useState<BookClosing | null>(null);
   const [liftedFrom, setLiftedFrom] = useState<DOMRect | null>(null);
-  const [lifted, setLifted] = useState(false);
+  const [lifted, setLifted] = useState<Book | null>(null);
   // Set by the click itself, so the book starts at once instead of waiting for the router to take the URL.
-  const [opening, setOpening] = useState(false);
-  const atlasOpen = wanted.book === "bahasa";
-  // The atlas's UI arrives with the book, not with the shelf (atlas-load.ts): warmed on the way, kept here once loaded.
+  const [opening, setOpening] = useState<Book | null>(null);
+  const openBookWanted = atBook(wanted) ? wanted.book : null;
+  // The books' UIs arrive with the books, not with the shelf (atlas-load.ts, tablet-load.ts): warmed on the way, kept here once loaded.
   const [Atlas, setAtlas] = useState<typeof LanguageAtlasComponent | null>(null);
+  const [Tablet, setTablet] = useState<typeof TermsTabletComponent | null>(null);
   const warmAtlas = useCallback(() => {
     preloadAtlas();
     void loadAtlasUi()
       .then((m) => setAtlas(() => m.LanguageAtlas))
       .catch(() => undefined);
   }, []);
+  const warmTablet = useCallback(() => {
+    preloadTablet();
+    void loadTabletUi()
+      .then((m) => setTablet(() => m.TermsTablet))
+      .catch(() => undefined);
+  }, []);
+  const warmBook = useCallback((book: Book) => (book === "bahasa" ? warmAtlas() : warmTablet()), [warmAtlas, warmTablet]);
   useEffect(() => {
-    if (atlasOpen) warmAtlas();
-  }, [atlasOpen, warmAtlas]);
+    if (openBookWanted) warmBook(openBookWanted);
+  }, [openBookWanted, warmBook]);
+  // A book stays on screen while the URL, the click, its closing, or the library under it says so
+  // (between the URL leaving and its closing starting, the library still shows the book).
+  const showsBook = (book: Book) => openBookWanted === book || opening === book || closing?.book === book || (atBook(shown) && shown.book === book);
   const searchRef = useRef<HTMLInputElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -249,10 +274,9 @@ export function LibraryPage({
   const matches = (c: TermCard) => words.every((w) => c.hay.includes(w));
   const branchOk = (c: TermCard) =>
     !f.domain || (f.domain === "umum" ? c.branch === null && c.branches.length === 0 : c.branches.includes(f.domain));
-  // Searching is Istilah Teknis' (its shelf, a room); the books level has no search.
+  // Searching and filtering belong to a field's room; the tablet is the way to every field.
   const inTerms = shown.book === "istilah";
-  const searching = inTerms && words.length > 0;
-  const listed = field ? cards.filter((c) => c.fields.includes(field.id) && branchOk(c) && matches(c)) : searching ? cards.filter(matches) : [];
+  const listed = field ? cards.filter((c) => c.fields.includes(field.id) && branchOk(c) && matches(c)) : [];
 
   // The term after this one, in the order the reader came through (the room, the search, else the term's field).
   const sequence = termCard ? (listed.some((c) => c.id === termCard.id) ? listed : cards.filter((c) => c.fields.includes(termCard.field))) : [];
@@ -315,25 +339,31 @@ export function LibraryPage({
     const targetTerm = target.term ? byId.get(target.term) : null;
     const nextTheme = targetTerm ? fieldOf(targetTerm.field) : fieldOf(target.field);
 
-    // Into the Bahasa book: the atlas opens over the shelf, which stays until the fog covers it (onCovered).
-    if (target.book === "bahasa" && shown.book !== "bahasa") {
+    // Into a book (from the shelf, or back from a room or a page): it opens over the library,
+    // which stays until the fog covers it (onCovered).
+    if (atBook(target) && !atBook(shown)) {
       scrolls.current[from] = window.scrollY;
       return;
     }
-    // Out of it: the shelf comes back under the fog, and the book closes onto its sheet.
-    if (shown.book === "bahasa" && target.book !== "bahasa") {
+    // Out of a book: what comes next appears under the fog, and the book closes onto its sheet
+    // (back to the shelf) or rushes past into the room or the page.
+    if (atBook(shown) && !atBook(target)) {
+      const book = shown.book as Book;
       const toShelf = !target.book;
       const back = scrolls.current[keyOf(target)];
       const id = requestAnimationFrame(() => {
-        setOpening(false);
+        setOpening(null);
+        setLiftedFrom(null);
         setShown(target);
         worldRef.current?.setTheme(nextTheme ? `var(--${nextTheme.color})` : null);
         worldRef.current?.setRoute(target.term ? "detail" : "list");
-        requestAnimationFrame(() => window.scrollTo({ top: back ?? 0, behavior: "instant" }));
+        requestAnimationFrame(() => window.scrollTo({ top: target.term ? 0 : (back ?? 0), behavior: "instant" }));
         setClosing({
-          to: () => (toShelf ? sheetRect("buku-bahasa") : null),
+          book,
+          style: toShelf ? "fly" : "dive",
+          to: () => (toShelf ? sheetRect(`buku-${book}`) : null),
           done: () => {
-            setLifted(false);
+            setLifted(null);
             setClosing(null);
           },
         });
@@ -405,9 +435,9 @@ export function LibraryPage({
       window.history.back();
       return;
     }
-    // Arrived straight on a term, a room or a book: step up one level.
-    if (shown.term) go({ book: "istilah", field: shown.field, term: null });
-    else if (shown.field) go({ book: "istilah", field: null, term: null });
+    // Arrived straight on a term, a room or a book: step up one level (a room's level up is the tablet).
+    if (shown.term && shown.field) go({ book: "istilah", field: shown.field, term: null });
+    else if (shown.term || shown.field) go({ book: "istilah", field: null, term: null });
     else go({ book: null, field: null, term: null });
   };
   const openTerm = (id: string) => (byId.has(id) ? follow({ book: "istilah", field: shown.field, term: id }) : null);
@@ -420,13 +450,6 @@ export function LibraryPage({
   };
 
   // ------------------------------------------------------------ view
-  const fieldCard = (x: Field): LibraryCardData => ({
-    id: x.id,
-    term: x.name,
-    meta: `${x.count} istilah${x.branches.length ? ` · ${x.branches.length} cabang` : ""}`,
-    color: x.color,
-    definition: x.branches.length ? x.branches.map((b) => b.name).join(", ") : "Belum ada cabang.",
-  });
   const fieldCount = fields.filter((x) => x.id !== NONE).length;
   const bookCards: { book: Book; card: LibraryCardData }[] = [
     {
@@ -451,49 +474,54 @@ export function LibraryPage({
     },
   ];
   const openBook = (book: Book) => (event: MouseEvent<HTMLAnchorElement>) => {
-    if (book === "istilah") return follow({ book, field: null, term: null })(event);
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
-    performance.mark("atlas:click");
-    // The sheet lifts off the shelf: the atlas's book starts on its rect, and the world stops drawing it.
+    performance.mark(`${book === "bahasa" ? "atlas" : "tablet"}:click`);
+    // The sheet lifts off the shelf: the book starts on its rect, and the world stops drawing it.
     setLiftedFrom(event.currentTarget.getBoundingClientRect());
-    setOpening(true);
-    warmAtlas();
-    go({ book: "bahasa", field: null, term: null });
+    setOpening(book);
+    warmBook(book);
+    go({ book, field: null, term: null });
   };
+  const openField = useCallback((fieldId: string) => go({ book: "istilah", field: fieldId, term: null }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const openTermPage = useCallback((termId: string) => go({ book: "istilah", field: null, term: termId }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const pickCountry = useCallback((code: string | null) => {
     const url = new URL(window.location.href);
     if (code) url.searchParams.set("negara", code);
     else url.searchParams.delete("negara");
     window.history.replaceState(null, "", url);
   }, []);
+  /** Out of a book, to the shelf (a fresh visit has no history to go back to). */
   const exitBook = useCallback(() => {
-    if (pushed.current > 0) {
-      pushed.current -= 1;
-      window.history.back();
-      return;
-    }
     const url = new URL(window.location.href);
-    for (const key of ["buku", "negara"]) url.searchParams.delete(key);
+    for (const key of ["buku", "negara", "bidang", "istilah"]) url.searchParams.delete(key);
+    pushed.current += 1;
     window.history.pushState(null, "", url);
   }, []);
-  const onCovered = useCallback(
-    (covered: boolean) => {
+  const coverFor = useCallback(
+    (book: Book) => (covered: boolean) => {
       worldRef.current?.setPaused(covered);
-      // Under full cover the shelf gives way to the atlas.
-      if (covered) setShown((v) => (v.book === "bahasa" ? v : { book: "bahasa", field: null, term: null }));
+      // Under full cover the library gives way to the book.
+      if (covered) setShown((v) => (atBook(v) && v.book === book ? v : { book, field: null, term: null }));
     },
     [worldRef],
   );
-  const onLifted = useCallback(() => setLifted(true), []);
+  const onCoveredAtlas = useMemo(() => coverFor("bahasa"), [coverFor]);
+  const onCoveredTablet = useMemo(() => coverFor("istilah"), [coverFor]);
+  const onLiftedAtlas = useCallback(() => setLifted("bahasa"), []);
+  const onLiftedTablet = useCallback(() => setLifted("istilah"), []);
 
-  // On the books shelf, warm the atlas (its UI, shapes and the hologram) for a book opened without warning.
+  // On the books shelf, warm both books (their UI, data and scenes) for a book opened without warning.
   useEffect(() => {
     if (shown.book) return;
+    const warm = () => {
+      warmTablet();
+      warmAtlas();
+    };
     const idle = typeof window.requestIdleCallback === "function";
-    const id = idle ? window.requestIdleCallback(warmAtlas, { timeout: 3000 }) : window.setTimeout(warmAtlas, 1500);
+    const id = idle ? window.requestIdleCallback(warm, { timeout: 3000 }) : window.setTimeout(warm, 1500);
     return () => (idle ? window.cancelIdleCallback(id) : window.clearTimeout(id));
-  }, [shown.book, warmAtlas]);
+  }, [shown.book, warmAtlas, warmTablet]);
   const branchOptions: FilterOption[] = field
     ? [
         { key: null, label: "Semua cabang", count: field.count },
@@ -503,49 +531,42 @@ export function LibraryPage({
           : []),
       ]
     : [];
-  const filtering = inTerms && Boolean(f.q || f.domain);
+  const filtering = Boolean(field) && Boolean(f.q || f.domain);
   const onTermPage = Boolean(termCard);
   const showingBooks = !shown.book;
-  const inAtlas = shown.book === "bahasa";
-  const showingFields = inTerms && !field && !onTermPage && words.length === 0;
-  const backLabel = field ? field.name : words.length > 0 ? "Hasil pencarian" : "Istilah Teknis";
-  const level = onTermPage ? "term" : field ? "room" : showingBooks ? "books" : "shelf";
+  const underBook = atBook(shown);
+  const backLabel = field ? field.name : "Istilah Teknis";
+  const level = onTermPage ? "term" : field ? "room" : showingBooks ? "books" : "book";
 
   return (
     <div ref={pageRef} className="library-page" data-library-page data-room={field ? field.id : undefined} data-view={level}>
-      <div ref={headRef} className="library-head" data-library-head hidden={onTermPage || inAtlas}>
-        {!showingBooks && (
+      <div ref={headRef} className="library-head" data-library-head hidden={onTermPage || underBook}>
+        {field && (
           <div className="flex justify-center">
             <button type="button" onClick={back} className="btn btn-ghost btn-sm -mb-1">
-              {field ? "← Semua bidang" : "← Semua buku"}
+              ← Istilah Teknis
             </button>
           </div>
         )}
-        <h1 className="display text-center text-[clamp(2.5rem,1.6rem+4vw,4.5rem)] text-balance">
-          {field ? field.name : showingBooks ? "Perpustakaan" : "Istilah Teknis"}
-        </h1>
+        <h1 className="display text-center text-[clamp(2.5rem,1.6rem+4vw,4.5rem)] text-balance">{field ? field.name : "Perpustakaan"}</h1>
         <p className="mt-1 text-center text-sm text-muted">
-          {field
-            ? `${field.count} istilah${field.branches.length ? ` · ${field.branches.length} cabang` : ""}`
-            : showingBooks
-              ? "Pilih buku untuk membukanya."
-              : "Pilih bidang untuk masuk ke ruangnya, atau cari istilah di semua bidang."}
+          {field ? `${field.count} istilah${field.branches.length ? ` · ${field.branches.length} cabang` : ""}` : "Pilih buku untuk membukanya."}
         </p>
-        {inTerms && (
+        {field && (
           <div className="mx-auto mt-4 flex w-full max-w-xl gap-2" role="search">
             <label className="relative min-w-0 flex-1">
-              <span className="sr-only">{field ? `Cari istilah di ${field.name}` : "Cari istilah di semua bidang"}</span>
+              <span className="sr-only">{`Cari istilah di ${field.name}`}</span>
               <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
               <input
                 ref={searchRef}
                 type="search"
                 value={f.q ?? ""}
                 onChange={(e) => update({ q: e.target.value || undefined })}
-                placeholder={field ? `Cari di ${field.name}  ( / )` : "Cari istilah  ( / )"}
+                placeholder={`Cari di ${field.name}  ( / )`}
                 className="input h-11 rounded-btn pl-10"
               />
             </label>
-            {field && branchOptions.length > 2 && (
+            {branchOptions.length > 2 && (
               <FilterSheet options={branchOptions} active={f.domain ?? null} onPick={(key) => update({ domain: key ?? undefined })} />
             )}
           </div>
@@ -572,26 +593,16 @@ export function LibraryPage({
         </LibraryTerm>
       )}
 
-      {inTerms &&
-        !onTermPage &&
-        (terms.length === 0 ? (
-          <EmptyState
-            title="Rak masih kosong"
-            description="Tambahkan istilah di Istilah Teknis › Daftar; setiap istilah menjadi satu lembar di sini."
-          />
-        ) : (
-          !showingFields &&
-          listed.length === 0 && (
-            <EmptyState title="Tidak ada istilah yang cocok" description="Coba kata kunci lain atau hapus filter." />
-          )
-        ))}
+      {inTerms && field && !onTermPage && listed.length === 0 && (
+        <EmptyState title="Tidak ada istilah yang cocok" description="Coba kata kunci lain atau hapus filter." />
+      )}
 
       {/* Always mounted, even when empty: the world watches this list. */}
       <ul
         ref={riverRef}
         className="library-river"
         data-library-river
-        aria-label={showingBooks ? "Buku" : showingFields ? "Bidang" : "Lembar istilah"}
+        aria-label={showingBooks ? "Buku" : "Lembar istilah"}
       >
         {onTermPage
           ? null
@@ -603,49 +614,35 @@ export function LibraryPage({
                   card={card}
                   href={`?buku=${book}`}
                   onOpen={openBook(book)}
-                  onIntent={book === "bahasa" ? warmAtlas : undefined}
-                  lifted={book === "bahasa" && lifted}
+                  onIntent={() => warmBook(book)}
+                  lifted={lifted === book}
                 />
               ))
-            : showingFields
-              ? fields.map((x) => (
-                  <LibraryCard key={x.id} kind="field" card={fieldCard(x)} href={`?buku=istilah&bidang=${x.id}`} onOpen={follow({ book: "istilah", field: x.id, term: null })} />
-                ))
-              : listed.map((card) => (
-                  <LibraryCard
-                    key={card.id}
-                    kind="term"
-                    card={card}
-                    href={`?buku=istilah&${field ? `bidang=${field.id}&` : ""}istilah=${card.id}`}
-                    onOpen={follow({ book: "istilah", field: shown.field, term: card.id })}
-                  />
-                ))}
+            : listed.map((card) => (
+                <LibraryCard
+                  key={card.id}
+                  kind="term"
+                  card={card}
+                  href={`?buku=istilah&${field ? `bidang=${field.id}&` : ""}istilah=${card.id}`}
+                  onOpen={follow({ book: "istilah", field: shown.field, term: card.id })}
+                />
+              ))}
       </ul>
 
-      {!onTermPage && (showingBooks || (showingFields ? fields.length > 0 : listed.length > 0)) && (
+      {!onTermPage && (showingBooks || listed.length > 0) && (
         <footer className="library-end" data-library-end>
           <p className="eyebrow justify-center">
-            {field ? `Ujung ${field.name}` : showingBooks ? "Ujung perpustakaan" : showingFields ? "Ujung rak" : "Ujung pencarian"}
+            {field ? `Ujung ${field.name}` : "Ujung perpustakaan"}
           </p>
           <h2 className="display mt-3 text-[clamp(1.75rem,1.2rem+2.4vw,2.75rem)] text-balance">
-            {field
-              ? `Kamu sudah sampai ujung ${field.name}`
-              : showingBooks
-                ? "Itu semua bukumu"
-                : showingFields
-                  ? "Itu semua bidangmu"
-                  : "Itu semua yang cocok"}
+            {field ? `Kamu sudah sampai ujung ${field.name}` : "Itu semua bukumu"}
           </h2>
           <p className="mt-2 text-sm text-muted">
             {field
               ? filtering
                 ? `${listed.length} dari ${field.count} istilah cocok dengan filtermu.`
                 : `${field.count} istilah, dari yang terbaru sampai yang pertama.`
-              : showingBooks
-                ? `${cards.length} istilah teknis dan ${languages.words.length} diksi bahasa.`
-                : showingFields
-                  ? `${fields.length} bidang, ${cards.length} istilah.`
-                  : `${listed.length} dari ${cards.length} istilah.`}
+              : `${cards.length} istilah teknis dan ${languages.words.length} diksi bahasa.`}
           </p>
           {showingBooks ? (
             <Link href="/" className="btn btn-primary mt-6">
@@ -653,7 +650,7 @@ export function LibraryPage({
             </Link>
           ) : (
             <button type="button" onClick={back} className="btn btn-primary mt-6">
-              {field ? "← Kembali ke semua bidang" : "← Kembali ke semua buku"}
+              ← Kembali ke Istilah Teknis
             </button>
           )}
           <p className="mt-10 text-xs text-muted">
@@ -666,19 +663,37 @@ export function LibraryPage({
         </footer>
       )}
 
-      {Atlas && (atlasOpen || opening || closing) && (
+      {Tablet && showsBook("istilah") && (
+        <Tablet
+          points={mapPoints}
+          domains={domains}
+          terms={terms}
+          subjects={subjects}
+          topics={topics}
+          programStart={programStart}
+          onExit={exitBook}
+          onOpenField={openField}
+          onOpenTerm={openTermPage}
+          from={opening === "istilah" ? liftedFrom : null}
+          closing={closing?.book === "istilah" ? closing : null}
+          coverMeta={bookCards[0].card.meta}
+          onCovered={onCoveredTablet}
+          onLifted={onLiftedTablet}
+        />
+      )}
+      {Atlas && showsBook("bahasa") && (
         <Atlas
           languages={languages.languages}
           words={languages.words}
           programStart={programStart}
-          country={atlasOpen ? country : null}
+          country={openBookWanted === "bahasa" ? country : null}
           onCountry={pickCountry}
           onExit={exitBook}
-          from={liftedFrom}
-          closing={closing}
+          from={opening === "bahasa" ? liftedFrom : null}
+          closing={closing?.book === "bahasa" ? closing : null}
           coverMeta={bookCards[1].card.meta}
-          onCovered={onCovered}
-          onLifted={onLifted}
+          onCovered={onCoveredAtlas}
+          onLifted={onLiftedAtlas}
         />
       )}
 
