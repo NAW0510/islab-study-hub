@@ -227,3 +227,5 @@ Permintaan Ngurah (28 Nov 2026): hologram otak harus model 3D yang sama dengan P
 - Tampilan terakhir diingat bersama layar penuh; "Layar penuh" membuka tampilan yang sama. 2D tetap tampilan pertama saat buku dibuka.
 - Tanpa perubahan database. Angka di `src/lib/study/tablet/config.ts` (`hologram`).
 
+**Status**: selesai dan sudah di `main` (PR #19, 28 Nov 2026), tanpa perubahan database.
+
