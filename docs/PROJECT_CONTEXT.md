@@ -184,6 +184,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro sudah di `main` (PR #12). Migrasi `20261118120000_vocab_multi_domain.sql` sudah diterapkan di remote; riwayat migrasi lokal dan remote sinkron.
 - ✅ Navbar atas menggantikan sidebar, sudah di `main` (PR #13): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab, sakelar tampilan dan alat Peta Otak, transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan.
 - ✅ Tablet Istilah Teknis dan alur satu pintu sudah di `main` (PR #17): tab Ruang Studi dihapus dari navbar, tombol di dalam buku, buku Istilah Teknis menjadi tablet dengan hologram Peta Otak 2D/3D. Tanpa perubahan database.
+- ✅ Hologram 3D tablet = Peta Otak 3D layar penuh sudah di `main` (PR #19): Luar angkasa · Otak · Kubus dengan detail yang sama, bisa diputar seperti layar penuh. Tanpa perubahan database.
 - ✅ Ruang Studi sudah di `main` (PR #15): Kosakata menjadi Istilah Teknis di dalam Ruang Studi, Perpustakaan dengan rak buku, halaman Bahasa, dan atlas hologram di buku Bahasa. Migrasi `20261127120000_study_languages.sql` sudah diterapkan di remote (28 Nov 2026); riwayat migrasi lokal dan remote sinkron.
 - 🔜 Fase 5 (eksplorasi, opsional): tampilan 3D sudah ada; butir lain di spec §10 dipilih nanti. Kalibrasi ambang klasifikasi menunggu ±30 istilah nyata.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.
