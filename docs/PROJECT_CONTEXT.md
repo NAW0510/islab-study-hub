@@ -86,7 +86,7 @@ Menu 04 di navbar (menggantikan Kosakata sejak 27 Nov 2026; spesifikasi di docs/
 - Klasifikasi domain otomatis: Edge Function `vocab-embed` meng-embed teks lewat Voyage AI (`voyage-4`, 512 dimensi, pgvector), membandingkannya dengan prototipe domain + centroid istilah yang sudah disetujui, lalu memutuskan `auto` atau `pending` (ambang di `supabase/functions/_shared/vocab-config.ts`; kalibrasi di docs/VOCAB_CALIBRATION.md). Status `confirmed`/`manual` tidak pernah ditimpa (dijamin di SQL).
 - Tabel `vocab_domains` (maks dua tingkat, soft delete) dan `vocab_terms` (soft delete, kolom peta untuk Fase 3), RLS owner-only, RPC batch security invoker.
 - UI: tambah cepat, tempel banyak (satu batch embedding), banner tinjau, saran domain sekali klik, drawer detail dengan istilah terdekat, kelola domain (gabung/hapus/klasifikasi ulang).
-- Halaman di baris kedua navbar: Daftar · Peta Otak · Domain (`/studi/istilah`, `/studi/istilah/peta`, `/studi/istilah/domain`).
+- Halamannya (`/studi/istilah`, `/studi/istilah/peta`, `/studi/istilah/domain`) dibuka dari tombol di dalam buku Istilah Teknis (Daftar, Layar penuh, Domain); baris kedua navbar-nya diawali "← Istilah Teknis".
 - Tampilan **Daftar | Kartu** (`?view=kartu`): kartu bolak-balik, depan istilah + domain, belakang ringkasan definisi.
 - Tautan langsung: `/studi/istilah?term=<id>` membuka detail istilah, `/studi/istilah?topic=<id>` menyaring istilah satu topik.
 - **Satu istilah, banyak domain**: domain utama tetap di `vocab_terms.domain_id`, domain tambahan di tabel `vocab_term_domains` (RLS owner-only, trigger pemilik/domain aktif/bukan domain utama, RPC `make_primary_vocab_domain`; gabung/hapus domain dan centroid saran ikut menghitungnya). Klasifikasi tetap memilih satu domain; domain lain yang skornya hampir sama (`MULTI_SUGGEST_MARGIN`) hanya disarankan sebagai "Juga cocok di", dan kamu yang memasangnya.
@@ -118,13 +118,13 @@ Menu 04 di navbar (menggantikan Kosakata sejak 27 Nov 2026; spesifikasi di docs/
 - RPC: `vocab_map_points` (ringan, tanpa vektor), `vocab_embeddings`, `save_vocab_layout`, `vocab_knn_neighbors`, `save_vocab_placements`.
 
 ### Peta Otak 3D (`/studi/istilah/peta/3d`)
-- Tiga tampilan di balik satu sakelar, terdaftar di `src/components/vocab/map/scenes/registry.ts`:
+- Tiga tampilan di balik satu sakelar, terdaftar di `src/components/vocab/map/scenes/views.ts` (label, tema, kredit) dan `registry.ts` (kelas adegannya). Hologram 3D buku Istilah Teknis memakai adegan yang sama:
   - **Luar angkasa** (selalu gelap): galaksi per bidang dengan lubang hitam (event horizon, cincin foton, cakram akresi), matahari per cabang, dan istilah sebagai planet/bulan/batuan dengan orbit Kepler. Perannya dihitung dari embedding, per cabang.
   - **Otak** (selalu terang): neuron di permukaan luar model "Brain" karya dgallichan (CC BY 4.0), dipanggang dengan `scripts/bake-brain-points.mjs`. Lobus dibagi ke bidang menurut ukurannya. Kapasitas 1.500 neuron, bertambah 500 setiap kali terlewati.
   - **Kubus**: UMAP 3D dengan wilayah transparan per bidang/cabang dan pilihan Gelap/Terang.
 - Semua dihitung di browser (Web Worker) dan disimpan di `localStorage`, dengan sidik jari istilah + domain + versi model. Tidak ada tabel atau RPC baru.
 - Label: lima bidang terbesar tampil 60%; bidang dari istilah yang disorot tampil penuh; tanpa angka jumlah.
-- Menambah visualisasi 3D baru: satu kelas `ViewScene` + satu entri registry (lihat `docs/DESIGN_SYSTEM.md`).
+- Menambah visualisasi 3D baru: satu kelas `ViewScene` + satu entri di `views.ts` + konstruktornya di `registry.ts` (lihat `docs/DESIGN_SYSTEM.md`); ia langsung muncul juga di hologram tablet.
 - Istilah multi-domain tampil sebagai **irisan** di keempat peta: wilayah 2D yang bertumpuk (cincin + sulur), planet yang mengorbit beberapa matahari/lubang hitam, neuron di perbatasan lobus, dan titik bercincin yang ikut di wilayah semua domainnya di Kubus.
 - Semua tampilan Peta Otak **layar penuh** (seperti Perpustakaan) dengan **intro** per tampilan: penuh sekali per sesi, singkat sesudahnya, bisa dilewati dengan input apa pun.
 
@@ -183,7 +183,7 @@ Ukuran: sekitar 6.400 baris TypeScript/TSX/SQL/CSS.
 - ✅ Restyle Bauhaus (arah labmgm.org) untuk semua halaman dan transisinya sudah di `main` (PR #11).
 - ✅ Istilah multi-domain + irisan di peta + Peta Otak layar penuh dengan intro sudah di `main` (PR #12). Migrasi `20261118120000_vocab_multi_domain.sql` sudah diterapkan di remote; riwayat migrasi lokal dan remote sinkron.
 - ✅ Navbar atas menggantikan sidebar, sudah di `main` (PR #13): satu navbar kaca di semua halaman yang tidak pernah bergeser, baris kedua untuk sub-tab, sakelar tampilan dan alat Peta Otak, transisi antarhalaman Kosakata, dan masuk/keluar Perpustakaan tanpa sambungan.
-- 🔄 Tablet Istilah Teknis dan alur satu pintu (branch `feat/tablet-istilah`): tab Ruang Studi dihapus dari navbar, tombol di dalam buku, buku Istilah Teknis menjadi tablet dengan hologram Peta Otak 2D/3D. Tanpa perubahan database.
+- ✅ Tablet Istilah Teknis dan alur satu pintu sudah di `main` (PR #17): tab Ruang Studi dihapus dari navbar, tombol di dalam buku, buku Istilah Teknis menjadi tablet dengan hologram Peta Otak 2D/3D. Tanpa perubahan database.
 - ✅ Ruang Studi sudah di `main` (PR #15): Kosakata menjadi Istilah Teknis di dalam Ruang Studi, Perpustakaan dengan rak buku, halaman Bahasa, dan atlas hologram di buku Bahasa. Migrasi `20261127120000_study_languages.sql` sudah diterapkan di remote (28 Nov 2026); riwayat migrasi lokal dan remote sinkron.
 - 🔜 Fase 5 (eksplorasi, opsional): tampilan 3D sudah ada; butir lain di spec §10 dipilih nanti. Kalibrasi ambang klasifikasi menunggu ±30 istilah nyata.
 - ⚠️ Belum terlihat tanda deploy ke Vercel.

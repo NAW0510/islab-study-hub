@@ -4,6 +4,7 @@ import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { TABLET_CONFIG } from "@/lib/study/tablet/config";
 import { nearestTerm, regionAt, type PlaneRegion, type PlaneTerm } from "@/lib/study/tablet/map2d";
+import { Hologram, type HologramInput } from "./hologram";
 
 /**
  * The Istilah Teknis book, opened: a three.js scene over the Perpustakaan.
@@ -16,12 +17,14 @@ import { nearestTerm, regionAt, type PlaneRegion, type PlaneTerm } from "@/lib/s
  *
  *   2D  the flat map: terms as points in their field's colour, each field's
  *       region (outline, glass fill) and its name floating at its middle;
- *   3D  the brain: the Otak view's neurons, the terms' ones lit in their
- *       field's colour, turning slowly.
+ *   3D  the Peta Otak 3D's own views (Luar angkasa, Otak, Kubus), the same
+ *       scenes as its full screen, turned by hand or by "Putar otomatis"
+ *       (hologram.ts).
  *
  * Hovering names a term or a field; a term's click flies the camera to it
- * (the host opens its panel); a field's click is the host's to follow (its
- * room in the Perpustakaan). Closing either lands the book back on its
+ * (the host opens its panel; in 3D the hologram turns and zooms to it, as in
+ * full screen); a field's click is the host's to follow (its room in the
+ * Perpustakaan). Closing either lands the book back on its
  * sheet (`fly`: the hologram sinks, the screen goes dark and becomes the
  * cover again, the tablet thickens into a book) or rushes into the hologram
  * while the fog clears onto a field's room (`dive`).
@@ -49,15 +52,9 @@ export type TabletMap = {
   names: ReadonlyMap<string, string>;
 };
 
-export type TabletBrain = {
-  /** Every neuron (brain units, about 2 long). */
-  slots: readonly (readonly [number, number, number])[];
-  /** The terms, each on its neuron. */
-  terms: readonly { id: string; term: string; slot: number; fieldId: string | null }[];
-};
-
 export type TabletView = "2d" | "3d";
-export type TabletHover = { kind: "term" | "field"; id: string; label: string } | null;
+export type TabletHover = { kind: "term" | "field"; id: string; label: string; detail?: string | null } | null;
+export type { HologramInput };
 
 export type TabletOptions = {
   host: HTMLElement;
@@ -69,7 +66,6 @@ export type TabletOptions = {
   colors: TabletColors;
   dark: boolean;
   map: TabletMap;
-  brain: TabletBrain | null;
   view: TabletView;
   onHover: (hover: TabletHover, x: number, y: number) => void;
   onPickTerm: (id: string | null) => void;
@@ -81,8 +77,14 @@ export type TabletOptions = {
 
 export type Tablet = {
   setMap(map: TabletMap): void;
-  setBrain(brain: TabletBrain | null): void;
+  /** The 3D view and its data (colours are read now, in the overlay's scheme). */
+  setHologram(input: HologramInput): void;
   setView(view: TabletView): void;
+  setAutoRotate(on: boolean): void;
+  /** The hologram back to its view's own framing. */
+  resetHologram(): void;
+  /** The focused term's nearest terms, for the hologram's lines to them. */
+  setNeighbours(id: string, list: readonly { id: string; similarity: number }[]): void;
   focusTerm(id: string | null): void;
   highlightField(id: string | null): void;
   setInsets(left: number, right: number, bottom?: number, top?: number): void;
@@ -92,7 +94,7 @@ export type Tablet = {
   dispose(): void;
 };
 
-const { book: BOOK, map2d: MAP, brain: BRAIN, camera: CAM, open: OPEN, close: CLOSE, holo: HOLO } = TABLET_CONFIG;
+const { book: BOOK, map2d: MAP, hologram: HOLOGRAM, camera: CAM, open: OPEN, close: CLOSE, holo: HOLO } = TABLET_CONFIG;
 
 /** The tablet's own materials: parts of a picture, not UI (like the library's palette.ts). */
 const DEVICE = {
@@ -561,76 +563,8 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
   };
   buildFlat();
 
-  // ---------------------------------------------------------------- 3D: the brain
-  const brainGroup = new THREE.Group();
-  brainGroup.position.set(...BRAIN.CENTER);
-  scene.add(brainGroup);
-  const spinner = new THREE.Group();
-  spinner.scale.setScalar(BRAIN.SCALE);
-  brainGroup.add(spinner);
-  const scaffoldUniforms = pointUniforms();
-  const scaffoldMat = pointMaterial(scaffoldUniforms);
-  const scaffold = new THREE.Points(keep(new THREE.BufferGeometry()), scaffoldMat);
-  spinner.add(scaffold);
-  const brainPointUniforms = pointUniforms();
-  const brainPointMat = pointMaterial(brainPointUniforms);
-  const brainPoints = new THREE.Points(keep(new THREE.BufferGeometry()), brainPointMat);
-  brainPoints.renderOrder = 3;
-  spinner.add(brainPoints);
-  let brainData = opts.brain;
-
-  const buildBrain = () => {
-    const sp: number[] = [];
-    const sc: number[] = [];
-    const ss: number[] = [];
-    const si: number[] = [];
-    const sf: number[] = [];
-    const sr: number[] = [];
-    const tp: number[] = [];
-    const tc: number[] = [];
-    const ts: number[] = [];
-    const ti: number[] = [];
-    const tf: number[] = [];
-    const tr: number[] = [];
-    if (brainData) {
-      const used = new Set(brainData.terms.map((t) => t.slot));
-      brainData.slots.forEach(([x, y, z], i) => {
-        if (used.has(i)) return;
-        sp.push(x, y, z);
-        sc.push(holo.r, holo.g, holo.b);
-        ss.push(BRAIN.SCAFFOLD_POINT / BRAIN.SCALE);
-        si.push(-10);
-        sf.push(-2);
-        sr.push(clamp01(y * 0.5 + 0.5));
-      });
-      brainData.terms.forEach((t, i) => {
-        const at = brainData?.slots[t.slot];
-        if (!at) return;
-        const c = colourOf(t.fieldId);
-        tp.push(at[0], at[1], at[2]);
-        tc.push(c.r, c.g, c.b);
-        ts.push(BRAIN.POINT / BRAIN.SCALE);
-        ti.push(i);
-        tf.push(indexOfField(t.fieldId));
-        tr.push(clamp01(at[1] * 0.5 + 0.5));
-      });
-    }
-    const make = (p: number[], c: number[], s: number[], idx: number[], f: number[], r: number[]) => {
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.Float32BufferAttribute(p, 3));
-      g.setAttribute("aColor", new THREE.Float32BufferAttribute(c, 3));
-      g.setAttribute("aSize", new THREE.Float32BufferAttribute(s, 1));
-      g.setAttribute("aIndex", new THREE.Float32BufferAttribute(idx, 1));
-      g.setAttribute("aField", new THREE.Float32BufferAttribute(f, 1));
-      g.setAttribute("aReveal", new THREE.Float32BufferAttribute(r, 1));
-      return g;
-    };
-    scaffold.geometry.dispose();
-    scaffold.geometry = make(sp, sc, ss, si, sf, sr);
-    brainPoints.geometry.dispose();
-    brainPoints.geometry = make(tp, tc, ts, ti, tf, tr);
-  };
-  buildBrain();
+  // ---------------------------------------------------------------- 3D: the hologram (hologram.ts)
+  const hologram = new Hologram(canvas, host, new THREE.Vector3(...CAM.OVERVIEW.position));
 
   // ---------------------------------------------------------------- beam and dust
   const restTop = new THREE.Vector3(BOOK.REST[0], BOOK.REST[1] + (2 * C + blockH * BOOK.TABLET_BLOCK) * restScale, BOOK.REST[2]);
@@ -673,24 +607,18 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
   const applyScheme = () => {
     const c = rgb(colors.holo);
     holo.copy(c);
-    for (const m of [fillMat, outlineMat, frameMat, flatPointMat, scaffoldMat, brainPointMat, beamMat, ringMat, bezelMat, dotMat]) {
+    for (const m of [fillMat, outlineMat, frameMat, flatPointMat, beamMat, ringMat, bezelMat, dotMat]) {
       m.blending = blending();
       m.needsUpdate = true;
     }
     const alpha = dark ? 1 : HOLO.LIGHT_ALPHA;
     fillUniforms.uAlpha.value = alpha;
-    for (const u of [flatPointUniforms, scaffoldUniforms, brainPointUniforms]) u.uAlpha.value = alpha;
+    flatPointUniforms.uAlpha.value = alpha;
     beamUniforms.uColour.value.copy(c);
     screenUniforms.uHolo.value.copy(c);
     screenUniforms.uGlass.value.copy(rgb(device().glass));
     for (const m of [frameMat, bezelMat, dotMat]) m.color.copy(c);
     backdrop.style.backgroundColor = colors.fog;
-    // Scaffold neurons follow the hologram's light.
-    const sc = scaffold.geometry.getAttribute("aColor");
-    if (sc) {
-      for (let i = 0; i < sc.count; i++) sc.setXYZ(i, c.r, c.g, c.b);
-      sc.needsUpdate = true;
-    }
   };
 
   // ---------------------------------------------------------------- camera
@@ -719,6 +647,17 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     if (fit > away.length()) pos.copy(target).addScaledVector(away.normalize(), fit);
     return { pos, target };
   };
+  /**
+   * In 3D the camera keeps the overview's line of sight on the hologram and
+   * comes closer as the hologram's orbit does (zoom 1: the overview).
+   */
+  const holoCentre = new THREE.Vector3(...HOLOGRAM.CENTER);
+  let zoom = 1;
+  const rig = (z: number) => {
+    const o = overview();
+    return { pos: holoCentre.clone().lerp(o.pos, z), target: holoCentre.clone().lerp(o.target, z) };
+  };
+  let rigBlend: { pos: THREE.Vector3; target: THREE.Vector3; start: number } | null = null;
   const resize = () => {
     viewWidth = Math.max(1, host.clientWidth);
     viewHeight = Math.max(1, host.clientHeight);
@@ -727,7 +666,7 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     camera.updateProjectionMatrix();
     for (const m of [outlineMat, frameMat, bezelMat]) m.resolution.set(viewWidth * pixelRatio, viewHeight * pixelRatio);
     const scale = (viewHeight * pixelRatio) / (2 * Math.tan(THREE.MathUtils.degToRad(CAM.FOV / 2)));
-    for (const u of [flatPointUniforms, scaffoldUniforms, brainPointUniforms]) u.uScale.value = scale;
+    flatPointUniforms.uScale.value = scale;
   };
   resize();
   const resizeObserver = new ResizeObserver(resize);
@@ -785,10 +724,10 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -(((clientY - rect.top) / rect.height) * 2 - 1));
     raycaster.setFromCamera(pointer, camera);
   };
-  /** What is under the pointer: a term (2D or 3D) or, on the flat map, a field. */
+  /** What is under the pointer on the flat map: a term or a field. */
   const pick = (clientX: number, clientY: number): { kind: "term"; index: number } | { kind: "field"; id: string } | null => {
     rayFrom(clientX, clientY);
-    if (view === "2d") {
+    {
       const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(flatRise.getWorldQuaternion(new THREE.Quaternion()));
       plane.setFromNormalAndCoplanarPoint(normal, flatRise.getWorldPosition(new THREE.Vector3()));
       if (!raycaster.ray.intersectPlane(plane, hit)) return null;
@@ -798,18 +737,32 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
       const region = regionAt(mapData.regions, local.x, local.y);
       return region ? { kind: "field", id: region.fieldId } : null;
     }
-    raycaster.params.Points = { threshold: BRAIN.PICK };
-    const hits = raycaster.intersectObject(brainPoints, false);
-    return hits.length && hits[0].index !== undefined ? { kind: "term", index: hits[0].index } : null;
   };
-  const termAt = (index: number): { id: string; term: string; fieldId: string | null } | null =>
-    view === "2d" ? (mapData.terms[index] ?? null) : (brainData?.terms[index] ?? null);
+  const termAt = (index: number): { id: string; term: string; fieldId: string | null } | null => mapData.terms[index] ?? null;
+  /** The hologram's term under the pointer (3D), as the full screen picks. */
+  const pickHolo = (clientX: number, clientY: number, touch: boolean) => {
+    const rect = host.getBoundingClientRect();
+    return hologram.pick(clientX - rect.left, clientY - rect.top, touch, camera, rect.width, rect.height);
+  };
+  let holoHover: string | null = null;
 
   const onMove = (e: PointerEvent) => {
     pointerActive = e.pointerType === "mouse";
     const rect = host.getBoundingClientRect();
     lean.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -(((e.clientY - rect.top) / rect.height) * 2 - 1));
     if (phase !== "idle" || e.pointerType !== "mouse") return;
+    if (view === "3d") {
+      // Dragging turns the hologram: no hover then.
+      const id = e.buttons === 0 ? pickHolo(e.clientX, e.clientY, false) : null;
+      if (id !== holoHover) {
+        holoHover = id;
+        hologram.setHover(id);
+        canvas.style.cursor = id ? "pointer" : "";
+      }
+      const about = id ? hologram.describe(id) : null;
+      opts.onHover(about ? { kind: "term", id: id as string, label: about.label, detail: about.detail } : null, e.clientX, e.clientY);
+      return;
+    }
     const found = pick(e.clientX, e.clientY);
     const nextIndex = found?.kind === "term" ? found.index : -1;
     const nextField = found?.kind === "field" ? indexOfField(found.id) : -1;
@@ -828,6 +781,8 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
   const onLeave = () => {
     hoverIndex = -1;
     hoverField = -1;
+    holoHover = null;
+    hologram.setHover(null);
     opts.onHover(null, 0, 0);
   };
   let downAt: { x: number; y: number } | null = null;
@@ -838,6 +793,10 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
   const onUp = (e: PointerEvent) => {
     if (phase !== "idle" || !downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) return;
     downAt = null;
+    if (view === "3d") {
+      opts.onPickTerm(pickHolo(e.clientX, e.clientY, e.pointerType === "touch"));
+      return;
+    }
     const found = pick(e.clientX, e.clientY);
     if (found?.kind === "term") opts.onPickTerm(termAt(found.index)?.id ?? null);
     else if (found?.kind === "field") opts.onPickField(found.id);
@@ -859,43 +818,34 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
   // ---------------------------------------------------------------- focus
   let dim = 0;
   let dimTarget = 0;
-  let spin = BRAIN.SPIN;
   let ringAge = 0;
   let pendingFocus: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null;
-  const focusIndex = () => {
-    if (!selected) return -1;
-    return view === "2d" ? mapData.terms.findIndex((t) => t.id === selected) : (brainData?.terms.findIndex((t) => t.id === selected) ?? -1);
-  };
+  const focusIndex = () => (selected ? mapData.terms.findIndex((t) => t.id === selected) : -1);
   /** Where the selected term is in the world, and the camera pose that frames it. */
   const focusPose = () => {
     const index = focusIndex();
     if (index < 0) return null;
     scene.updateMatrixWorld(true);
-    let at: THREE.Vector3;
-    let normal: THREE.Vector3;
-    if (view === "2d") {
-      const t = mapData.terms[index];
-      at = flatRise.localToWorld(new THREE.Vector3(t.x, t.y, 0));
-      normal = new THREE.Vector3(0, 0, 1).applyQuaternion(flatRise.getWorldQuaternion(new THREE.Quaternion()));
-    } else {
-      const slot = brainData?.slots[brainData.terms[index].slot];
-      if (!slot) return null;
-      at = spinner.localToWorld(new THREE.Vector3(slot[0], slot[1], slot[2]));
-      // Stand outside the brain, on the term's side, so the brain is behind it rather than all around.
-      const out = at.clone().sub(brainGroup.getWorldPosition(new THREE.Vector3())).setY(0);
-      normal = (out.lengthSq() > 0.04 ? out : camPos.clone().sub(at).setY(0)).normalize();
-    }
+    const t = mapData.terms[index];
+    const at = flatRise.localToWorld(new THREE.Vector3(t.x, t.y, 0));
+    const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(flatRise.getWorldQuaternion(new THREE.Quaternion()));
     // Narrow (portrait) screens stand farther back, so the term keeps its neighbours around it.
-    // The brain is a cloud of neurons: its terms are framed from farther, so the brain stays readable around them.
-    const distance = (CAM.FOCUS_DISTANCE * (view === "3d" ? 1.5 : 1)) / Math.min(1, (viewWidth / viewHeight) * 1.4);
+    const distance = CAM.FOCUS_DISTANCE / Math.min(1, (viewWidth / viewHeight) * 1.4);
     const pos = at.clone().addScaledVector(normal, distance).add(new THREE.Vector3(0, distance * 0.12, 0));
     return { pos, target: at, index };
   };
   const applyFocus = () => {
+    // 3D: the hologram turns and zooms to the term itself; the camera follows its zoom.
+    hologram.setSelected(view === "3d" ? selected : null);
+    if (view === "3d") {
+      flatPointUniforms.uSelected.value = -1;
+      ring.visible = false;
+      dimTarget = highlight >= 0 ? 1 : 0;
+      return;
+    }
     const pose = focusPose();
     const index = pose?.index ?? -1;
-    flatPointUniforms.uSelected.value = view === "2d" ? index : -1;
-    brainPointUniforms.uSelected.value = view === "3d" ? index : -1;
+    flatPointUniforms.uSelected.value = index;
     if (!pose) {
       dimTarget = highlight >= 0 ? 1 : 0;
       ring.visible = false;
@@ -933,7 +883,7 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     const dt = Math.min(phase === "open" ? 1 / 30 : 0.1, (now - last) / 1000);
     last = now;
     clock += dt;
-    for (const u of [flatPointUniforms, scaffoldUniforms, brainPointUniforms]) u.uTime.value = clock;
+    flatPointUniforms.uTime.value = clock;
     fillUniforms.uTime.value = clock;
     beamUniforms.uTime.value = clock;
     screenUniforms.uTime.value = clock;
@@ -999,7 +949,7 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     viewMix += (want - viewMix) * (1 - Math.exp(-dt / (TABLET_CONFIG.switchTime / 3.5)));
     if (Math.abs(want - viewMix) < 0.001) viewMix = want;
     const flatOn = contentOn * (1 - easeInOut(clamp01(viewMix * 1.6)));
-    const brainOn = contentOn * easeInOut(clamp01(viewMix * 1.6 - 0.6));
+    const holoOn = contentOn * easeInOut(clamp01(viewMix * 1.6 - 0.6));
 
     beamUniforms.uIntensity.value = beamOn * HOLO.BEAM * (dark ? 1 : 0.55) * canvasOpacity;
     beam.visible = beamOn > 0.001;
@@ -1015,25 +965,14 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     for (const m of labelMats) m.opacity = flatOn * labelsOn * (1 - dim * 0.8);
     flat.position.y = MAP.CENTER[1] + Math.sin(clock * 0.9) * 0.03;
 
-    // The brain rises and turns (still while a term is in focus).
-    brainGroup.visible = brainOn > 0.001;
-    brainGroup.scale.setScalar(0.25 + 0.75 * brainOn + rush * 0.4);
-    brainGroup.position.y = BRAIN.CENTER[1] - (1 - brainOn) * 1.2;
-    scaffoldUniforms.uReveal.value = brainOn * 1.2;
-    brainPointUniforms.uReveal.value = brainOn * 1.2;
-    scaffoldUniforms.uAlpha.value = (dark ? 0.45 : 0.55) * (1 - dim * 0.5);
-    const spinTarget = selected && view === "3d" ? 0 : BRAIN.SPIN;
-    spin += (spinTarget - spin) * (1 - Math.exp(-dt / 0.3));
-    spinner.rotation.y += spin * dt;
+    // The 3D view grows out of the screen; it turns by hand (or by itself) once the tablet is idle.
+    zoom = hologram.update(dt, clock, { on: holoOn, rush, active: phase === "idle" && !closing && view === "3d", fov: CAM.FOV });
 
     // Highlight and dim.
     dim += (dimTarget - dim) * (1 - Math.exp(-dt / 0.3));
-    for (const u of [flatPointUniforms, brainPointUniforms]) {
-      u.uDim.value = dim;
-      u.uHighlight.value = highlight;
-    }
+    flatPointUniforms.uDim.value = dim;
+    flatPointUniforms.uHighlight.value = highlight;
     flatPointUniforms.uHover.value = view === "2d" ? hoverIndex : -1;
-    brainPointUniforms.uHover.value = view === "3d" ? hoverIndex : -1;
     fillUniforms.uHighlight.value = highlight >= 0 ? highlight : hoverField;
     fillUniforms.uDim.value = Math.max(dim, hoverField >= 0 ? 0.5 : 0);
     if (ring.visible) {
@@ -1043,11 +982,6 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
       ring.scale.setScalar(grow * size);
       ring.lookAt(camera.position);
       ringMat.opacity = grow * 0.9 * contentOn;
-      // A term on the turning brain moves with it until the turn stops.
-      if (view === "3d") {
-        const pose = focusPose();
-        if (pose) ring.position.copy(pose.target);
-      }
     }
 
     // Camera.
@@ -1065,6 +999,18 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
           phase = "idle";
           pendingFocus = null;
         }
+      } else if (view === "3d" && !flight) {
+        // Follow the hologram's zoom, after a short glide from where the camera was.
+        const want = rig(zoom);
+        if (rigBlend) {
+          const p = easeInOut(clamp01((clock - rigBlend.start) / TABLET_CONFIG.switchTime));
+          camPos.lerpVectors(rigBlend.pos, want.pos, p);
+          camTarget.lerpVectors(rigBlend.target, want.target, p);
+          if (p >= 1) rigBlend = null;
+        } else {
+          camPos.copy(want.pos);
+          camTarget.copy(want.target);
+        }
       } else if (flight) {
         const f = flight;
         const p = easeInOut(clamp01((clock - f.start) / f.time));
@@ -1077,7 +1023,8 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     } else if (closing.style === "dive") {
       camPos.lerp(camTarget, dt * 1.2);
     }
-    const leanK = phase === "idle" && pointerActive ? CAM.LEAN * (selected ? 0.25 : 1) : 0;
+    // Leaning follows the pointer on the flat map; in 3D the pointer turns the hologram instead.
+    const leanK = phase === "idle" && pointerActive && view === "2d" && viewMix < 0.5 ? CAM.LEAN * (selected ? 0.25 : 1) : 0;
     camera.position.copy(camPos).add(new THREE.Vector3(lean.x * leanK, lean.y * leanK * 0.5, 0));
     camera.lookAt(camTarget);
     if (Math.abs(viewShift) > 0.5 || Math.abs(viewLift) > 0.5) camera.setViewOffset(viewWidth, viewHeight, viewShift, viewLift, viewWidth, viewHeight);
@@ -1085,6 +1032,8 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     camera.updateProjectionMatrix();
 
     renderer.render(scene, camera);
+    hologram.render(renderer, camera, 1);
+    hologram.placeLabels(camera, viewWidth, viewHeight, holoOn * labelsOn * canvasOpacity);
     if (!started) {
       stamp("first-frame");
       started = true;
@@ -1107,7 +1056,7 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
   shapeBook(opts.from ? 0 : 1);
   camera.position.copy(camPos);
   camera.lookAt(camTarget);
-  for (const o of [beam, flatRise, brainGroup]) o.visible = true;
+  for (const o of [beam, flatRise]) o.visible = true;
   try {
     await renderer.compileAsync(scene, camera);
   } catch {
@@ -1119,18 +1068,14 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
 
   // Dev and verification probe: the state, and where a term is on screen (2D).
   const probe = {
-    stats: () => ({ phase, view, t: Number(t.toFixed(2)), terms: mapData.terms.length, regions: mapData.regions.length, brain: brainData?.terms.length ?? 0, selected }),
-    ids: () => (view === "2d" ? mapData.terms.map((x) => x.id) : (brainData?.terms.map((x) => x.id) ?? [])),
+    stats: () => ({ phase, view, t: Number(t.toFixed(2)), terms: mapData.terms.length, regions: mapData.regions.length, hologram: hologram.stats(), zoom: Number(zoom.toFixed(3)), selected }),
+    ids: () => (view === "2d" ? mapData.terms.map((x) => x.id) : hologram.ids()),
     screenOf: (id: string) => {
       let world: THREE.Vector3 | null = null;
       if (view === "2d") {
         const term = mapData.terms.find((x) => x.id === id);
         if (term) world = flatRise.localToWorld(new THREE.Vector3(term.x, term.y, 0));
-      } else {
-        const term = brainData?.terms.find((x) => x.id === id);
-        const slot = term ? brainData?.slots[term.slot] : undefined;
-        if (slot) world = spinner.localToWorld(new THREE.Vector3(slot[0], slot[1], slot[2]));
-      }
+      } else world = hologram.worldOf(id);
       if (!world) return null;
       const at = world.project(camera);
       const rect = host.getBoundingClientRect();
@@ -1146,19 +1091,32 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
       applyScheme();
       if (selected) applyFocus();
     },
-    setBrain(next) {
-      brainData = next;
-      buildBrain();
-      applyScheme();
-      if (selected && view === "3d") applyFocus();
+    setHologram(input) {
+      hologram.set(input, renderer, camera);
     },
     setView(next) {
       if (next === view) return;
       view = next;
       hoverIndex = -1;
       hoverField = -1;
+      holoHover = null;
+      hologram.setHover(null);
+      canvas.style.cursor = "";
       opts.onHover(null, 0, 0);
+      if (view === "3d") {
+        flight = null;
+        rigBlend = { pos: camPos.clone(), target: camTarget.clone(), start: clock };
+      } else rigBlend = null;
       applyFocus();
+    },
+    setAutoRotate(on) {
+      hologram.setAutoRotate(on);
+    },
+    resetHologram() {
+      hologram.reset();
+    },
+    setNeighbours(id, list) {
+      hologram.setNeighbours(id, list);
     },
     focusTerm(id) {
       selected = id;
@@ -1166,6 +1124,7 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
     },
     highlightField(id) {
       highlight = id ? indexOfField(id) : -1;
+      hologram.emphasize(id);
       if (!selected) dimTarget = highlight >= 0 ? 1 : 0;
     },
     setInsets(left, right, bottom = 0, top = 0) {
@@ -1211,8 +1170,7 @@ export async function createTablet(opts: TabletOptions): Promise<Tablet> {
       }
       fill.geometry.dispose();
       flatPoints.geometry.dispose();
-      scaffold.geometry.dispose();
-      brainPoints.geometry.dispose();
+      hologram.dispose();
       for (const d of disposables) d.dispose();
       renderer.dispose();
       canvas.remove();

@@ -25,12 +25,11 @@ import { colorVar, type SceneInput, type Theme, type ViewScene } from "./scenes/
 import { defaultView, VIEW_KEYS, viewDefinition, VIEWS_3D, type View3d } from "./scenes/registry";
 import { measureSafeArea, NO_INSETS, type SafeArea } from "./safe-area";
 import { useLayout3d } from "./use-layout-3d";
+import { remember, remembered, THEME_KEY, VIEW_KEY } from "./view-memory";
 
 type Props = { points: MapPoint[]; domains: VocabDomain[]; programStart: string };
 type LabelSpec = { key: string; text: string; priority: number; group: boolean; opacity?: number };
 
-const VIEW_KEY = "peta-otak-3d:tampilan";
-const THEME_KEY = "peta-otak-3d:tema";
 const HIT_RADIUS = 14;
 const TOUCH_HIT_RADIUS = 24;
 /** Width of the detail panel on wide screens (`md:w-80`) and the share of the canvas its bottom sheet covers on phones. */
@@ -42,24 +41,6 @@ const UP = new Vector3(0, 1, 0);
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 // The app's scheme (the theme button, else the device) picks the first view and theme.
 const prefersDark = () => currentScheme() === "dark";
-
-function remembered<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  try {
-    const saved = window.localStorage.getItem(key);
-    if (saved && (allowed as readonly string[]).includes(saved)) return saved as T;
-  } catch {
-    // no storage: use the default
-  }
-  return fallback;
-}
-
-function remember(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // remembering a choice is a convenience only
-  }
-}
 
 function hasWebGL() {
   try {
